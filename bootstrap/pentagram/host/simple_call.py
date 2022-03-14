@@ -6,21 +6,23 @@ from inspect import signature
 from io import IOBase
 from numpy import int32
 from numpy import integer
+from numpy.typing import NBitBase
 from pentagram.host.convert import from_python
 from pentagram.host.convert import to_python
 from pentagram.interpret.term import next_term
 from pentagram.machine import MachineBinding
 from pentagram.machine import MachineCall
 from pentagram.machine import MachineFrameStack
+from typing import Any
 from typing import Callable
 
 
 @dataclass
 class SimpleHostCall(MachineCall):
-    func: Callable
+    func: Callable[..., Any]
     parameter_count: int = field(init=False)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.parameter_count = len(
             signature(self.func).parameters
         )
@@ -53,15 +55,17 @@ class SimpleHostCall(MachineCall):
 
 def simple_call(
     name: str,
-) -> Callable[[Callable], MachineBinding]:
-    def inner(func: Callable) -> MachineBinding:
+) -> Callable[[Callable[..., Any]], MachineBinding]:
+    def inner(func: Callable[..., Any]) -> MachineBinding:
         return MachineBinding(name, SimpleHostCall(func))
 
     return inner
 
 
 @simple_call("add")
-def add(blob: bytearray, number: integer) -> bytearray:
+def add(
+    blob: bytearray, number: integer[NBitBase]
+) -> bytearray:
     # Observable side effect due to performance semantics
     blob += number.tobytes()
     return blob

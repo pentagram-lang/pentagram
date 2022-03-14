@@ -13,9 +13,13 @@ from pentagram.syntax import SyntaxIdentifier
 from pentagram.syntax import SyntaxMethodDefinition
 from pentagram.syntax import SyntaxNumber
 from pentagram.test import params
+from typing import Iterable
+from typing import Tuple
 
 
-def params_statements():
+def params_statements() -> Iterable[
+    Tuple[Group, SyntaxBlock]
+]:
     # Expression
     yield Group(
         [GroupLine([GroupIdentifier("abc")])]
@@ -209,5 +213,7 @@ def params_statements():
 
 
 @params(params_statements)
-def test_statements(group, expected_result):
+def test_statements(
+    group: Group, expected_result: SyntaxBlock
+) -> None:
     assert parse_statements_block(group) == expected_result

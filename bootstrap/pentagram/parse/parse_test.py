@@ -7,9 +7,11 @@ from pentagram.syntax import SyntaxExpression
 from pentagram.syntax import SyntaxIdentifier
 from pentagram.syntax import SyntaxNumber
 from pentagram.test import params
+from typing import Iterable
+from typing import Tuple
 
 
-def params_parse():
+def params_parse() -> Iterable[Tuple[str, SyntaxBlock]]:
     yield "0x123xiw", SyntaxBlock(
         [SyntaxExpression([SyntaxNumber(int32(0x123))])]
     )
@@ -73,5 +75,7 @@ def params_parse():
 
 
 @params(params_parse)
-def test_parse(text, expected_result):
+def test_parse(
+    text: str, expected_result: SyntaxBlock
+) -> None:
     assert parse(text) == expected_result

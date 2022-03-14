@@ -1,3 +1,4 @@
+from numpy.typing import NBitBase
 from pentagram.machine import MachineCall
 from pentagram.machine import MachineFrame
 from pentagram.machine import MachineFrameStack
@@ -25,7 +26,8 @@ def interpret_term(frame_stack: MachineFrameStack) -> None:
 
 
 def interpret_number_term(
-    frame_stack: MachineFrameStack, number: SyntaxNumber
+    frame_stack: MachineFrameStack,
+    number: SyntaxNumber[NBitBase],
 ) -> None:
     expression_stack = frame_stack.current.expression_stack
     expression_stack.push(MachineNumber(number.value))

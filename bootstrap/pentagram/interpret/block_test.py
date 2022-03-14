@@ -9,7 +9,7 @@ from pentagram.syntax import SyntaxExpression
 from pentagram.syntax import SyntaxNumber
 
 
-def test_interpret_block_enter():
+def test_interpret_block_enter() -> None:
     block = SyntaxBlock(
         [SyntaxExpression([SyntaxNumber(int32(4))])]
     )
@@ -24,7 +24,7 @@ def test_interpret_block_enter():
     )
 
 
-def test_interpret_block_exit():
+def test_interpret_block_exit() -> None:
     block = SyntaxBlock(
         [SyntaxExpression([SyntaxNumber(int32(4))])]
     )

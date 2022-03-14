@@ -13,7 +13,7 @@ from tempfile import mkdtemp
 from textwrap import dedent
 
 
-def test():
+def test() -> None:
     make_tmp()
     write_flat_assembly()
     run_flat_nasm()
@@ -26,7 +26,7 @@ def test():
     assert run_tacit() == "Hello, Tacit world!\n"
 
 
-def write_flat_assembly():
+def write_flat_assembly() -> None:
     text = """
         ; Build with `nasm -f bin hello_flat64.asm -o hello_flat64`
         ; Based on http://www.muppetlabs.com/~breadbox/software/tiny/teensy.html
@@ -156,7 +156,7 @@ def write_flat_assembly():
         flat_assembly_file.write(text)
 
 
-def run_flat_nasm():
+def run_flat_nasm() -> None:
     subprocess.run(
         [
             "nasm",
@@ -169,7 +169,7 @@ def run_flat_nasm():
     ).check_returncode()
 
 
-def make_tmp():
+def make_tmp() -> None:
     if exists("tmp"):
         return
     if lexists("tmp"):
@@ -178,7 +178,7 @@ def make_tmp():
     symlink(tmp_path, "tmp", target_is_directory=True)
 
 
-def interpret_tacit():
+def interpret_tacit() -> None:
     with open("tmp/tacit", "wb") as tacit_output_file:
         test_environment = base_environment().extend(
             {"cout": MachineStream(tacit_output_file)}
@@ -186,7 +186,7 @@ def interpret_tacit():
         main_run("../main.tacit", test_environment)
 
 
-def run_xxd(file_path):
+def run_xxd(file_path: str) -> list[str]:
     result = subprocess.run(
         ["xxd", "-u", file_path],
         stdout=subprocess.PIPE,
@@ -196,7 +196,7 @@ def run_xxd(file_path):
     return list(filter(bool, result.stdout.split("\n")))
 
 
-def run_tacit():
+def run_tacit() -> str:
     chmod("tmp/tacit", stat.S_IRWXU)
     result = subprocess.run(
         ["tmp/tacit"], stdout=subprocess.PIPE, text=True

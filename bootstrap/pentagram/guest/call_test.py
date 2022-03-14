@@ -13,7 +13,7 @@ from pentagram.syntax import SyntaxIdentifier
 from pentagram.syntax import SyntaxNumber
 
 
-def test_call_push_frame():
+def test_call_push_frame() -> None:
     call = GuestCall(
         definition_environment=test_environment(),
         definition_block=SyntaxBlock(
@@ -52,7 +52,7 @@ def test_call_push_frame():
     )
 
 
-def test_call_delegate_to_host_call():
+def test_call_delegate_to_host_call() -> None:
     call = GuestCall(
         definition_environment=test_environment(),
         definition_block=SyntaxBlock(
@@ -72,7 +72,7 @@ def test_call_delegate_to_host_call():
     )
 
 
-def test_call_generate_values():
+def test_call_generate_values() -> None:
     call = GuestCall(
         definition_environment=test_environment(),
         definition_block=SyntaxBlock(

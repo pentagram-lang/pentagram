@@ -20,7 +20,7 @@ def init_term_block(term: SyntaxTerm) -> SyntaxBlock:
     return SyntaxBlock([SyntaxExpression([term])])
 
 
-def test_interpret_number():
+def test_interpret_number() -> None:
     term = SyntaxNumber(int32(100))
     frame_stack = init_test_frame_stack(
         init_term_block(term), MachineExpressionStack([])
@@ -33,7 +33,7 @@ def test_interpret_number():
     )
 
 
-def test_interpret_identifier_value():
+def test_interpret_identifier_value() -> None:
     term = SyntaxIdentifier(PI.name)
     expression_stack = MachineExpressionStack([])
     frame_stack = init_test_frame_stack(
@@ -47,7 +47,7 @@ def test_interpret_identifier_value():
     )
 
 
-def test_interpret_identifier_call():
+def test_interpret_identifier_call() -> None:
     term = SyntaxIdentifier(sqrt.name)
     expression_stack = MachineExpressionStack(
         [MachineNumber(int32(16))]
@@ -63,7 +63,7 @@ def test_interpret_identifier_call():
     )
 
 
-def test_interpret_comment():
+def test_interpret_comment() -> None:
     term = SyntaxComment("something")
     expression_stack = MachineExpressionStack(
         [MachineNumber(int32(10))]
@@ -79,7 +79,7 @@ def test_interpret_comment():
     )
 
 
-def test_interpret_block():
+def test_interpret_block() -> None:
     term = init_term_block(SyntaxNumber(int32(2)))
     expression_stack = MachineExpressionStack(
         [MachineNumber(int32(10))]

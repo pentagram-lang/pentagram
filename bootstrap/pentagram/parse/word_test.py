@@ -6,16 +6,20 @@ from numpy import uint32
 from numpy import uint64
 from pentagram.parse.line import Line
 from pentagram.parse.line import LineComment
+from pentagram.parse.line import LineTerm
 from pentagram.parse.line import LineWord
 from pentagram.parse.word import WordComment
 from pentagram.parse.word import WordIdentifier
 from pentagram.parse.word import WordLine
 from pentagram.parse.word import WordNumber
+from pentagram.parse.word import WordTerm
 from pentagram.parse.word import parse_word_lines
 from pentagram.test import params
+from typing import Iterable
+from typing import Tuple
 
 
-def params_word():
+def params_word() -> Iterable[Tuple[LineTerm, WordTerm]]:
     yield LineWord("abc"), WordIdentifier("abc")
     yield LineComment(" desc"), WordComment(" desc")
     yield LineWord("0"), WordNumber(int32(0))
@@ -30,7 +34,9 @@ def params_word():
 
 
 @params(params_word)
-def test_word(term, expected_result):
+def test_word(
+    term: LineTerm, expected_result: WordTerm
+) -> None:
     lines = [Line(indent=0, terms=[term])]
     result = parse_word_lines(lines)
     assert result[0].terms[0] == expected_result

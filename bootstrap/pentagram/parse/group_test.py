@@ -10,9 +10,13 @@ from pentagram.parse.word import WordIdentifier
 from pentagram.parse.word import WordLine
 from pentagram.parse.word import WordNumber
 from pentagram.test import params
+from typing import Iterable
+from typing import Tuple
 
 
-def params_group():
+def params_group() -> Iterable[
+    Tuple[list[WordLine], Group]
+]:
     # No lines
     yield [], Group([])
 
@@ -225,5 +229,7 @@ def params_group():
 
 
 @params(params_group)
-def test_group(lines, expected_result):
+def test_group(
+    lines: list[WordLine], expected_result: Group
+) -> None:
     assert parse_group(lines) == expected_result

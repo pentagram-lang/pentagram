@@ -1,13 +1,15 @@
 from dataclasses import dataclass
 from dataclasses import field
 from numpy import integer
+from numpy.typing import NBitBase
 from pentagram.parse.word import WordComment
 from pentagram.parse.word import WordIdentifier
 from pentagram.parse.word import WordLine
 from pentagram.parse.word import WordNumber
 from pentagram.parse.word import WordTerm
+from typing import Generic
 from typing import List
-from typing import Type
+from typing import TypeVar
 
 
 @dataclass
@@ -15,12 +17,15 @@ class GroupTerm:
     pass
 
 
-@dataclass
-class GroupNumber(GroupTerm):
-    value: integer
-    value_type: Type = field(init=False)
+TBit = TypeVar("TBit", bound=NBitBase)
 
-    def __post_init__(self):
+
+@dataclass
+class GroupNumber(GroupTerm, Generic[TBit]):
+    value: integer[TBit]
+    value_type: type[integer[TBit]] = field(init=False)
+
+    def __post_init__(self) -> None:
         self.value_type = type(self.value)
         assert issubclass(
             self.value_type, integer
@@ -51,7 +56,7 @@ def parse_group(lines: List[WordLine]) -> Group:
     groups = [Group([])]
     substantial_indent_level = -1
 
-    def group_end(indent_level):
+    def group_end(indent_level: int) -> None:
         while indent_level < len(groups) - 1:
             groups[-2].lines[-1].terms.append(groups.pop())
 

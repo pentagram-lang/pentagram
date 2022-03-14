@@ -1,8 +1,11 @@
 from dataclasses import dataclass
 from dataclasses import field
 from numpy import integer
+from numpy.typing import NBitBase
+from typing import Generic
 from typing import List
 from typing import Type
+from typing import TypeVar
 
 
 @dataclass
@@ -10,12 +13,15 @@ class SyntaxTerm:
     pass
 
 
-@dataclass
-class SyntaxNumber(SyntaxTerm):
-    value: integer
-    value_type: Type = field(init=False)
+TBit = TypeVar("TBit", bound=NBitBase)
 
-    def __post_init__(self):
+
+@dataclass
+class SyntaxNumber(SyntaxTerm, Generic[TBit]):
+    value: integer[TBit]
+    value_type: Type[integer[TBit]] = field(init=False)
+
+    def __post_init__(self) -> None:
         self.value_type = type(self.value)
         assert issubclass(
             self.value_type, integer

@@ -3,13 +3,16 @@ import re
 from dataclasses import dataclass
 from dataclasses import field
 from numpy import integer
+from numpy.typing import NBitBase
 from pentagram.parse.line import Line
 from pentagram.parse.line import LineComment
 from pentagram.parse.line import LineTerm
 from pentagram.parse.line import LineWord
 from pentagram.parse.number import parse_number
+from typing import Generic
 from typing import List
 from typing import Type
+from typing import TypeVar
 
 
 @dataclass
@@ -17,12 +20,15 @@ class WordTerm:
     pass
 
 
-@dataclass
-class WordNumber(WordTerm):
-    value: integer
-    value_type: Type = field(init=False)
+TBit = TypeVar("TBit", bound=NBitBase)
 
-    def __post_init__(self):
+
+@dataclass
+class WordNumber(WordTerm, Generic[TBit]):
+    value: integer[TBit]
+    value_type: Type[integer[TBit]] = field(init=False)
+
+    def __post_init__(self) -> None:
         self.value_type = type(self.value)
         assert issubclass(
             self.value_type, integer

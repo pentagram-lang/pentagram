@@ -3,9 +3,11 @@ from pentagram.parse.line import LineComment
 from pentagram.parse.line import LineWord
 from pentagram.parse.line import parse_lines
 from pentagram.test import params
+from typing import Iterable
+from typing import Tuple
 
 
-def params_lines():
+def params_lines() -> Iterable[Tuple[str, list[Line]]]:
     yield "a\n" "b\n", [
         Line(indent=0, terms=[LineWord("a")]),
         Line(indent=0, terms=[LineWord("b")]),
@@ -38,5 +40,7 @@ def params_lines():
 
 
 @params(params_lines)
-def test_lines(lines, expected_result):
+def test_lines(
+    lines: str, expected_result: list[Line]
+) -> None:
     assert parse_lines(lines) == expected_result

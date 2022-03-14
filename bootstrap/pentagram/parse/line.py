@@ -1,6 +1,7 @@
 from collections import deque
 from dataclasses import dataclass
 from typing import Deque
+from typing import Iterable
 from typing import List
 from typing import Optional
 
@@ -29,7 +30,7 @@ class Line:
 def parse_lines(source: str) -> List[Line]:
     source_progress = deque(source)
 
-    def loop():
+    def loop() -> Iterable[Line]:
         while source_progress:
             yield parse_one_line(source_progress)
 
@@ -66,10 +67,10 @@ def parse_one_line_indent(
 def parse_one_line_words(
     source_progress: Deque[str],
 ) -> List[LineTerm]:
-    terms = []
+    terms: List[LineTerm] = []
     token_progress: list[str] = list()
 
-    def token_end():
+    def token_end() -> None:
         nonlocal token_progress
         if token_progress:
             terms.append(LineWord("".join(token_progress)))

@@ -2,15 +2,22 @@ from numpy import int8
 from numpy import int16
 from numpy import int32
 from numpy import int64
+from numpy import integer
 from numpy import uint8
 from numpy import uint16
 from numpy import uint32
 from numpy import uint64
+from numpy.typing import NBitBase
 from pentagram.parse.number import parse_number
 from pentagram.test import params
+from typing import Any
+from typing import Iterable
+from typing import Tuple
 
 
-def params_parse_number():
+def params_parse_number() -> Iterable[
+    Tuple[int, str, str, Any]
+]:
     yield 16, "FF", "i", int8(-1)
     yield 10, "5", "b", uint8(5)
     yield 10, "72", "ih", int16(72)
@@ -23,7 +30,12 @@ def params_parse_number():
 
 
 @params(params_parse_number)
-def test_parse_number(base, digits, suffix, expected):
+def test_parse_number(
+    base: int,
+    digits: str,
+    suffix: str,
+    expected: integer[NBitBase],
+) -> None:
     result = parse_number(base, digits, suffix)
     assert result == expected
     assert type(result) is type(expected)

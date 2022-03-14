@@ -8,7 +8,7 @@ from pentagram.syntax import SyntaxExpression
 from pentagram.syntax import SyntaxNumber
 
 
-def test_interpret():
+def test_interpret() -> None:
     block = SyntaxBlock(
         [
             SyntaxExpression(

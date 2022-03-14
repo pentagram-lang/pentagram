@@ -2,12 +2,13 @@ from math import ceil
 from math import log2
 from numpy import integer
 from numpy import sctypeDict
+from numpy.typing import NBitBase
 from typing import cast
 
 
 def parse_number(
     base: int, digits: str, suffix: str
-) -> integer:
+) -> integer[NBitBase]:
     digits = digits.replace("-", "")
 
     if base == 10:
@@ -35,4 +36,6 @@ def parse_number(
 
     type_name = f"{'' if signed else 'u'}int{bits}"
     int_value = int(digits, base)
-    return cast(integer, sctypeDict[type_name](int_value))
+    return cast(
+        integer[NBitBase], sctypeDict[type_name](int_value)
+    )

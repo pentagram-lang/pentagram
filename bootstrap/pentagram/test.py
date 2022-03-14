@@ -1,14 +1,26 @@
 import pytest
 
 from inspect import signature
+from typing import Any
+from typing import Callable
+from typing import Iterable
+from typing import TypeVar
+from typing import cast
+
+F = TypeVar("F", bound=Callable[..., Any])
 
 
-def params(generator):
-    def inner(func):
+def params(
+    generator: Callable[[], Iterable[Any]]
+) -> Callable[[F], F]:
+    def inner(func: F) -> F:
         arg_names = tuple(signature(func).parameters.keys())
         arg_values = generator()
-        return pytest.mark.parametrize(
-            arg_names, arg_values
-        )(func)
+        return cast(
+            F,
+            pytest.mark.parametrize(arg_names, arg_values)(
+                func
+            ),
+        )
 
     return inner

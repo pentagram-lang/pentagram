@@ -7,6 +7,7 @@ from pentagram.interpret import interpret
 from pentagram.loop import loop
 from pentagram.machine import MachineEnvironment
 from pentagram.machine import MachineExpressionStack
+from pentagram.machine import MachineValue
 from pentagram.parse import parse
 from typing import Optional
 
@@ -52,7 +53,9 @@ def main_run(
 def main_loop() -> None:
     environment = base_environment().extend()
 
-    def statement_loop(statement_text):
+    def statement_loop(
+        statement_text: str,
+    ) -> list[MachineValue]:
         block = parse(statement_text)
         expression_stack = MachineExpressionStack([])
         interpret(block, expression_stack, environment)

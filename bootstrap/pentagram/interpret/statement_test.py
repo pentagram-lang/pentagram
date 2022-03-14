@@ -23,7 +23,7 @@ def init_statement_block(
     return SyntaxBlock([statement])
 
 
-def test_interpret_expression_enter():
+def test_interpret_expression_enter() -> None:
     statement = SyntaxExpression([SyntaxNumber(int32(100))])
     frame_stack = init_test_frame_stack(
         init_statement_block(statement),
@@ -37,7 +37,7 @@ def test_interpret_expression_enter():
     )
 
 
-def test_interpret_expression_exit():
+def test_interpret_expression_exit() -> None:
     statement = SyntaxExpression([SyntaxNumber(int32(100))])
     frame_stack = init_test_frame_stack(
         init_statement_block(statement),
@@ -53,7 +53,7 @@ def test_interpret_expression_exit():
     )
 
 
-def test_interpret_assignment_1_enter():
+def test_interpret_assignment_1_enter() -> None:
     statement = SyntaxAssignment(
         terms=[SyntaxNumber(int32(3))],
         bindings=[SyntaxIdentifier("x")],
@@ -78,7 +78,7 @@ def test_interpret_assignment_1_enter():
     )
 
 
-def test_interpret_assignment_1_exit():
+def test_interpret_assignment_1_exit() -> None:
     statement = SyntaxAssignment(
         terms=[SyntaxNumber(int32(3))],
         bindings=[SyntaxIdentifier("x")],
@@ -97,7 +97,7 @@ def test_interpret_assignment_1_exit():
     )
 
 
-def test_interpret_assignment_2_exit():
+def test_interpret_assignment_2_exit() -> None:
     statement = SyntaxAssignment(
         terms=[
             SyntaxNumber(int32(300)),
@@ -128,7 +128,7 @@ def test_interpret_assignment_2_exit():
     )
 
 
-def test_interpret_method_definition_exit():
+def test_interpret_method_definition_exit() -> None:
     statement = SyntaxMethodDefinition(
         binding=SyntaxIdentifier("f"),
         definition=SyntaxExpression(

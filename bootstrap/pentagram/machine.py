@@ -4,13 +4,16 @@ from dataclasses import dataclass
 from dataclasses import field
 from io import IOBase
 from numpy import integer
+from numpy.typing import NBitBase
 from pentagram.syntax import SyntaxBlock
 from pentagram.syntax import SyntaxStatement
 from pentagram.syntax import SyntaxTerm
 from typing import Dict
+from typing import Generic
 from typing import List
 from typing import Optional
 from typing import Type
+from typing import TypeVar
 from typing import Union
 
 
@@ -24,12 +27,15 @@ class MachineBlob(MachineValue):
     value: bytearray
 
 
-@dataclass
-class MachineNumber(MachineValue):
-    value: integer
-    value_type: Type = field(init=False)
+TBit = TypeVar("TBit", bound=NBitBase)
 
-    def __post_init__(self):
+
+@dataclass
+class MachineNumber(MachineValue, Generic[TBit]):
+    value: integer[TBit]
+    value_type: Type[integer[TBit]] = field(init=False)
+
+    def __post_init__(self) -> None:
         self.value_type = type(self.value)
         assert issubclass(
             self.value_type, integer
@@ -80,12 +86,12 @@ class MachineBinding:
     value_or_call: Union[MachineValue, MachineCall]
 
     @property
-    def value(self):
+    def value(self) -> MachineValue:
         assert isinstance(self.value_or_call, MachineValue)
         return self.value_or_call
 
     @property
-    def call(self):
+    def call(self) -> MachineCall:
         assert isinstance(self.value_or_call, MachineCall)
         return self.value_or_call
 
@@ -165,7 +171,7 @@ class MachineFrame:
         return self.instruction_pointer.statement_index
 
     @statement_index.setter
-    def statement_index(self, value) -> None:
+    def statement_index(self, value: int) -> None:
         self.instruction_pointer.statement_index = value
 
     @property
@@ -177,7 +183,7 @@ class MachineFrame:
         return self.instruction_pointer.term_index
 
     @term_index.setter
-    def term_index(self, value) -> None:
+    def term_index(self, value: int) -> None:
         self.instruction_pointer.term_index = value
 
     @property
