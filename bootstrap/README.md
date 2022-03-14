@@ -40,6 +40,7 @@ pip install -r requirements.txt
 - `black .` to reformat everything
 - `isort .` to sort imports
 - `flake8 .` to check the code style
+- `mypy .` to check the types
 
 ### Python packages
 

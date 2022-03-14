@@ -2,12 +2,12 @@
 import sys
 
 from environment import base_environment
-from guest.call import GuestCall
-from interpret import interpret
-from loop import loop
-from machine import MachineEnvironment
-from machine import MachineExpressionStack
-from parse import parse
+from pentagram.guest.call import GuestCall
+from pentagram.interpret import interpret
+from pentagram.loop import loop
+from pentagram.machine import MachineEnvironment
+from pentagram.machine import MachineExpressionStack
+from pentagram.parse import parse
 from typing import Optional
 
 

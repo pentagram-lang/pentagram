@@ -1,16 +1,18 @@
-import host.simple_call
-import host.value
+import pentagram.host.simple_call
+import pentagram.host.value
 
 from itertools import chain
-from machine import MachineBinding
-from machine import MachineEnvironment
+from pentagram.machine import MachineBinding
+from pentagram.machine import MachineEnvironment
 from typing import Any
 from typing import List
 
 
 def base_environment() -> MachineEnvironment:
     return MachineEnvironment.from_bindings(
-        extract_all_bindings(host.simple_call, host.value)
+        extract_all_bindings(
+            pentagram.host.simple_call, pentagram.host.value
+        )
     )
 
 
