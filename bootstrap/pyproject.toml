@@ -1,0 +1,12 @@
+[tool.black]
+exclude = '''
+/(
+    \.direnv
+  | \.git
+  | \.vscode/\.ropeproject
+  | __pycache__
+  | tmp
+)/
+'''
+line-length = 60
+py36 = true

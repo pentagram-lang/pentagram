@@ -1,0 +1,6 @@
+[flake8]
+exclude = .direnv,.git,__pycache__,.ropeproject,tmp
+max-complexity = 10
+max-line-length = 68
+select = A,B,B9,C,E,F,W
+ignore = B950,E203,E501,W503

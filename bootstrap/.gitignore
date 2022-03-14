@@ -1,0 +1,5 @@
+/.direnv
+/.pytest_cache
+/.vscode/.ropeproject
+__pycache__
+tmp
