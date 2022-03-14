@@ -68,4 +68,4 @@ def parse_one_term(term: GroupTerm) -> SyntaxTerm:
     elif isinstance(term, Group):
         return parse_statements_block(term)
     else:
-        assert False, term
+        raise AssertionError(term)

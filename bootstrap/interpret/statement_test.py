@@ -16,7 +16,7 @@ from syntax import SyntaxStatement
 
 
 def init_statement_block(
-    statement: SyntaxStatement
+    statement: SyntaxStatement,
 ) -> SyntaxBlock:
     return SyntaxBlock([statement])
 

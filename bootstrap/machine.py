@@ -133,7 +133,7 @@ class MachineEnvironment:
 
     @staticmethod
     def from_bindings(
-        bindings: List[MachineBinding]
+        bindings: List[MachineBinding],
     ) -> "MachineEnvironment":
         return MachineEnvironment(
             bindings={

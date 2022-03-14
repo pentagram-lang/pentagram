@@ -63,7 +63,7 @@ def parse_group(lines: List[WordLine]) -> Group:
         ):
             indent_level = min(
                 substantial_indent_level + 1,
-                line.indent // 2
+                line.indent // 2,
             )
         else:
             assert line.indent % 2 == 0, line
@@ -82,7 +82,7 @@ def parse_group(lines: List[WordLine]) -> Group:
 
 
 def parse_group_terms(
-    terms: List[WordTerm]
+    terms: List[WordTerm],
 ) -> List[GroupTerm]:
     return [parse_one_group_term(term) for term in terms]
 
@@ -95,4 +95,4 @@ def parse_one_group_term(term: WordTerm) -> GroupTerm:
     elif isinstance(term, WordComment):
         return GroupComment(term.text)
     else:
-        assert False, term
+        raise AssertionError(term)

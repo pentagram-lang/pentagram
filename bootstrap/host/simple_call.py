@@ -52,7 +52,7 @@ class SimpleHostCall(MachineCall):
 
 
 def simple_call(
-    name: str
+    name: str,
 ) -> Callable[[Callable], MachineBinding]:
     def inner(func: Callable) -> MachineBinding:
         return MachineBinding(name, SimpleHostCall(func))

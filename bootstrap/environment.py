@@ -15,7 +15,7 @@ def base_environment() -> MachineEnvironment:
 
 
 def extract_all_bindings(
-    *modules: Any
+    *modules: Any,
 ) -> List[MachineBinding]:
     return list(
         chain.from_iterable(map(extract_bindings, modules))

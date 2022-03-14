@@ -50,7 +50,7 @@ def parse_one_line(source_progress: Deque[str]) -> Line:
 
 
 def parse_one_line_indent(
-    source_progress: Deque[str]
+    source_progress: Deque[str],
 ) -> int:
     indent = 0
     while source_progress:
@@ -64,7 +64,7 @@ def parse_one_line_indent(
 
 
 def parse_one_line_words(
-    source_progress: Deque[str]
+    source_progress: Deque[str],
 ) -> List[LineTerm]:
     terms = []
     token_progress = list()
@@ -99,7 +99,7 @@ def parse_one_line_words(
 
 
 def parse_one_line_comment(
-    source_progress: Deque[str]
+    source_progress: Deque[str],
 ) -> Optional[LineComment]:
     comment = None
 

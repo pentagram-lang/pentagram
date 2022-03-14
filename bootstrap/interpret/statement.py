@@ -9,7 +9,7 @@ from syntax import SyntaxMethodDefinition
 
 
 def interpret_statement(
-    frame_stack: MachineFrameStack
+    frame_stack: MachineFrameStack,
 ) -> None:
     statement = frame_stack.current.statement
     term_index = frame_stack.current.term_index
@@ -23,7 +23,7 @@ def interpret_statement(
 
 
 def interpret_statement_enter(
-    frame_stack: MachineFrameStack
+    frame_stack: MachineFrameStack,
 ) -> None:
     statement = frame_stack.current.statement
     if isinstance(statement, SyntaxExpression):
@@ -33,11 +33,11 @@ def interpret_statement_enter(
     elif isinstance(statement, SyntaxMethodDefinition):
         pass
     else:
-        assert False, statement
+        raise AssertionError(statement)
 
 
 def interpret_statement_exit(
-    frame_stack: MachineFrameStack
+    frame_stack: MachineFrameStack,
 ) -> None:
     statement = frame_stack.current.statement
     if isinstance(statement, SyntaxExpression):
@@ -49,7 +49,7 @@ def interpret_statement_exit(
             frame_stack, statement
         )
     else:
-        assert False, statement
+        raise AssertionError(statement)
 
 
 def interpret_assignment_enter(

@@ -17,7 +17,7 @@ def from_python(value: Any) -> MachineValue:
     elif isinstance(value, integer):
         return MachineNumber(value)
     else:
-        assert False, value
+        raise AssertionError(value)
 
 
 def to_python(value: MachineValue) -> Any:
@@ -29,4 +29,4 @@ def to_python(value: MachineValue) -> Any:
     if isinstance(value, simple_values):
         return value.value
     else:
-        assert False, value
+        raise AssertionError(value)

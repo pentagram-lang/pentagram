@@ -21,7 +21,7 @@ def interpret_term(frame_stack: MachineFrameStack) -> None:
     elif isinstance(term, SyntaxBlock):
         interpret_block_term(frame_stack, term)
     else:
-        assert False, term
+        raise AssertionError(term)
 
 
 def interpret_number_term(
@@ -45,7 +45,7 @@ def interpret_identifier_term(
     elif isinstance(value_or_call, MachineCall):
         value_or_call(frame_stack)
     else:
-        assert False, value_or_call
+        raise AssertionError(value_or_call)
 
 
 def interpret_block_term(
