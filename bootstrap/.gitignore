@@ -1,5 +1,6 @@
 /.direnv
 /.pytest_cache
 /.vscode/.ropeproject
+/*.egg-info
 __pycache__
 tmp

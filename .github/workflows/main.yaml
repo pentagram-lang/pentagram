@@ -1,0 +1,28 @@
+name: Main
+
+on: [push]
+
+jobs:
+  main:
+    name: Main
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: bootstrap
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: '3.10'
+          cache: pip
+
+      - name: Verify requirements
+        run: |
+          pip install -c requirements.txt pip
+          pip install -c requirements.txt pip-tools
+          pip-compile --allow-unsafe --generate-hashes --build-isolation --output-file /tmp/requirements.txt
+          diff requirements.txt /tmp/requirements.txt 

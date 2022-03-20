@@ -8,12 +8,14 @@ from pentagram.machine import MachineExpressionStack
 from pentagram.machine import MachineFrame
 from pentagram.machine import MachineInstructionPointer
 from pentagram.machine import MachineNumber
+from pentagram.machine import MachineValue
 from pentagram.syntax import SyntaxBlock
 from pentagram.syntax import SyntaxComment
 from pentagram.syntax import SyntaxExpression
 from pentagram.syntax import SyntaxIdentifier
 from pentagram.syntax import SyntaxNumber
 from pentagram.syntax import SyntaxTerm
+from typing import cast
 
 
 def init_term_block(term: SyntaxTerm) -> SyntaxBlock:
@@ -42,7 +44,9 @@ def test_interpret_identifier_value() -> None:
     interpret_term(frame_stack)
     assert frame_stack == init_test_frame_stack(
         init_term_block(term),
-        MachineExpressionStack([PI.value]),
+        MachineExpressionStack(
+            [cast(MachineValue, PI.value_or_call)]
+        ),
         term_index=1,
     )
 

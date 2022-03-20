@@ -1,13 +1,13 @@
 import stat
 import subprocess
 
-from environment import base_environment
 from main import main_run
 from os import chmod
 from os import symlink
 from os import unlink
 from os.path import exists
 from os.path import lexists
+from pentagram.environment import base_environment
 from pentagram.machine import MachineStream
 from tempfile import mkdtemp
 from textwrap import dedent

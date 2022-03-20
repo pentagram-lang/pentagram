@@ -85,16 +85,6 @@ class MachineBinding:
     name: str
     value_or_call: Union[MachineValue, MachineCall]
 
-    @property
-    def value(self) -> MachineValue:
-        assert isinstance(self.value_or_call, MachineValue)
-        return self.value_or_call
-
-    @property
-    def call(self) -> MachineCall:
-        assert isinstance(self.value_or_call, MachineCall)
-        return self.value_or_call
-
 
 @dataclass
 class MachineEnvironment:

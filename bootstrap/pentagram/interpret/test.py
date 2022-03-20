@@ -1,4 +1,4 @@
-from environment import base_environment
+from pentagram.environment import base_environment
 from pentagram.interpret.interpret import init_frame_stack
 from pentagram.machine import MachineCall
 from pentagram.machine import MachineEnvironment
