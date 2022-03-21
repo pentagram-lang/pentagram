@@ -1,7 +1,6 @@
 #!/bin/bash
 set -e
+pip-compile --quiet --allow-unsafe --generate-hashes --build-isolation --output-file requirements.txt requirements.in
+pip-sync
+pip install -e .
 pip check
-pip freeze --all \
-    | grep -v '^-e ' \
-    > requirements.txt
-pip-compile --allow-unsafe --generate-hashes --build-isolation
