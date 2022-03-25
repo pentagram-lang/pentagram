@@ -29,8 +29,13 @@ jobs:
           echo "-c $(pwd)/requirements.txt" > /tmp/requirements.in
           pip-compile --quiet --allow-unsafe --generate-hashes --build-isolation --output-file /tmp/requirements.txt requirements.in /tmp/requirements.in
           grep -v '^\s*#' requirements.txt | diff - <(grep -v '^\s*#' /tmp/requirements.txt)
+          echo "Requirements verified"
 
 
       - name: Install Python requirements
         run: |
           pip install --no-deps -r /tmp/requirements.txt
+          pip install --no-deps -e .
+
+      - name: Check
+        run: _dev check

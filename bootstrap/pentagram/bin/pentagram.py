@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import sys
+import click
 
 from pentagram.environment import base_environment
 from pentagram.guest.call import GuestCall
@@ -12,13 +12,20 @@ from pentagram.parse import parse
 from typing import Optional
 
 
-def main() -> None:
-    if len(sys.argv) == 2:
-        arg = sys.argv[1]
-        if arg == "--parse":
-            parse_loop()
-        else:
-            main_run(arg)
+@click.command()
+@click.argument(
+    "source-filename",
+    required=False,
+    type=click.Path(exists=True),
+)
+@click.option("--parse", is_flag=True)
+def main(
+    source_filename: Optional[str], *, parse: bool
+) -> None:
+    if parse:
+        parse_loop()
+    elif source_filename:
+        main_run(source_filename)
     else:
         main_loop()
 
@@ -66,7 +73,3 @@ def main_loop() -> None:
 
 def parse_loop() -> None:
     loop(parse)
-
-
-if __name__ == "__main__":
-    main()

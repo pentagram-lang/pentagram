@@ -14,3 +14,5 @@ pyflakes==2.4.0
 pytest-watch==4.2.0
 pipdeptree==2.2.1
 PyYAML==6.0
+setuptools==60.9.3
+types-setuptools==57.4.11

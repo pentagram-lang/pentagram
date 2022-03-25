@@ -28,10 +28,11 @@ When installing Python on Debian or Ubuntu, use the [deadsnakes PPA](https://lau
 These commands will get the code and get you into a running Python environment:
 
 ```bash
-git clone https://github.com/tacit-lang/tacit-gen3-python.git
-cd tacit-gen3-python
+git clone https://github.com/pentagram-lang/pentagram.git
+cd pentagram/bootstrap
 direnv allow
 pip install -r requirements.txt
+pip install -e .
 ```
 
 ### Commands
