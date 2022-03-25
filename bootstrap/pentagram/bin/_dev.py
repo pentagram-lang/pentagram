@@ -109,7 +109,7 @@ def types() -> None:
             "--wait",
             "--drop",
             "--command",
-            "mypy .",
+            "[ $watch_event_type != closed ] && mypy .",
             ".",
         ],
         check=True,
