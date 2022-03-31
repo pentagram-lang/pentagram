@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from abc import ABC
 from abc import abstractmethod
 from dataclasses import dataclass
@@ -8,13 +10,10 @@ from numpy.typing import NBitBase
 from pentagram.syntax import SyntaxBlock
 from pentagram.syntax import SyntaxStatement
 from pentagram.syntax import SyntaxTerm
-from typing import Dict
 from typing import Generic
-from typing import List
 from typing import Optional
 from typing import Type
 from typing import TypeVar
-from typing import Union
 
 
 @dataclass
@@ -49,12 +48,12 @@ class MachineStream(MachineValue):
 
 @dataclass
 class MachineExpressionStack:
-    values: List[MachineValue]
+    values: list[MachineValue]
 
     def push(self, value: MachineValue) -> None:
         self.values.append(value)
 
-    def push_many(self, values: List[MachineValue]) -> None:
+    def push_many(self, values: list[MachineValue]) -> None:
         for value in values:
             self.push(value)
 
@@ -75,7 +74,7 @@ class MachineExpressionStack:
 class MachineCall(ABC):
     @abstractmethod
     def __call__(
-        self, frame_stack: "MachineFrameStack"
+        self, frame_stack: MachineFrameStack
     ) -> None:
         pass
 
@@ -83,20 +82,20 @@ class MachineCall(ABC):
 @dataclass
 class MachineBinding:
     name: str
-    value_or_call: Union[MachineValue, MachineCall]
+    value_or_call: MachineValue | MachineCall
 
 
 @dataclass
 class MachineEnvironment:
-    bindings: Dict[str, Union[MachineValue, MachineCall]]
-    base: Optional["MachineEnvironment"]
+    bindings: dict[str, MachineValue | MachineCall]
+    base: Optional[MachineEnvironment]
 
     def extend(
         self,
         bindings: Optional[
-            Dict[str, Union[MachineValue, MachineCall]]
+            dict[str, MachineValue | MachineCall]
         ] = None,
-    ) -> "MachineEnvironment":
+    ) -> MachineEnvironment:
         return MachineEnvironment(bindings or {}, base=self)
 
     def __contains__(self, key: str) -> bool:
@@ -109,7 +108,7 @@ class MachineEnvironment:
 
     def __getitem__(
         self, key: str
-    ) -> Union[MachineValue, MachineCall]:
+    ) -> MachineValue | MachineCall:
         value = self.bindings.get(key)
         if value is None:
             if self.base:
@@ -122,14 +121,14 @@ class MachineEnvironment:
     def __setitem__(
         self,
         key: str,
-        value: Union[MachineValue, MachineCall],
+        value: MachineValue | MachineCall,
     ) -> None:
         self.bindings[key] = value
 
     @staticmethod
     def from_bindings(
-        bindings: List[MachineBinding],
-    ) -> "MachineEnvironment":
+        bindings: list[MachineBinding],
+    ) -> MachineEnvironment:
         return MachineEnvironment(
             bindings={
                 binding.name: binding.value_or_call
@@ -183,7 +182,7 @@ class MachineFrame:
 
 @dataclass
 class MachineFrameStack:
-    frames: List[MachineFrame]
+    frames: list[MachineFrame]
 
     def push(self, frame: MachineFrame) -> None:
         self.frames.append(frame)

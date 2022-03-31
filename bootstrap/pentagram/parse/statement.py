@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pentagram.parse.group import Group
 from pentagram.parse.group import GroupComment
 from pentagram.parse.group import GroupIdentifier
@@ -12,7 +14,6 @@ from pentagram.syntax import SyntaxMethodDefinition
 from pentagram.syntax import SyntaxNumber
 from pentagram.syntax import SyntaxStatement
 from pentagram.syntax import SyntaxTerm
-from typing import List
 
 
 def parse_statements_block(group: Group) -> SyntaxBlock:
@@ -25,9 +26,9 @@ def parse_statements_block(group: Group) -> SyntaxBlock:
 
 
 def parse_one_statement(
-    terms: List[GroupTerm],
+    terms: list[GroupTerm],
 ) -> SyntaxStatement:
-    bindings: List[SyntaxIdentifier] = []
+    bindings: list[SyntaxIdentifier] = []
     for term in terms:
         if isinstance(term, GroupIdentifier):
             if term.name == "=":
@@ -53,8 +54,8 @@ def parse_one_statement(
 
 
 def parse_terms(
-    terms: List[GroupTerm],
-) -> List[SyntaxTerm]:
+    terms: list[GroupTerm],
+) -> list[SyntaxTerm]:
     return [parse_one_term(term) for term in terms]
 
 

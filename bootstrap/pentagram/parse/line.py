@@ -1,8 +1,8 @@
+from __future__ import annotations
+
 from collections import deque
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Deque
-from typing import Iterable
-from typing import List
 from typing import Optional
 
 
@@ -24,10 +24,10 @@ class LineComment(LineTerm):
 @dataclass
 class Line:
     indent: int
-    terms: List[LineTerm]
+    terms: list[LineTerm]
 
 
-def parse_lines(source: str) -> List[Line]:
+def parse_lines(source: str) -> list[Line]:
     source_progress = deque(source)
 
     def loop() -> Iterable[Line]:
@@ -37,7 +37,7 @@ def parse_lines(source: str) -> List[Line]:
     return list(loop())
 
 
-def parse_one_line(source_progress: Deque[str]) -> Line:
+def parse_one_line(source_progress: deque[str]) -> Line:
     indent = parse_one_line_indent(source_progress)
     terms = parse_one_line_words(source_progress)
     comment = parse_one_line_comment(source_progress)
@@ -51,7 +51,7 @@ def parse_one_line(source_progress: Deque[str]) -> Line:
 
 
 def parse_one_line_indent(
-    source_progress: Deque[str],
+    source_progress: deque[str],
 ) -> int:
     indent = 0
     while source_progress:
@@ -65,9 +65,9 @@ def parse_one_line_indent(
 
 
 def parse_one_line_words(
-    source_progress: Deque[str],
-) -> List[LineTerm]:
-    terms: List[LineTerm] = []
+    source_progress: deque[str],
+) -> list[LineTerm]:
+    terms: list[LineTerm] = []
     token_progress: list[str] = list()
 
     def token_end() -> None:
@@ -100,7 +100,7 @@ def parse_one_line_words(
 
 
 def parse_one_line_comment(
-    source_progress: Deque[str],
+    source_progress: deque[str],
 ) -> Optional[LineComment]:
     comment = None
 

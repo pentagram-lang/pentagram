@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 import pytest
 
+from collections.abc import Callable
+from collections.abc import Iterable
 from inspect import signature
 from typing import Any
-from typing import Callable
-from typing import Iterable
 from typing import TypeVar
 from typing import cast
 

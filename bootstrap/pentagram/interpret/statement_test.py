@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from numpy import int32
 from pentagram.guest.call import GuestCall
 from pentagram.interpret.interpret import init_frame_stack

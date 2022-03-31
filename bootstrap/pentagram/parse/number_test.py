@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+from collections.abc import Iterable
 from numpy import int8
 from numpy import int16
 from numpy import int32
@@ -11,12 +14,10 @@ from numpy.typing import NBitBase
 from pentagram.parse.number import parse_number
 from pentagram.test import params
 from typing import Any
-from typing import Iterable
-from typing import Tuple
 
 
 def params_parse_number() -> Iterable[
-    Tuple[int, str, str, Any]
+    tuple[int, str, str, Any]
 ]:
     yield 16, "FF", "i", int8(-1)
     yield 10, "5", "b", uint8(5)

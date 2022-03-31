@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 from dataclasses import field
 from numpy import integer
@@ -8,7 +10,6 @@ from pentagram.parse.word import WordLine
 from pentagram.parse.word import WordNumber
 from pentagram.parse.word import WordTerm
 from typing import Generic
-from typing import List
 from typing import TypeVar
 
 
@@ -44,15 +45,15 @@ class GroupComment(GroupTerm):
 
 @dataclass
 class Group(GroupTerm):
-    lines: List["GroupLine"]
+    lines: list[GroupLine]
 
 
 @dataclass
 class GroupLine:
-    terms: List[GroupTerm]
+    terms: list[GroupTerm]
 
 
-def parse_group(lines: List[WordLine]) -> Group:
+def parse_group(lines: list[WordLine]) -> Group:
     groups = [Group([])]
     substantial_indent_level = -1
 
@@ -87,8 +88,8 @@ def parse_group(lines: List[WordLine]) -> Group:
 
 
 def parse_group_terms(
-    terms: List[WordTerm],
-) -> List[GroupTerm]:
+    terms: list[WordTerm],
+) -> list[GroupTerm]:
     return [parse_one_group_term(term) for term in terms]
 
 

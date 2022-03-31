@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pentagram.guest.call import GuestCall
 from pentagram.interpret.term import interpret_term
 from pentagram.machine import MachineExpressionStack

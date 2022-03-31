@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+from collections.abc import Iterable
 from numpy import int32
 from pentagram.parse.group import Group
 from pentagram.parse.group import GroupComment
@@ -10,12 +13,10 @@ from pentagram.parse.word import WordIdentifier
 from pentagram.parse.word import WordLine
 from pentagram.parse.word import WordNumber
 from pentagram.test import params
-from typing import Iterable
-from typing import Tuple
 
 
 def params_group() -> Iterable[
-    Tuple[list[WordLine], Group]
+    tuple[list[WordLine], Group]
 ]:
     # No lines
     yield [], Group([])

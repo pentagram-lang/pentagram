@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from numpy import int32
 from pentagram.interpret.block import interpret_block
 from pentagram.interpret.test import init_test_frame_stack

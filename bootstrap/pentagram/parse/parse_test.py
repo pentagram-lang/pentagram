@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+from collections.abc import Iterable
 from numpy import int32
 from pentagram.parse import parse
 from pentagram.syntax import SyntaxAssignment
@@ -7,11 +10,9 @@ from pentagram.syntax import SyntaxExpression
 from pentagram.syntax import SyntaxIdentifier
 from pentagram.syntax import SyntaxNumber
 from pentagram.test import params
-from typing import Iterable
-from typing import Tuple
 
 
-def params_parse() -> Iterable[Tuple[str, SyntaxBlock]]:
+def params_parse() -> Iterable[tuple[str, SyntaxBlock]]:
     yield "0x123xiw", SyntaxBlock(
         [SyntaxExpression([SyntaxNumber(int32(0x123))])]
     )

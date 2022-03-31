@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import re
 
 from dataclasses import dataclass
@@ -10,7 +12,6 @@ from pentagram.parse.line import LineTerm
 from pentagram.parse.line import LineWord
 from pentagram.parse.number import parse_number
 from typing import Generic
-from typing import List
 from typing import Type
 from typing import TypeVar
 
@@ -48,10 +49,10 @@ class WordComment(WordTerm):
 @dataclass
 class WordLine:
     indent: int
-    terms: List[WordTerm]
+    terms: list[WordTerm]
 
 
-def parse_word_lines(lines: list[Line]) -> List[WordLine]:
+def parse_word_lines(lines: list[Line]) -> list[WordLine]:
     return [parse_one_word_line(line) for line in lines]
 
 

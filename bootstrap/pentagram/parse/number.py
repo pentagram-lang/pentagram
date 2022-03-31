@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from math import ceil
 from math import log2
 from numpy import integer

@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+from collections.abc import Iterable
 from io import BytesIO
 from numpy import int16
 from numpy import int32
@@ -23,8 +26,6 @@ from pentagram.syntax import SyntaxExpression
 from pentagram.syntax import SyntaxIdentifier
 from pentagram.test import params
 from typing import Any
-from typing import Iterable
-from typing import Tuple
 
 
 def call_test(
@@ -42,7 +43,7 @@ def call_test(
     )
 
 
-def params_add_blob() -> Iterable[Tuple[Any, bytes]]:
+def params_add_blob() -> Iterable[tuple[Any, bytes]]:
     yield uint8(0xF7), b"\xF7"
     yield int16(0xABCD), b"\xCD\xAB"
     yield int32(0x1234_5678), b"\x78\x56\x34\x12"
@@ -60,7 +61,7 @@ def test_add_blob(
     )
 
 
-def params_cat_blob() -> Iterable[Tuple[bytes, ...]]:
+def params_cat_blob() -> Iterable[tuple[bytes, ...]]:
     yield b"", b"", b""
     yield b"a", b"", b"a"
     yield b"", b"b", b"b"

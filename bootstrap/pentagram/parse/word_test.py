@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+from collections.abc import Iterable
 from numpy import int32
 from numpy import int64
 from numpy import uint8
@@ -15,11 +18,9 @@ from pentagram.parse.word import WordNumber
 from pentagram.parse.word import WordTerm
 from pentagram.parse.word import parse_word_lines
 from pentagram.test import params
-from typing import Iterable
-from typing import Tuple
 
 
-def params_word() -> Iterable[Tuple[LineTerm, WordTerm]]:
+def params_word() -> Iterable[tuple[LineTerm, WordTerm]]:
     yield LineWord("abc"), WordIdentifier("abc")
     yield LineComment(" desc"), WordComment(" desc")
     yield LineWord("0"), WordNumber(int32(0))

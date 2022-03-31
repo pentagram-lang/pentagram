@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from numpy.typing import NBitBase
 from pentagram.machine import MachineCall
 from pentagram.machine import MachineFrame

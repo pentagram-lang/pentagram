@@ -1,9 +1,10 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 from dataclasses import field
 from numpy import integer
 from numpy.typing import NBitBase
 from typing import Generic
-from typing import List
 from typing import Type
 from typing import TypeVar
 
@@ -40,12 +41,12 @@ class SyntaxComment(SyntaxTerm):
 
 @dataclass
 class SyntaxBlock(SyntaxTerm):
-    statements: List["SyntaxStatement"]
+    statements: list[SyntaxStatement]
 
 
 @dataclass
 class SyntaxStatement:
-    terms: List[SyntaxTerm]
+    terms: list[SyntaxTerm]
 
 
 @dataclass
@@ -55,7 +56,7 @@ class SyntaxExpression(SyntaxStatement):
 
 @dataclass
 class SyntaxBinding(SyntaxStatement):
-    bindings: List[SyntaxIdentifier]
+    bindings: list[SyntaxIdentifier]
 
 
 @dataclass

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from numpy import int32
 from pentagram.interpret import interpret
 from pentagram.interpret.test import test_environment

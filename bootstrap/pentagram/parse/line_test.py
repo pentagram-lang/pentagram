@@ -1,13 +1,14 @@
+from __future__ import annotations
+
+from collections.abc import Iterable
 from pentagram.parse.line import Line
 from pentagram.parse.line import LineComment
 from pentagram.parse.line import LineWord
 from pentagram.parse.line import parse_lines
 from pentagram.test import params
-from typing import Iterable
-from typing import Tuple
 
 
-def params_lines() -> Iterable[Tuple[str, list[Line]]]:
+def params_lines() -> Iterable[tuple[str, list[Line]]]:
     yield "a\n" "b\n", [
         Line(indent=0, terms=[LineWord("a")]),
         Line(indent=0, terms=[LineWord("b")]),

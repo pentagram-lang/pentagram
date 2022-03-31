@@ -37,16 +37,15 @@ pip install -e .
 
 ### Commands
 
-- `pytest-watch` to start testing code changes
-- `black .` to reformat everything
-- `isort .` to sort imports
-- `flake8 .` to check the code style
-- `mypy .` to check the types
+- `_dev test` to start testing code changes
+- `_dev types` to start checking code types
+- `_dev precommit` to reformat & check everything
 
 ### Python packages
 
-1. Change installed packages with `pip install` or `pip uninstall`
-2. Upgrade and freeze all packages with `./pip_freeze.sh`
+- `_dev deps add` to add a new package
+- `_dev deps outdated` to list outdated packages
+- `_dev deps upgrade` to updage a package
 
 ## License
 

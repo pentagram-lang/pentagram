@@ -56,6 +56,7 @@ flake8==4.0.1 \
     #   -r requirements.in
     #   flake8-bugbear
     #   flake8-builtins
+    #   flake8-future-import
 flake8-bugbear==22.1.11 \
     --hash=sha256:4c2a4136bd4ecb8bf02d5159af302ffc067642784c9d0488b33ce4610da825ee \
     --hash=sha256:ce7ae44aaaf67ef192b8a6de94a5ac617144e1675ad0654fdea556f48dc18d9b
@@ -63,6 +64,10 @@ flake8-bugbear==22.1.11 \
 flake8-builtins==1.5.3 \
     --hash=sha256:09998853b2405e98e61d2ff3027c47033adbdc17f9fe44ca58443d876eb00f3b \
     --hash=sha256:7706babee43879320376861897e5d1468e396a40b8918ed7bccf70e5f90b8687
+    # via -r requirements.in
+flake8-future-import==0.4.6 \
+    --hash=sha256:9711df0394a2bb5af47986a816cafc2e7f20db9ebc729676553e13df6cabbcf8 \
+    --hash=sha256:dceb036a81744b59a9ca34811b8a9f952a3585c95eaebdda15e8b04dafc77595
     # via -r requirements.in
 iniconfig==1.1.1 \
     --hash=sha256:011e24c64b7f47f6ebd835bb12a743f2fbe9a26d4cecaa7f53bc4f35ee9da8b3 \

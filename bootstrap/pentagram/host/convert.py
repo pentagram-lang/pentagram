@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from io import IOBase
 from numpy import integer
 from pentagram.machine import MachineBlob

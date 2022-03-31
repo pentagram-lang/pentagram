@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pentagram.interpret.statement import (
     interpret_statement,
 )

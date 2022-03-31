@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pentagram.interpret.block import interpret_block
 from pentagram.machine import MachineEnvironment
 from pentagram.machine import MachineExpressionStack

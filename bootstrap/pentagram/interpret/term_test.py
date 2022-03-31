@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from numpy import int32
 from pentagram.host.simple_call import sqrt
 from pentagram.host.value import PI

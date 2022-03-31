@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pentagram.environment import base_environment
 from pentagram.interpret.interpret import init_frame_stack
 from pentagram.machine import MachineCall
@@ -6,14 +8,12 @@ from pentagram.machine import MachineExpressionStack
 from pentagram.machine import MachineFrameStack
 from pentagram.machine import MachineValue
 from pentagram.syntax import SyntaxBlock
-from typing import Dict
 from typing import Optional
-from typing import Union
 
 
 def test_environment(
     bindings: Optional[
-        Dict[str, Union[MachineValue, MachineCall]]
+        dict[str, MachineValue | MachineCall]
     ] = None
 ) -> MachineEnvironment:
     return base_environment().extend(bindings)

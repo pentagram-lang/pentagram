@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 from pentagram.interpret.term import next_term
 from pentagram.machine import MachineCall

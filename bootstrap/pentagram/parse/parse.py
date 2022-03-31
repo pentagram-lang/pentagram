@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pentagram.parse.group import parse_group
 from pentagram.parse.line import parse_lines
 from pentagram.parse.statement import parse_statements_block

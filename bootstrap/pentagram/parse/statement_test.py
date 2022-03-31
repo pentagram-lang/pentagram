@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+from collections.abc import Iterable
 from numpy import int32
 from pentagram.parse.group import Group
 from pentagram.parse.group import GroupComment
@@ -13,12 +16,10 @@ from pentagram.syntax import SyntaxIdentifier
 from pentagram.syntax import SyntaxMethodDefinition
 from pentagram.syntax import SyntaxNumber
 from pentagram.test import params
-from typing import Iterable
-from typing import Tuple
 
 
 def params_statements() -> Iterable[
-    Tuple[Group, SyntaxBlock]
+    tuple[Group, SyntaxBlock]
 ]:
     # Expression
     yield Group(
