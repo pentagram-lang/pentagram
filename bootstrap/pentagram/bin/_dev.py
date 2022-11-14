@@ -10,7 +10,7 @@ def main() -> None:
     pass
 
 
-@click.group()
+@main.group()
 def deps() -> None:
     pass
 
