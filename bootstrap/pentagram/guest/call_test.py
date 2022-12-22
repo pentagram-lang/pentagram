@@ -4,7 +4,7 @@ from numpy import int32
 from pentagram.guest.call import GuestCall
 from pentagram.interpret import interpret
 from pentagram.interpret.test import init_test_frame_stack
-from pentagram.interpret.test import test_environment
+from pentagram.interpret.test import make_test_environment
 from pentagram.machine import MachineExpressionStack
 from pentagram.machine import MachineFrame
 from pentagram.machine import MachineInstructionPointer
@@ -17,7 +17,7 @@ from pentagram.syntax import SyntaxNumber
 
 def test_call_push_frame() -> None:
     call = GuestCall(
-        definition_environment=test_environment(),
+        definition_environment=make_test_environment(),
         definition_block=SyntaxBlock(
             [SyntaxExpression([SyntaxIdentifier("g")])]
         ),
@@ -47,7 +47,7 @@ def test_call_push_frame() -> None:
             statement_index=0,
             term_index=0,
         ),
-        environment=test_environment().extend(),
+        environment=make_test_environment().extend(),
         expression_stack=MachineExpressionStack(
             [MachineNumber(int32(9))]
         ),
@@ -56,7 +56,7 @@ def test_call_push_frame() -> None:
 
 def test_call_delegate_to_host_call() -> None:
     call = GuestCall(
-        definition_environment=test_environment(),
+        definition_environment=make_test_environment(),
         definition_block=SyntaxBlock(
             [SyntaxExpression([SyntaxIdentifier("sqrt")])]
         ),
@@ -67,7 +67,7 @@ def test_call_delegate_to_host_call() -> None:
     expression_stack = MachineExpressionStack(
         [MachineNumber(int32(16))]
     )
-    environment = test_environment({"f": call})
+    environment = make_test_environment({"f": call})
     interpret(block, expression_stack, environment)
     assert expression_stack == MachineExpressionStack(
         [MachineNumber(int32(4))]
@@ -76,7 +76,7 @@ def test_call_delegate_to_host_call() -> None:
 
 def test_call_generate_values() -> None:
     call = GuestCall(
-        definition_environment=test_environment(),
+        definition_environment=make_test_environment(),
         definition_block=SyntaxBlock(
             [
                 SyntaxExpression(
@@ -95,7 +95,7 @@ def test_call_generate_values() -> None:
     expression_stack = MachineExpressionStack(
         [MachineNumber(int32(1))]
     )
-    environment = test_environment({"seq": call})
+    environment = make_test_environment({"seq": call})
     interpret(block, expression_stack, environment)
     assert expression_stack == MachineExpressionStack(
         [

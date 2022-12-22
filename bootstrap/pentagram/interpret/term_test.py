@@ -5,7 +5,7 @@ from pentagram.host.simple_call import sqrt
 from pentagram.host.value import PI
 from pentagram.interpret.term import interpret_term
 from pentagram.interpret.test import init_test_frame_stack
-from pentagram.interpret.test import test_environment
+from pentagram.interpret.test import make_test_environment
 from pentagram.machine import MachineExpressionStack
 from pentagram.machine import MachineFrame
 from pentagram.machine import MachineInstructionPointer
@@ -109,7 +109,7 @@ def test_interpret_block() -> None:
         instruction_pointer=MachineInstructionPointer(
             block=term, statement_index=0, term_index=0
         ),
-        environment=test_environment().extend(),
+        environment=make_test_environment().extend(),
         expression_stack=MachineExpressionStack(
             [MachineNumber(int32(10))]
         ),

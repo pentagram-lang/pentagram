@@ -19,13 +19,15 @@ def test() -> None:
     make_tmp()
     write_flat_assembly()
     run_flat_nasm()
-    interpret_tacit()
+    interpret_pentagram()
     flat_xxd = run_xxd("tmp/flat")
-    tacit_xxd = run_xxd("tmp/tacit")
-    for flat_line, tacit_line in zip(flat_xxd, tacit_xxd):
-        assert tacit_line == flat_line
-    assert len(tacit_line) == len(flat_line)
-    assert run_tacit() == "Hello, Tacit world!\n"
+    pentagram_xxd = run_xxd("tmp/pentagram")
+    for flat_line, pentagram_line in zip(
+        flat_xxd, pentagram_xxd
+    ):
+        assert pentagram_line == flat_line
+    assert len(pentagram_line) == len(flat_line)
+    assert run_pentagram() == "Hello, Pentagram World!\n"
 
 
 def write_flat_assembly() -> None:
@@ -148,7 +150,7 @@ def write_flat_assembly() -> None:
         prog_size   equ     $ - _start
 
         rodata:
-        msg         db      'Hello, Tacit world!'
+        msg         db      'Hello, Pentagram World!'
                     db      0x0A
         msg_len     equ     $ - msg
         rodata_size   equ     $ - rodata
@@ -176,16 +178,18 @@ def make_tmp() -> None:
         return
     if lexists("tmp"):
         unlink("tmp")
-    tmp_path = mkdtemp(suffix=".tacit-gen3-python")
+    tmp_path = mkdtemp(suffix=".penta-gen3-python")
     symlink(tmp_path, "tmp", target_is_directory=True)
 
 
-def interpret_tacit() -> None:
-    with open("tmp/tacit", "wb") as tacit_output_file:
+def interpret_pentagram() -> None:
+    with open(
+        "tmp/pentagram", "wb"
+    ) as pentagram_output_file:
         test_environment = base_environment().extend(
-            {"cout": MachineStream(tacit_output_file)}
+            {"cout": MachineStream(pentagram_output_file)}
         )
-        main_run("../main.tacit", test_environment)
+        main_run("../main.penta", test_environment)
 
 
 def run_xxd(file_path: str) -> list[str]:
@@ -198,10 +202,10 @@ def run_xxd(file_path: str) -> list[str]:
     return list(filter(bool, result.stdout.split("\n")))
 
 
-def run_tacit() -> str:
-    chmod("tmp/tacit", stat.S_IRWXU)
+def run_pentagram() -> str:
+    chmod("tmp/pentagram", stat.S_IRWXU)
     result = subprocess.run(
-        ["tmp/tacit"], stdout=subprocess.PIPE, text=True
+        ["tmp/pentagram"], stdout=subprocess.PIPE, text=True
     )
     result.check_returncode()
     return result.stdout

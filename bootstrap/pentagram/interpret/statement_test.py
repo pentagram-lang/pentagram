@@ -7,7 +7,7 @@ from pentagram.interpret.statement import (
     interpret_statement,
 )
 from pentagram.interpret.test import init_test_frame_stack
-from pentagram.interpret.test import test_environment
+from pentagram.interpret.test import make_test_environment
 from pentagram.machine import MachineExpressionStack
 from pentagram.machine import MachineNumber
 from pentagram.syntax import SyntaxAssignment
@@ -94,7 +94,9 @@ def test_interpret_assignment_1_exit() -> None:
     assert frame_stack == init_frame_stack(
         init_statement_block(statement),
         MachineExpressionStack([MachineNumber(int32(4))]),
-        test_environment({"x": MachineNumber(int32(3))}),
+        make_test_environment(
+            {"x": MachineNumber(int32(3))}
+        ),
         statement_index=1,
     )
 
@@ -120,7 +122,7 @@ def test_interpret_assignment_2_exit() -> None:
     assert frame_stack == init_frame_stack(
         init_statement_block(statement),
         MachineExpressionStack([]),
-        test_environment(
+        make_test_environment(
             {
                 "abc": MachineNumber(int32(300)),
                 "def": MachineNumber(int32(400)),
@@ -149,7 +151,7 @@ def test_interpret_method_definition_exit() -> None:
         environment,
         statement_index=1,
     )
-    assert environment.base == test_environment().base
+    assert environment.base == make_test_environment().base
     assert environment.bindings == {
         "f": GuestCall(
             environment, statement.definition_block

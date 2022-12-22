@@ -89,7 +89,7 @@ def test() -> None:
             "pytest-watch",
             "..",
             "--ext",
-            ".py,.tacit",
+            ".py,.penta",
             "--",
             "-x",
             "-vvv",

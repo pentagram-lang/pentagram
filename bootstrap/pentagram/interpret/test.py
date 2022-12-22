@@ -11,7 +11,7 @@ from pentagram.syntax import SyntaxBlock
 from typing import Optional
 
 
-def test_environment(
+def make_test_environment(
     bindings: Optional[
         dict[str, MachineValue | MachineCall]
     ] = None
@@ -28,7 +28,7 @@ def init_test_frame_stack(
     return init_frame_stack(
         block=block,
         expression_stack=expression_stack,
-        environment=test_environment(),
+        environment=make_test_environment(),
         statement_index=statement_index,
         term_index=term_index,
     )

@@ -14,7 +14,7 @@ from pentagram.host.simple_call import nil_blob
 from pentagram.host.simple_call import sqrt
 from pentagram.host.simple_call import write
 from pentagram.interpret import interpret
-from pentagram.interpret.test import test_environment
+from pentagram.interpret.test import make_test_environment
 from pentagram.machine import MachineBinding
 from pentagram.machine import MachineBlob
 from pentagram.machine import MachineExpressionStack
@@ -36,7 +36,7 @@ def call_test(
     term = SyntaxIdentifier(binding.name)
     block = SyntaxBlock([SyntaxExpression([term])])
     expression_stack = MachineExpressionStack(args)
-    environment = test_environment()
+    environment = make_test_environment()
     interpret(block, expression_stack, environment)
     assert expression_stack == MachineExpressionStack(
         results

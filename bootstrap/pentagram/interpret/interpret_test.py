@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from numpy import int32
 from pentagram.interpret import interpret
-from pentagram.interpret.test import test_environment
+from pentagram.interpret.test import make_test_environment
 from pentagram.machine import MachineExpressionStack
 from pentagram.machine import MachineNumber
 from pentagram.syntax import SyntaxBlock
@@ -23,7 +23,7 @@ def test_interpret() -> None:
         ]
     )
     expression_stack = MachineExpressionStack([])
-    environment = test_environment()
+    environment = make_test_environment()
     interpret(block, expression_stack, environment)
     assert expression_stack == MachineExpressionStack(
         [
