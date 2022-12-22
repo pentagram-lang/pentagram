@@ -19,7 +19,7 @@ def deps() -> None:
 def add() -> None:
     # `pip index versions PACKAGE`
     # Add to `requirements.in`
-    # `pip-compile --quiet --allow-unsafe --generate-hashes --build-isolation`
+    # `pip-compile --quiet --allow-unsafe --generate-hashes --no-reuse-hashes --build-isolation`
     # `pip-sync`
     # `pip install -e .
     # `pip check
@@ -33,6 +33,7 @@ def _compile_deps() -> None:
             "--quiet",
             "--allow-unsafe",
             "--generate-hashes",
+            "--no-reuse-hashes",
             "--build-isolation",
         ],
         check=True,
@@ -54,8 +55,7 @@ def outdated() -> None:
 @deps.command()
 def upgrade() -> None:
     # Either update `requirements.in` or use `pip-compile` to upgrade
-    # `pip-compile --quiet --allow-unsafe --generate-hashes
-    #     --build-isolation --upgrade-package PACKAGE`
+    # `pip-compile --quiet --allow-unsafe --generate-hashes --no-reuse-hashes --build-isolation --upgrade-package PACKAGE`
     # `pip-sync`
     # `pip install -e .
     # `pip check
