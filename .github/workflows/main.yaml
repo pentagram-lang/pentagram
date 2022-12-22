@@ -12,13 +12,13 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Install NASM
         run: sudo apt-get install nasm
 
       - name: Set up Python
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@v4
         with:
           python-version: '3.10'
           cache: pip
@@ -31,9 +31,8 @@ jobs:
           pip install --no-deps -r /tmp/requirements.txt
           echo "-c $(pwd)/requirements.txt" > /tmp/requirements.in
           pip-compile --quiet --allow-unsafe --generate-hashes --build-isolation --output-file /tmp/requirements.txt requirements.in /tmp/requirements.in
-          grep -v '^\s*#' requirements.txt | diff - <(grep -v '^\s*#' /tmp/requirements.txt)
+          grep -v '^\s*#' requirements.txt | diff -c - <(grep -v '^\s*#' /tmp/requirements.txt)
           echo "Requirements verified"
-
 
       - name: Install Python requirements
         run: |
