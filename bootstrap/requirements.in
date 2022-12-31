@@ -8,13 +8,14 @@ isort==5.10.1
 more-itertools==8.12.0
 mypy==0.991
 numpy==1.22.3
-pip==22.0.4
+pip==22.3.1
 pip-review==1.1.1
-pip-tools==6.5.1
+pip-tools==6.12.1
 pyflakes==2.4.0
 pytest==7.2.0
 pytest-watch==4.2.0
 pipdeptree==2.2.1
 PyYAML==6.0
-setuptools==60.9.3
+setuptools==65.6.3
 types-setuptools==57.4.11
+wheel==0.38.4
