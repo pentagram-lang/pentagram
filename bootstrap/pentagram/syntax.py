@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from dataclasses import field
 from numpy import integer
-from numpy.typing import NBitBase
 from typing import Generic
 from typing import Type
 from typing import TypeVar
@@ -14,13 +13,13 @@ class SyntaxTerm:
     pass
 
 
-TBit = TypeVar("TBit", bound=NBitBase)
+TInteger = TypeVar("TInteger", bound=integer)
 
 
 @dataclass
-class SyntaxNumber(SyntaxTerm, Generic[TBit]):
-    value: integer[TBit]
-    value_type: Type[integer[TBit]] = field(init=False)
+class SyntaxNumber(SyntaxTerm, Generic[TInteger]):
+    value: TInteger
+    value_type: Type[TInteger] = field(init=False)
 
     def __post_init__(self) -> None:
         self.value_type = type(self.value)

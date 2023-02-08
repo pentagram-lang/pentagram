@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from io import IOBase
 from numpy import integer
-from pentagram.machine import MachineBlob
+from pentagram.machine import MachineArray
 from pentagram.machine import MachineNumber
 from pentagram.machine import MachineStream
 from pentagram.machine import MachineValue
@@ -17,16 +17,16 @@ def from_python(
         get_origin(python_type) or python_type
     )
     if issubclass(origin_python_type, MachineValue):
-        assert isinstance(value, MachineValue)
+        assert isinstance(value, origin_python_type)
         return value
     elif issubclass(origin_python_type, IOBase):
-        assert isinstance(value, IOBase)
+        assert isinstance(value, origin_python_type)
         return MachineStream(value)
-    elif issubclass(origin_python_type, bytearray):
-        assert isinstance(value, bytearray)
-        return MachineBlob(value)
+    elif issubclass(origin_python_type, list):
+        assert isinstance(value, origin_python_type)
+        return MachineArray(value)
     elif issubclass(origin_python_type, integer):
-        assert isinstance(value, integer)
+        assert isinstance(value, origin_python_type)
         return MachineNumber(value)
     else:
         raise AssertionError(value)
@@ -39,16 +39,19 @@ def to_python(
         get_origin(python_type) or python_type
     )
     if issubclass(origin_python_type, MachineValue):
-        assert isinstance(value, MachineValue)
+        assert isinstance(value, origin_python_type)
         return value
     elif issubclass(origin_python_type, IOBase):
         assert isinstance(value, MachineStream)
+        assert isinstance(value.value, origin_python_type)
         return value.value
-    elif issubclass(origin_python_type, bytearray):
-        assert isinstance(value, MachineBlob)
+    elif issubclass(origin_python_type, list):
+        assert isinstance(value, MachineArray)
+        assert isinstance(value.value, origin_python_type)
         return value.value
     elif issubclass(origin_python_type, integer):
         assert isinstance(value, MachineNumber)
+        assert isinstance(value.value, origin_python_type)
         return value.value
     else:
         raise AssertionError(value)

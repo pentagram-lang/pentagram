@@ -1,135 +1,135 @@
-main /=
-  program-blob = nil-blob
+main >>
+  program-data = [] arr
     generate-elf-header cat
     generate-code cat
     generate-data cat
 
-  cout program-blob write
+  cout program-data write
 
 
-generate-elf-header /=
+generate-elf-header >>
   -- ELF
-  nil-blob
+  [] arr
   generate-elf-entry-header cat
   generate-elf-program-headers cat
   generate-elf-section-headers cat
 
 
-generate-elf-entry-header /=
+generate-elf-entry-header >>
   -- Elf64_Ehdr
-  nil-blob
+  [] arr
 
   -- e_ident
   0x7F add  0x45 add  0x4C add  0x46 add
   0x02 add  0x01 add  0x01 add  0x00 add
-  0x0xd add
+  0x0xd to-le cat
 
   -- e_type
-  0x3xh add
+  0x3xh to-le cat
 
   -- e_machine
-  0x3Exh add
+  0x3Exh to-le cat
 
   -- e_version
-  0x1xw add
+  0x1xw to-le cat
 
   -- e_entry
-  0x0000-0000-0804-81C9 add
+  0x0000-0000-0804-81C9 to-le cat
 
   -- e_phoff
-  0x0000-0000-0000-0040 add
+  0x0000-0000-0000-0040 to-le cat
 
   -- e_shoff
-  0x0000-0000-0000-00B0 add
+  0x0000-0000-0000-00B0 to-le cat
 
   -- e_flags
-  0x0000-0000 add
+  0x0000-0000 to-le cat
 
   -- e_ehsize
-  0x40xh add
+  0x40xh to-le cat
 
   -- e_phentsize
-  0x38xh add
+  0x38xh to-le cat
 
   -- e_phnum
-  0x2xh add
+  0x2xh to-le cat
 
   -- e_shentsize
-  0x40xh add
+  0x40xh to-le cat
 
   -- e_shnum
-  0x4xh add
+  0x4xh to-le cat
 
   -- e_shstrndx
-  0x1xh add
+  0x1xh to-le cat
 
 
-generate-elf-program-headers /=
-  nil-blob
+generate-elf-program-headers >>
+  [] arr
   generate-elf-code-program-header cat
   generate-elf-data-program-header cat
 
 
-generate-elf-code-program-header /=
+generate-elf-code-program-header >>
   -- Elf64_Phdr
-  nil-blob
+  [] arr
 
   -- p_type
-  0x1xw add
+  0x1xw to-le cat
 
   -- p_flags
-  0x5xw add
+  0x5xw to-le cat
 
   -- p_offset
-  0x0000-0000-0000-01C9 add
+  0x0000-0000-0000-01C9 to-le cat
 
   -- p_vaddr
-  0x0000-0000-0804-81C9 add
+  0x0000-0000-0804-81C9 to-le cat
 
   -- p_paddr
-  0x0000-0000-0804-81C9 add
+  0x0000-0000-0804-81C9 to-le cat
 
   -- p_filesz
-  0x24xd add
+  0x24xd to-le cat
 
   -- p_memsz
-  0x24xd add
+  0x24xd to-le cat
 
   -- p_align
-  0x1000xd add
+  0x1000xd to-le cat
 
 
-generate-elf-data-program-header /=
+generate-elf-data-program-header >>
   -- Elf64_Phdr
-  nil-blob
+  [] arr
 
   -- p_type
-  0x1xw add
+  0x1xw to-le cat
 
   -- p_flags
-  0x4xw add
+  0x4xw to-le cat
 
   -- p_offset
-  0x0000-0000-0000-01ED add
+  0x0000-0000-0000-01ED to-le cat
 
   -- p_vaddr
-  0x0000-0000-0804-91ED add
+  0x0000-0000-0804-91ED to-le cat
 
   -- p_paddr
-  0x0000-0000-0804-91ED add
+  0x0000-0000-0804-91ED to-le cat
 
   -- p_filesz
-  0x18xd add
+  0x18xd to-le cat
 
   -- p_memsz
-  0x18xd add
+  0x18xd to-le cat
 
   -- p_align
-  0x1000xd add
+  0x1000xd to-le cat
 
 
 generate-elf-section-headers /=
-  nil-blob
+  [] arr
   generate-elf-nil-section-header cat
   generate-elf-strings-section-header cat
   generate-elf-code-section-header cat
@@ -139,127 +139,127 @@ generate-elf-section-headers /=
 
 generate-elf-nil-section-header /=
   -- Elf64_Shdr
-  nil-blob
-  0x0xw add -- sh_name
-  0x0xw add -- sh_type
-  0x0xd add -- sh_flags
-  0x0xd add -- sh_addr
-  0x0xd add -- sh_offset
-  0x0xd add -- sh_size
-  0x0xw add -- sh_link
-  0x0xw add -- sh_info
-  0x0xd add -- sh_addralign
-  0x0xd add -- sh_entsize
+  [] arr
+  0x0xw to-le cat -- sh_name
+  0x0xw to-le cat -- sh_type
+  0x0xd to-le cat -- sh_flags
+  0x0xd to-le cat -- sh_addr
+  0x0xd to-le cat -- sh_offset
+  0x0xd to-le cat -- sh_size
+  0x0xw to-le cat -- sh_link
+  0x0xw to-le cat -- sh_info
+  0x0xd to-le cat -- sh_addralign
+  0x0xd to-le cat -- sh_entsize
 
 
 generate-elf-strings-section-header /=
   -- Elf64_Shdr
-  nil-blob
+  [] arr
 
   -- sh_name
-  0x1xw add
+  0x1xw to-le cat
 
   -- sh_type
-  0x3xw add
+  0x3xw to-le cat
 
   -- sh_flags
-  0x0xd add
+  0x0xd to-le cat
 
   -- sh_addr
-  0x0000-0000-0804-8000 add
+  0x0000-0000-0804-8000 to-le cat
 
   -- sh_offset
-  0x0000-0000-0000-01B0 add
+  0x0000-0000-0000-01B0 to-le cat
 
   -- sh_size
-  0x19xd add
+  0x19xd to-le cat
 
   -- sh_link
-  0x0xw add
+  0x0xw to-le cat
 
   -- sh_info
-  0x0xw add
+  0x0xw to-le cat
 
   -- sh_addralign
-  0x1xd add
+  0x1xd to-le cat
 
   -- sh_entsize
-  0x0xd add
+  0x0xd to-le cat
 
 
 generate-elf-code-section-header /=
   -- Elf64_Shdr
-  nil-blob
+  [] arr
 
   -- sh_name
-  0xBxw add
+  0xBxw to-le cat
 
   -- sh_type
-  0x1xw add
+  0x1xw to-le cat
 
   -- sh_flags
-  0x6xd add
+  0x6xd to-le cat
 
   -- sh_addr
-  0x0000-0000-0804-81C9 add
+  0x0000-0000-0804-81C9 to-le cat
 
   -- sh_offset
-  0x0000-0000-0000-01C9 add
+  0x0000-0000-0000-01C9 to-le cat
 
   -- sh_size
-  0x24xd add
+  0x24xd to-le cat
 
   -- sh_link
-  0x0xw add
+  0x0xw to-le cat
 
   -- sh_info
-  0x0xw add
+  0x0xw to-le cat
 
   -- sh_addralign
-  0x1000xd add
+  0x1000xd to-le cat
 
   -- sh_entsize
-  0x0xd add
+  0x0xd to-le cat
 
 
 generate-elf-data-section-header /=
   -- Elf64_Shdr
-  nil-blob
+  [] arr
 
   -- sh_name
-  0x11xw add
+  0x11xw to-le cat
 
   -- sh_type
-  0x1xw add
+  0x1xw to-le cat
 
   -- sh_flags
-  0x2xd add
+  0x2xd to-le cat
 
   -- sh_addr
-  0x0000-0000-0804-91ED add
+  0x0000-0000-0804-91ED to-le cat
 
   -- sh_offset
-  0x0000-0000-0000-01ED add
+  0x0000-0000-0000-01ED to-le cat
 
   -- sh_size
-  0x18xd add
+  0x18xd to-le cat
 
   -- sh_link
-  0x0xw add
+  0x0xw to-le cat
 
   -- sh_info
-  0x0xw add
+  0x0xw to-le cat
 
   -- sh_addralign
-  0x1000xd add
+  0x1000xd to-le cat
 
   -- sh_entsize
-  0x0xd add
+  0x0xd to-le cat
 
 
 generate-elf-section-strings-table /=
   -- shstrtab
-  nil-blob
+  [] arr
 
   -- Undefined
   0x00 add
@@ -278,7 +278,7 @@ generate-elf-section-strings-table /=
 
 
 generate-code /=
-  nil-blob
+  [] arr
 
   -- count
   -- mov $0x18,%edx
@@ -313,7 +313,7 @@ generate-code /=
 
 
 generate-data /=
-  nil-blob
+  [] arr
 
   -- 'Hello, Pentagram World!'
   0x48 add  0x65 add  0x6C add  0x6C add

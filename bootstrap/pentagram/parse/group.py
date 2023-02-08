@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from dataclasses import field
 from numpy import integer
-from numpy.typing import NBitBase
 from pentagram.parse.word import WordComment
 from pentagram.parse.word import WordIdentifier
 from pentagram.parse.word import WordLine
@@ -18,13 +17,13 @@ class GroupTerm:
     pass
 
 
-TBit = TypeVar("TBit", bound=NBitBase)
+TInteger = TypeVar("TInteger", bound=integer)
 
 
 @dataclass
-class GroupNumber(GroupTerm, Generic[TBit]):
-    value: integer[TBit]
-    value_type: type[integer[TBit]] = field(init=False)
+class GroupNumber(GroupTerm, Generic[TInteger]):
+    value: TInteger
+    value_type: type[TInteger] = field(init=False)
 
     def __post_init__(self) -> None:
         self.value_type = type(self.value)

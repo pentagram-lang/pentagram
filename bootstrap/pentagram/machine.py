@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from dataclasses import field
 from io import IOBase
 from numpy import integer
-from numpy.typing import NBitBase
 from pentagram.syntax import SyntaxBlock
 from pentagram.syntax import SyntaxStatement
 from pentagram.syntax import SyntaxTerm
@@ -21,18 +20,21 @@ class MachineValue:
     pass
 
 
-@dataclass
-class MachineBlob(MachineValue):
-    value: bytearray
-
-
-TBit = TypeVar("TBit", bound=NBitBase)
+TItem = TypeVar("TItem", bound=MachineValue)
 
 
 @dataclass
-class MachineNumber(MachineValue, Generic[TBit]):
-    value: integer[TBit]
-    value_type: Type[integer[TBit]] = field(init=False)
+class MachineArray(MachineValue, Generic[TItem]):
+    value: list[TItem]
+
+
+TInteger = TypeVar("TInteger", bound=integer)
+
+
+@dataclass
+class MachineNumber(MachineValue, Generic[TInteger]):
+    value: TInteger
+    value_type: Type[TInteger] = field(init=False)
 
     def __post_init__(self) -> None:
         self.value_type = type(self.value)

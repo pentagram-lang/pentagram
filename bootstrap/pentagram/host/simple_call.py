@@ -9,6 +9,7 @@ from inspect import signature
 from io import IOBase
 from numpy import int32
 from numpy import integer
+from numpy import uint8
 from numpy.typing import NBitBase
 from pentagram.host.convert import from_python
 from pentagram.host.convert import from_python_name
@@ -17,6 +18,9 @@ from pentagram.interpret.term import next_term
 from pentagram.machine import MachineBinding
 from pentagram.machine import MachineCall
 from pentagram.machine import MachineFrameStack
+from pentagram.machine import MachineNumber
+from pentagram.machine import MachineValue
+from sys import byteorder
 from typing import Any
 from typing import Callable
 from typing import get_args
@@ -77,26 +81,41 @@ def simple_call(func: Callable[..., Any]) -> MachineBinding:
 
 
 @simple_call
-def add(
-    blob: bytearray, number: integer[NBitBase]
-) -> bytearray:
-    # Observable side effect due to performance semantics
-    blob += number.tobytes()
-    return blob
+def add(array: list, value: MachineValue) -> list:
+    return array + [value]
 
 
 @simple_call
 def cat(
-    initial_blob: bytearray, concatenation_blob: bytearray
-) -> bytearray:
-    # Observable side effect due to performance semantics
-    initial_blob += concatenation_blob
-    return initial_blob
+    initial_array: list, concatenation_array: list
+) -> bytes:
+    return initial_array + concatenation_array
 
 
 @simple_call
-def nil_blob() -> bytearray:
-    return bytearray()
+def to_me(value: integer[NBitBase]) -> list:
+    return list(value.tobytes())
+
+
+@simple_call
+def to_be(value: integer[NBitBase]) -> bytes:
+    if byteorder == "little":
+        return list(value.byteswap().tobytes())
+    else:
+        return list(value.tobytes())
+
+
+@simple_call
+def to_le(value: integer[NBitBase]) -> bytes:
+    if byteorder == "little":
+        return list(value.tobytes())
+    else:
+        return list(value.byteswap().tobytes())
+
+
+@simple_call
+def arr(init: Any) -> list:
+    return list()
 
 
 @simple_call
@@ -105,5 +124,7 @@ def sqrt(x: int32) -> int32:
 
 
 @simple_call
-def write(stream: IOBase, blob: bytearray) -> None:
-    stream.write(blob)
+def write(
+    stream: IOBase, array: list[MachineNumber[uint8]]
+) -> None:
+    stream.write(bytes([item.value for item in array]))
