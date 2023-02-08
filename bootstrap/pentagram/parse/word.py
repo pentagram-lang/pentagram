@@ -5,7 +5,6 @@ import re
 from dataclasses import dataclass
 from dataclasses import field
 from numpy import integer
-from numpy.typing import NBitBase
 from pentagram.parse.line import Line
 from pentagram.parse.line import LineComment
 from pentagram.parse.line import LineTerm
@@ -21,13 +20,13 @@ class WordTerm:
     pass
 
 
-TBit = TypeVar("TBit", bound=NBitBase)
+TInteger = TypeVar("TInteger", bound=integer)
 
 
 @dataclass
-class WordNumber(WordTerm, Generic[TBit]):
-    value: integer[TBit]
-    value_type: Type[integer[TBit]] = field(init=False)
+class WordNumber(WordTerm, Generic[TInteger]):
+    value: TInteger
+    value_type: Type[TInteger] = field(init=False)
 
     def __post_init__(self) -> None:
         self.value_type = type(self.value)

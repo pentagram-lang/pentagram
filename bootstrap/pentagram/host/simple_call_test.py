@@ -15,8 +15,8 @@ from pentagram.host.simple_call import sqrt
 from pentagram.host.simple_call import write
 from pentagram.interpret import interpret
 from pentagram.interpret.test import make_test_environment
+from pentagram.machine import MachineArray
 from pentagram.machine import MachineBinding
-from pentagram.machine import MachineBlob
 from pentagram.machine import MachineExpressionStack
 from pentagram.machine import MachineNumber
 from pentagram.machine import MachineStream
@@ -56,8 +56,8 @@ def test_add_blob(
 ) -> None:
     call_test(
         add,
-        [MachineBlob(bytearray()), MachineNumber(number)],
-        [MachineBlob(bytearray(expected))],
+        [MachineArray(bytes()), MachineNumber(number)],
+        [MachineArray(bytes(expected))],
     )
 
 
@@ -75,15 +75,15 @@ def test_cat_blob(
     call_test(
         cat,
         [
-            MachineBlob(bytearray(bytes_a)),
-            MachineBlob(bytearray(bytes_b)),
+            MachineArray(bytes(bytes_a)),
+            MachineArray(bytes(bytes_b)),
         ],
-        [MachineBlob(bytearray(expected))],
+        [MachineArray(bytes(expected))],
     )
 
 
 def test_nil_blob() -> None:
-    call_test(nil_blob, [], [MachineBlob(bytearray())])
+    call_test(nil_blob, [], [MachineArray(bytes())])
 
 
 def test_sqrt() -> None:
@@ -100,7 +100,7 @@ def test_write() -> None:
         write,
         [
             MachineStream(bytes_io),
-            MachineBlob(bytearray(b"abcdef")),
+            MachineArray(bytes(b"abcdef")),
         ],
         [],
     )
