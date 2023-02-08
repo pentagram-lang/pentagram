@@ -33,12 +33,12 @@ def parse_one_statement(
         if isinstance(term, GroupIdentifier):
             if term.name == "=":
                 return SyntaxAssignment(
+                    bindings=bindings,
                     terms=parse_terms(
                         terms[len(bindings) + 1 :]
                     ),
-                    bindings=bindings,
                 )
-            elif term.name == "/=":
+            elif term.name == ">>":
                 assert len(bindings) == 1
                 return SyntaxMethodDefinition(
                     binding=bindings[0],

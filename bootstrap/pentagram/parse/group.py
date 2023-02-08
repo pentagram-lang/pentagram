@@ -8,6 +8,7 @@ from pentagram.parse.word import WordIdentifier
 from pentagram.parse.word import WordLine
 from pentagram.parse.word import WordNumber
 from pentagram.parse.word import WordTerm
+from typing import Any
 from typing import Generic
 from typing import TypeVar
 
@@ -17,7 +18,7 @@ class GroupTerm:
     pass
 
 
-TInteger = TypeVar("TInteger", bound=integer)
+TInteger = TypeVar("TInteger", bound=integer[Any])
 
 
 @dataclass

@@ -7,11 +7,13 @@ from numpy import int32
 from numpy import integer
 from numpy import uint8
 from numpy import uint64
-from numpy.typing import NBitBase
 from pentagram.host.simple_call import add
+from pentagram.host.simple_call import arr
 from pentagram.host.simple_call import cat
-from pentagram.host.simple_call import nil_blob
 from pentagram.host.simple_call import sqrt
+from pentagram.host.simple_call import to_be
+from pentagram.host.simple_call import to_le
+from pentagram.host.simple_call import to_me
 from pentagram.host.simple_call import write
 from pentagram.interpret import interpret
 from pentagram.interpret.test import make_test_environment
@@ -25,6 +27,7 @@ from pentagram.syntax import SyntaxBlock
 from pentagram.syntax import SyntaxExpression
 from pentagram.syntax import SyntaxIdentifier
 from pentagram.test import params
+from sys import byteorder
 from typing import Any
 
 
@@ -43,47 +46,64 @@ def call_test(
     )
 
 
-def params_add_blob() -> Iterable[tuple[Any, bytes]]:
-    yield uint8(0xF7), b"\xF7"
-    yield int16(0xABCD), b"\xCD\xAB"
-    yield int32(0x1234_5678), b"\x78\x56\x34\x12"
-    yield uint64(1), b"\x01\0\0\0\0\0\0\0"
-
-
-@params(params_add_blob)
-def test_add_blob(
-    number: integer[NBitBase], expected: bytes
-) -> None:
+def test_add() -> None:
     call_test(
         add,
-        [MachineArray(bytes()), MachineNumber(number)],
-        [MachineArray(bytes(expected))],
+        [
+            MachineArray([MachineNumber(uint8(0x01))]),
+            MachineNumber(uint8(0x02)),
+        ],
+        [
+            MachineArray(
+                [
+                    MachineNumber(uint8(0x01)),
+                    MachineNumber(uint8(0x02)),
+                ]
+            ),
+        ],
     )
 
 
-def params_cat_blob() -> Iterable[tuple[bytes, ...]]:
+def test_arr() -> None:
+    call_test(arr, [MachineValue()], [MachineArray([])])
+
+
+def params_cat() -> Iterable[tuple[bytes, ...]]:
     yield b"", b"", b""
     yield b"a", b"", b"a"
     yield b"", b"b", b"b"
     yield b"123", b"456", b"123456"
 
 
-@params(params_cat_blob)
-def test_cat_blob(
+@params(params_cat)
+def test_cat(
     bytes_a: bytes, bytes_b: bytes, expected: bytes
 ) -> None:
     call_test(
         cat,
         [
-            MachineArray(bytes(bytes_a)),
-            MachineArray(bytes(bytes_b)),
+            MachineArray(
+                [
+                    MachineNumber(uint8(byte))
+                    for byte in bytes_a
+                ]
+            ),
+            MachineArray(
+                [
+                    MachineNumber(uint8(byte))
+                    for byte in bytes_b
+                ]
+            ),
         ],
-        [MachineArray(bytes(expected))],
+        [
+            MachineArray(
+                [
+                    MachineNumber(uint8(byte))
+                    for byte in bytes_a + bytes_b
+                ]
+            )
+        ],
     )
-
-
-def test_nil_blob() -> None:
-    call_test(nil_blob, [], [MachineArray(bytes())])
 
 
 def test_sqrt() -> None:
@@ -94,13 +114,71 @@ def test_sqrt() -> None:
     )
 
 
+def params_to_endian() -> Iterable[tuple[Any, bytes]]:
+    yield uint8(0xF7), b"\xF7"
+    yield int16(0xABCD), b"\xCD\xAB"
+    yield int32(0x1234_5678), b"\x78\x56\x34\x12"
+    yield uint64(1), b"\x01\0\0\0\0\0\0\0"
+
+
+@params(params_to_endian)
+def test_to_endian(
+    number: integer[Any], expected_le: list[MachineValue]
+) -> None:
+    call_test(
+        to_be,
+        [MachineNumber(number)],
+        [
+            MachineArray(
+                [
+                    MachineNumber(uint8(byte))
+                    for byte in reversed(expected_le)
+                ]
+            )
+        ],
+    )
+    call_test(
+        to_le,
+        [MachineNumber(number)],
+        [
+            MachineArray(
+                [
+                    MachineNumber(uint8(byte))
+                    for byte in expected_le
+                ]
+            )
+        ],
+    )
+    call_test(
+        to_me,
+        [MachineNumber(number)],
+        [
+            MachineArray(
+                [
+                    MachineNumber(uint8(byte))
+                    for byte in (
+                        expected_le
+                        if byteorder == "little"
+                        else reversed(expected_le)
+                    )
+                ]
+            )
+        ],
+    )
+
+
 def test_write() -> None:
     bytes_io = BytesIO()
     call_test(
         write,
         [
             MachineStream(bytes_io),
-            MachineArray(bytes(b"abcdef")),
+            MachineArray(
+                [
+                    MachineNumber(uint8(byte))
+                    for byte in b"abcdef"
+                ]
+            ),
         ],
         [],
     )

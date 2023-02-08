@@ -9,6 +9,7 @@ from numpy import integer
 from pentagram.syntax import SyntaxBlock
 from pentagram.syntax import SyntaxStatement
 from pentagram.syntax import SyntaxTerm
+from typing import Any
 from typing import Generic
 from typing import Optional
 from typing import Type
@@ -28,7 +29,7 @@ class MachineArray(MachineValue, Generic[TItem]):
     value: list[TItem]
 
 
-TInteger = TypeVar("TInteger", bound=integer)
+TInteger = TypeVar("TInteger", bound=integer[Any])
 
 
 @dataclass
