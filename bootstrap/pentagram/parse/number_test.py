@@ -10,7 +10,6 @@ from numpy import uint8
 from numpy import uint16
 from numpy import uint32
 from numpy import uint64
-from numpy.typing import NBitBase
 from pentagram.parse.number import parse_number
 from pentagram.test import params
 from typing import Any
@@ -35,7 +34,7 @@ def test_parse_number(
     base: int,
     digits: str,
     suffix: str,
-    expected: integer[NBitBase],
+    expected: integer[Any],
 ) -> None:
     result = parse_number(base, digits, suffix)
     assert result == expected

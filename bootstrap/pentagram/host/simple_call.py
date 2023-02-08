@@ -10,7 +10,6 @@ from io import IOBase
 from numpy import int32
 from numpy import integer
 from numpy import uint8
-from numpy.typing import NBitBase
 from pentagram.host.convert import from_python
 from pentagram.host.convert import from_python_name
 from pentagram.host.convert import to_python
@@ -81,46 +80,58 @@ def simple_call(func: Callable[..., Any]) -> MachineBinding:
 
 
 @simple_call
-def add(array: list, value: MachineValue) -> list:
+def add(
+    array: list[MachineValue], value: MachineValue
+) -> list[MachineValue]:
     return array + [value]
 
 
 @simple_call
-def cat(
-    initial_array: list, concatenation_array: list
-) -> bytes:
-    return initial_array + concatenation_array
-
-
-@simple_call
-def to_me(value: integer[NBitBase]) -> list:
-    return list(value.tobytes())
-
-
-@simple_call
-def to_be(value: integer[NBitBase]) -> bytes:
-    if byteorder == "little":
-        return list(value.byteswap().tobytes())
-    else:
-        return list(value.tobytes())
-
-
-@simple_call
-def to_le(value: integer[NBitBase]) -> bytes:
-    if byteorder == "little":
-        return list(value.tobytes())
-    else:
-        return list(value.byteswap().tobytes())
-
-
-@simple_call
-def arr(init: Any) -> list:
+def arr(init: Any) -> list[MachineValue]:
     return list()
+
+
+@simple_call
+def cat(
+    initial_array: list[MachineValue],
+    concatenation_array: list[MachineValue],
+) -> list[MachineValue]:
+    return initial_array + concatenation_array
 
 
 @simple_call
 def sqrt(x: int32) -> int32:
     return int32(math.sqrt(x))
+
+
+@simple_call
+def to_be(value: integer[Any]) -> list[MachineValue]:
+    value = (
+        value.byteswap() if byteorder == "little" else value
+    )
+    return [
+        MachineNumber(uint8(byte))
+        for byte in value.tobytes()
+    ]
+
+
+@simple_call
+def to_le(value: integer[Any]) -> list[MachineValue]:
+    value = (
+        value if byteorder == "little" else value.byteswap()
+    )
+    return [
+        MachineNumber(uint8(byte))
+        for byte in value.tobytes()
+    ]
+
+
+@simple_call
+def to_me(value: integer[Any]) -> list[MachineValue]:
+    return [
+        MachineNumber(uint8(byte))
+        for byte in value.tobytes()
+    ]
 
 
 @simple_call

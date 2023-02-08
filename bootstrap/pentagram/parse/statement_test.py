@@ -146,7 +146,7 @@ def params_statements() -> Iterable[
             GroupLine(
                 [
                     GroupIdentifier("a1"),
-                    GroupIdentifier("/="),
+                    GroupIdentifier(">>"),
                     GroupIdentifier("b2"),
                 ]
             )
@@ -168,7 +168,7 @@ def params_statements() -> Iterable[
             GroupLine(
                 [
                     GroupIdentifier("add"),
-                    GroupIdentifier("/="),
+                    GroupIdentifier(">>"),
                     Group(
                         [
                             GroupLine(

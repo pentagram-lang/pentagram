@@ -128,7 +128,7 @@ generate-elf-data-program-header >>
   0x1000xd to-le cat
 
 
-generate-elf-section-headers /=
+generate-elf-section-headers >>
   [] arr
   generate-elf-nil-section-header cat
   generate-elf-strings-section-header cat
@@ -137,7 +137,7 @@ generate-elf-section-headers /=
   generate-elf-section-strings-table cat
 
 
-generate-elf-nil-section-header /=
+generate-elf-nil-section-header >>
   -- Elf64_Shdr
   [] arr
   0x0xw to-le cat -- sh_name
@@ -152,7 +152,7 @@ generate-elf-nil-section-header /=
   0x0xd to-le cat -- sh_entsize
 
 
-generate-elf-strings-section-header /=
+generate-elf-strings-section-header >>
   -- Elf64_Shdr
   [] arr
 
@@ -187,7 +187,7 @@ generate-elf-strings-section-header /=
   0x0xd to-le cat
 
 
-generate-elf-code-section-header /=
+generate-elf-code-section-header >>
   -- Elf64_Shdr
   [] arr
 
@@ -222,7 +222,7 @@ generate-elf-code-section-header /=
   0x0xd to-le cat
 
 
-generate-elf-data-section-header /=
+generate-elf-data-section-header >>
   -- Elf64_Shdr
   [] arr
 
@@ -257,7 +257,7 @@ generate-elf-data-section-header /=
   0x0xd to-le cat
 
 
-generate-elf-section-strings-table /=
+generate-elf-section-strings-table >>
   -- shstrtab
   [] arr
 
@@ -277,7 +277,7 @@ generate-elf-section-strings-table /=
   0x74 add  0x61 add  0x00 add
 
 
-generate-code /=
+generate-code >>
   [] arr
 
   -- count
@@ -312,7 +312,7 @@ generate-code /=
   0x0F add  0x05 add
 
 
-generate-data /=
+generate-data >>
   [] arr
 
   -- 'Hello, Pentagram World!'

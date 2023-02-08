@@ -10,6 +10,7 @@ from pentagram.parse.line import LineComment
 from pentagram.parse.line import LineTerm
 from pentagram.parse.line import LineWord
 from pentagram.parse.number import parse_number
+from typing import Any
 from typing import Generic
 from typing import Type
 from typing import TypeVar
@@ -20,7 +21,7 @@ class WordTerm:
     pass
 
 
-TInteger = TypeVar("TInteger", bound=integer)
+TInteger = TypeVar("TInteger", bound=integer[Any])
 
 
 @dataclass

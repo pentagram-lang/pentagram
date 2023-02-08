@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from dataclasses import field
 from numpy import integer
+from typing import Any
 from typing import Generic
 from typing import Type
 from typing import TypeVar
@@ -13,7 +14,7 @@ class SyntaxTerm:
     pass
 
 
-TInteger = TypeVar("TInteger", bound=integer)
+TInteger = TypeVar("TInteger", bound=integer[Any])
 
 
 @dataclass

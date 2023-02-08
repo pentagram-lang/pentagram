@@ -7,6 +7,7 @@ from pentagram.machine import MachineNumber
 from pentagram.machine import MachineStream
 from pentagram.machine import MachineValue
 from typing import Any
+from typing import cast
 from typing import get_origin
 
 
@@ -18,7 +19,7 @@ def from_python(
     )
     if issubclass(origin_python_type, MachineValue):
         assert isinstance(value, origin_python_type)
-        return value
+        return cast(MachineValue, value)
     elif issubclass(origin_python_type, IOBase):
         assert isinstance(value, origin_python_type)
         return MachineStream(value)
