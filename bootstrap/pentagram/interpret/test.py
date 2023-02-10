@@ -8,13 +8,11 @@ from pentagram.machine import MachineExpressionStack
 from pentagram.machine import MachineFrameStack
 from pentagram.machine import MachineValue
 from pentagram.syntax import SyntaxBlock
-from typing import Optional
 
 
 def make_test_environment(
-    bindings: Optional[
-        dict[str, MachineValue | MachineCall]
-    ] = None
+    bindings: dict[str, MachineValue | MachineCall]
+    | None = None
 ) -> MachineEnvironment:
     return base_environment().extend(bindings)
 

@@ -11,7 +11,6 @@ from pentagram.syntax import SyntaxStatement
 from pentagram.syntax import SyntaxTerm
 from typing import Any
 from typing import Generic
-from typing import Optional
 from typing import Type
 from typing import TypeVar
 
@@ -91,13 +90,12 @@ class MachineBinding:
 @dataclass
 class MachineEnvironment:
     bindings: dict[str, MachineValue | MachineCall]
-    base: Optional[MachineEnvironment]
+    base: MachineEnvironment | None
 
     def extend(
         self,
-        bindings: Optional[
-            dict[str, MachineValue | MachineCall]
-        ] = None,
+        bindings: dict[str, MachineValue | MachineCall]
+        | None = None,
     ) -> MachineEnvironment:
         return MachineEnvironment(bindings or {}, base=self)
 

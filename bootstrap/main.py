@@ -11,7 +11,6 @@ from pentagram.machine import MachineEnvironment
 from pentagram.machine import MachineExpressionStack
 from pentagram.machine import MachineValue
 from pentagram.parse import parse
-from typing import Optional
 
 
 def main() -> None:
@@ -27,7 +26,7 @@ def main() -> None:
 
 def main_run(
     source_filename: str,
-    environment: Optional[MachineEnvironment] = None,
+    environment: MachineEnvironment | None = None,
 ) -> None:
     with open(source_filename, "r") as source_file:
         source_text = source_file.read()

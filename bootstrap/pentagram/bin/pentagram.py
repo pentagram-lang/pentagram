@@ -11,7 +11,6 @@ from pentagram.machine import MachineEnvironment
 from pentagram.machine import MachineExpressionStack
 from pentagram.machine import MachineValue
 from pentagram.parse import parse
-from typing import Optional
 
 
 @click.command()
@@ -22,7 +21,7 @@ from typing import Optional
 )
 @click.option("--parse", is_flag=True)
 def main(
-    source_filename: Optional[str], *, parse: bool
+    source_filename: str | None, *, parse: bool
 ) -> None:
     if parse:
         parse_loop()
@@ -34,7 +33,7 @@ def main(
 
 def main_run(
     source_filename: str,
-    environment: Optional[MachineEnvironment] = None,
+    environment: MachineEnvironment | None = None,
 ) -> None:
     with open(source_filename, "r") as source_file:
         source_text = source_file.read()

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from math import ceil
 from math import log2
 from numpy import integer
@@ -7,11 +9,16 @@ from numpy import sctypeDict
 from typing import Any
 from typing import cast
 
+ignored_digits = re.compile(
+    r"^[-_]",
+    re.VERBOSE,
+)
+
 
 def parse_number(
-    base: int, digits: str, suffix: str
+    base: int, digits: str, suffix: str, sign: str
 ) -> integer[Any]:
-    digits = digits.replace("-", "")
+    digits = ignored_digits.sub(digits)
 
     if base == 10:
         bits = 32
@@ -37,7 +44,9 @@ def parse_number(
         signed = False
 
     type_name = f"{'' if signed else 'u'}int{bits}"
-    int_value = int(digits, base)
+    int_value = int(digits, base) * (
+        -1 if sign == "-" else 1
+    )
     return cast(
         integer[Any], sctypeDict[type_name](int_value)
     )

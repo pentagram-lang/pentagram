@@ -7,7 +7,7 @@ from pentagram.parse.group import GroupComment
 from pentagram.parse.group import GroupIdentifier
 from pentagram.parse.group import GroupLine
 from pentagram.parse.group import GroupNumber
-from pentagram.parse.statement import parse_statements_block
+from pentagram.parse.syntax import parse_syntax
 from pentagram.syntax import SyntaxAssignment
 from pentagram.syntax import SyntaxBlock
 from pentagram.syntax import SyntaxComment
@@ -217,4 +217,4 @@ def params_statements() -> Iterable[
 def test_statements(
     group: Group, expected_result: SyntaxBlock
 ) -> None:
-    assert parse_statements_block(group) == expected_result
+    assert parse_syntax(group) == expected_result

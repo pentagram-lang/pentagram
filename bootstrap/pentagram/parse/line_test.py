@@ -1,41 +1,58 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from numpy import int32
+from numpy import int64
+from numpy import uint8
+from numpy import uint16
+from numpy import uint32
+from numpy import uint64
 from pentagram.parse.line import Line
-from pentagram.parse.line import LineComment
-from pentagram.parse.line import LineWord
+from pentagram.parse.line import parse_atom
 from pentagram.parse.line import parse_lines
+from pentagram.syntax import SyntaxAtom
+from pentagram.syntax import SyntaxComment
+from pentagram.syntax import SyntaxIdentifier
+from pentagram.syntax import SyntaxNumber
 from pentagram.test import params
 
 
 def params_lines() -> Iterable[tuple[str, list[Line]]]:
     yield "a\n" "b\n", [
-        Line(indent=0, terms=[LineWord("a")]),
-        Line(indent=0, terms=[LineWord("b")]),
+        Line(indent=0, terms=[SyntaxIdentifier("a")]),
+        Line(indent=0, terms=[SyntaxIdentifier("b")]),
     ]
     yield "a0 1b c-2\n" "  def ghi\n", [
         Line(
             indent=0,
             terms=[
-                LineWord("a0"),
-                LineWord("1b"),
-                LineWord("c-2"),
+                SyntaxIdentifier("a0"),
+                SyntaxNumber(uint8(1)),
+                SyntaxIdentifier("c-2"),
             ],
         ),
         Line(
             indent=2,
-            terms=[LineWord("def"), LineWord("ghi")],
+            terms=[
+                SyntaxIdentifier("def"),
+                SyntaxIdentifier("ghi"),
+            ],
         ),
     ]
     yield "\n" "    \n", [
-        Line(indent=0, terms=[]),
-        Line(indent=4, terms=[]),
+        Line(indent=0),
+        Line(indent=4),
     ]
     yield "   -- desc\n" "0x1-2--xyz\n", [
-        Line(indent=3, terms=[LineComment(" desc")]),
+        Line(
+            indent=3,
+            terms=[],
+            comment=SyntaxComment(" desc"),
+        ),
         Line(
             indent=0,
-            terms=[LineWord("0x1-2"), LineComment("xyz")],
+            terms=[SyntaxNumber(uint8(0x12))],
+            comment=SyntaxComment("xyz"),
         ),
     ]
 
@@ -45,3 +62,22 @@ def test_lines(
     lines: str, expected_result: list[Line]
 ) -> None:
     assert parse_lines(lines) == expected_result
+
+
+def params_atom() -> Iterable[tuple[str, SyntaxAtom]]:
+    yield "abc", SyntaxIdentifier("abc")
+    yield "0", SyntaxNumber(int32(0))
+    yield "123-", SyntaxNumber(int32(-123))
+    yield "456d", SyntaxNumber(int64(456))
+    yield "0xFF", SyntaxNumber(uint8(255))
+    yield "0xF01D-AB1E", SyntaxNumber(uint32(0xF01D_AB1E))
+    yield "0xA-B_C-D", SyntaxNumber(uint16(0xABCD))
+    yield "0x0xh", SyntaxNumber(uint16(0))
+    yield "0xDDxd", SyntaxNumber(uint64(0xDD))
+
+
+@params(params_atom)
+def test_atom(
+    source: str, expected_result: SyntaxAtom
+) -> None:
+    assert parse_atom(source) == expected_result

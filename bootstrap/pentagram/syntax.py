@@ -14,11 +14,16 @@ class SyntaxTerm:
     pass
 
 
+@dataclass
+class SyntaxAtom(SyntaxTerm):
+    pass
+
+
 TInteger = TypeVar("TInteger", bound=integer[Any])
 
 
 @dataclass
-class SyntaxNumber(SyntaxTerm, Generic[TInteger]):
+class SyntaxNumber(SyntaxAtom, Generic[TInteger]):
     value: TInteger
     value_type: Type[TInteger] = field(init=False)
 
