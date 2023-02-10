@@ -3,47 +3,42 @@ from __future__ import annotations
 from collections.abc import Iterable
 from numpy import int32
 from pentagram.parse.group import Group
-from pentagram.parse.group import GroupComment
-from pentagram.parse.group import GroupIdentifier
-from pentagram.parse.group import GroupLine
-from pentagram.parse.group import GroupNumber
 from pentagram.parse.group import parse_group
-from pentagram.parse.word import WordComment
-from pentagram.parse.word import WordIdentifier
-from pentagram.parse.word import WordLine
-from pentagram.parse.word import WordNumber
+from pentagram.parse.line import Line
+from pentagram.syntax import SyntaxComment
+from pentagram.syntax import SyntaxIdentifier
+from pentagram.syntax import SyntaxNumber
 from pentagram.test import params
 
 
-def params_group() -> Iterable[
-    tuple[list[WordLine], Group]
-]:
+def params_group() -> Iterable[tuple[list[Line], Group]]:
     # No lines
     yield [], Group([])
 
     # Empty line
-    yield [WordLine(indent=0, terms=[])], Group(
-        [GroupLine([])]
-    )
+    yield [Line(indent=0)], Group([Line(indent=0)])
 
     # Single identifier
     yield [
-        WordLine(indent=0, terms=[WordIdentifier("abc")])
-    ], Group([GroupLine([GroupIdentifier("abc")])])
+        Line(indent=0, terms=[SyntaxIdentifier("abc")])
+    ], Group(
+        [Line(indent=0, terms=[SyntaxIdentifier("abc")])]
+    )
 
     # Simple indent
     yield [
-        WordLine(indent=0, terms=[WordNumber(int32(1))]),
-        WordLine(indent=0, terms=[WordNumber(int32(2))]),
-        WordLine(indent=2, terms=[WordNumber(int32(3))]),
+        Line(indent=0, terms=[SyntaxNumber(int32(1))]),
+        Line(indent=0, terms=[SyntaxNumber(int32(2))]),
+        Line(indent=2, terms=[SyntaxNumber(int32(3))]),
     ], Group(
         [
-            GroupLine([GroupNumber(int32(1))]),
-            GroupLine(
+            Line(indent=0, terms=[SyntaxNumber(int32(1))]),
+            Line(indent=0, terms=[SyntaxNumber(int32(2))]),
+            Group(
                 [
-                    GroupNumber(int32(2)),
-                    Group(
-                        [GroupLine([GroupNumber(int32(3))])]
+                    Line(
+                        indent=2,
+                        terms=[SyntaxNumber(int32(3))],
                     ),
                 ]
             ),
@@ -52,185 +47,172 @@ def params_group() -> Iterable[
 
     # Blank lines of different indents
     yield [
-        WordLine(indent=0, terms=[WordIdentifier("a")]),
-        WordLine(indent=2, terms=[WordIdentifier("b")]),
-        WordLine(indent=2, terms=[WordIdentifier("c")]),
-        WordLine(indent=0, terms=[]),
-        WordLine(indent=2, terms=[]),
-        WordLine(indent=3, terms=[]),
+        Line(indent=0, terms=[SyntaxIdentifier("a")]),
+        Line(indent=2, terms=[SyntaxIdentifier("b")]),
+        Line(indent=2, terms=[SyntaxIdentifier("c")]),
+        Line(indent=0),
+        Line(indent=2),
+        Line(indent=3),
     ], Group(
         [
-            GroupLine(
+            Line(indent=0, terms=[SyntaxIdentifier("a")]),
+            Group(
                 [
-                    GroupIdentifier("a"),
+                    Line(
+                        indent=2,
+                        terms=[SyntaxIdentifier("b")],
+                    ),
                     Group(
                         [
-                            GroupLine(
-                                [GroupIdentifier("b")]
+                            Line(
+                                indent=2,
+                                terms=[
+                                    SyntaxIdentifier("c")
+                                ],
                             ),
-                            GroupLine(
-                                [
-                                    GroupIdentifier("c"),
-                                    Group(
-                                        [
-                                            GroupLine([]),
-                                            GroupLine([]),
-                                            GroupLine([]),
-                                        ]
-                                    ),
-                                ]
-                            ),
+                            Line(indent=0),
+                            Line(indent=2),
+                            Line(indent=3),
                         ]
                     ),
                 ]
-            )
+            ),
         ]
     )
 
     # Comments in and out of group
     yield [
-        WordLine(indent=0, terms=[WordIdentifier("x")]),
-        WordLine(indent=2, terms=[WordIdentifier("y")]),
-        WordLine(indent=2, terms=[WordComment("0")]),
-        WordLine(indent=3, terms=[WordComment("1")]),
-        WordLine(indent=1, terms=[WordComment("2")]),
-        WordLine(indent=0, terms=[WordIdentifier("z")]),
+        Line(indent=0, terms=[SyntaxIdentifier("x")]),
+        Line(indent=2, terms=[SyntaxIdentifier("y")]),
+        Line(indent=2, comment=SyntaxComment("0")),
+        Line(indent=3, comment=SyntaxComment("1")),
+        Line(indent=1, comment=SyntaxComment("2")),
+        Line(indent=0, terms=[SyntaxIdentifier("z")]),
     ], Group(
         [
-            GroupLine(
+            Line(indent=0, terms=[SyntaxIdentifier("x")]),
+            Group(
                 [
-                    GroupIdentifier("x"),
-                    Group(
-                        [
-                            GroupLine(
-                                [GroupIdentifier("y")]
-                            ),
-                            GroupLine([GroupComment("0")]),
-                            GroupLine([GroupComment("1")]),
-                        ]
+                    Line(
+                        indent=2,
+                        terms=[SyntaxIdentifier("y")],
+                    ),
+                    Line(
+                        indent=2, comment=SyntaxComment("0")
+                    ),
+                    Line(
+                        indent=3, comment=SyntaxComment("1")
                     ),
                 ]
             ),
-            GroupLine([GroupComment("2")]),
-            GroupLine([GroupIdentifier("z")]),
+            Line(indent=1, comment=SyntaxComment("2")),
+            Line(indent=0, terms=[SyntaxIdentifier("z")]),
         ]
     )
 
     # Comment starting a group
     yield [
-        WordLine(indent=0, terms=[WordIdentifier("x")]),
-        WordLine(indent=2, terms=[WordComment("0")]),
-        WordLine(indent=2, terms=[WordIdentifier("y")]),
-        WordLine(indent=1, terms=[WordComment("2")]),
-        WordLine(indent=0, terms=[WordIdentifier("z")]),
+        Line(indent=0, terms=[SyntaxIdentifier("x")]),
+        Line(indent=2, comment=SyntaxComment("0")),
+        Line(indent=2, terms=[SyntaxIdentifier("y")]),
+        Line(indent=1, comment=SyntaxComment("2")),
+        Line(indent=0, terms=[SyntaxIdentifier("z")]),
     ], Group(
         [
-            GroupLine(
+            Line(indent=0, terms=[SyntaxIdentifier("x")]),
+            Group(
                 [
-                    GroupIdentifier("x"),
-                    Group(
-                        [
-                            GroupLine([GroupComment("0")]),
-                            GroupLine(
-                                [GroupIdentifier("y")]
-                            ),
-                        ]
+                    Line(
+                        indent=2, comment=SyntaxComment("0")
+                    ),
+                    Line(
+                        indent=2,
+                        terms=[SyntaxIdentifier("y")],
                     ),
                 ]
             ),
-            GroupLine([GroupComment("2")]),
-            GroupLine([GroupIdentifier("z")]),
+            Line(indent=1, comment=SyntaxComment("2")),
+            Line(indent=0, terms=[SyntaxIdentifier("z")]),
         ]
     )
 
     # Indented comment starting a group
     yield [
-        WordLine(indent=0, terms=[WordIdentifier("x")]),
-        WordLine(indent=5, terms=[WordComment("0")]),
-        WordLine(indent=7, terms=[WordComment("1")]),
-        WordLine(indent=2, terms=[WordIdentifier("y")]),
+        Line(indent=0, terms=[SyntaxIdentifier("x")]),
+        Line(indent=5, comment=SyntaxComment("0")),
+        Line(indent=7, comment=SyntaxComment("1")),
+        Line(indent=2, terms=[SyntaxIdentifier("y")]),
     ], Group(
         [
-            GroupLine(
+            Line(indent=0, terms=[SyntaxIdentifier("x")]),
+            Group(
                 [
-                    GroupIdentifier("x"),
-                    Group(
-                        [
-                            GroupLine([GroupComment("0")]),
-                            GroupLine([GroupComment("1")]),
-                            GroupLine(
-                                [GroupIdentifier("y")]
-                            ),
-                        ]
+                    Line(
+                        indent=5, comment=SyntaxComment("0")
+                    ),
+                    Line(
+                        indent=7, comment=SyntaxComment("1")
+                    ),
+                    Line(
+                        indent=2,
+                        terms=[SyntaxIdentifier("y")],
                     ),
                 ]
-            )
+            ),
         ]
     )
 
     # Blank line starting a group
     yield [
-        WordLine(indent=0, terms=[WordIdentifier("x")]),
-        WordLine(indent=0, terms=[]),
-        WordLine(indent=2, terms=[WordIdentifier("y")]),
-        WordLine(indent=2, terms=[]),
-        WordLine(indent=0, terms=[]),
-        WordLine(indent=0, terms=[WordIdentifier("z")]),
+        Line(indent=0, terms=[SyntaxIdentifier("x")]),
+        Line(indent=0),
+        Line(indent=2, terms=[SyntaxIdentifier("y")]),
+        Line(indent=2),
+        Line(indent=0),
+        Line(indent=0, terms=[SyntaxIdentifier("z")]),
     ], Group(
         [
-            GroupLine(
+            Line(indent=0, terms=[SyntaxIdentifier("x")]),
+            Line(indent=0),
+            Group(
                 [
-                    GroupIdentifier("x"),
-                    Group(
-                        [
-                            GroupLine([]),
-                            GroupLine(
-                                [
-                                    GroupIdentifier("y"),
-                                    Group(
-                                        [
-                                            GroupLine([]),
-                                            GroupLine([]),
-                                        ]
-                                    ),
-                                ]
-                            ),
-                        ]
+                    Line(
+                        indent=2,
+                        terms=[SyntaxIdentifier("y")],
                     ),
+                    Line(indent=2),
+                    Line(indent=0),
                 ]
             ),
-            GroupLine([GroupIdentifier("z")]),
+            Line(indent=0, terms=[SyntaxIdentifier("z")]),
         ]
     )
 
     # Large blank line starting a group
     yield [
-        WordLine(indent=0, terms=[WordIdentifier("x")]),
-        WordLine(indent=3, terms=[]),
-        WordLine(indent=9, terms=[]),
-        WordLine(indent=2, terms=[WordIdentifier("y")]),
+        Line(indent=0, terms=[SyntaxIdentifier("x")]),
+        Line(indent=3),
+        Line(indent=9),
+        Line(indent=2, terms=[SyntaxIdentifier("y")]),
     ], Group(
         [
-            GroupLine(
+            Line(indent=0, terms=[SyntaxIdentifier("x")]),
+            Line(indent=3),
+            Line(indent=9),
+            Group(
                 [
-                    GroupIdentifier("x"),
-                    Group(
-                        [
-                            GroupLine([]),
-                            GroupLine([]),
-                            GroupLine(
-                                [GroupIdentifier("y")]
-                            ),
-                        ]
+                    Line(
+                        indent=2,
+                        terms=[SyntaxIdentifier("y")],
                     ),
                 ]
-            )
+            ),
         ]
     )
 
 
 @params(params_group)
 def test_group(
-    lines: list[WordLine], expected_result: Group
+    lines: list[Line], expected_result: Group
 ) -> None:
     assert parse_group(lines) == expected_result

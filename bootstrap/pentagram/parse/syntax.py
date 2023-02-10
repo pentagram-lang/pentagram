@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from pentagram.parse.group import Group
-from pentagram.parse.group import GroupComment
-from pentagram.parse.group import GroupIdentifier
-from pentagram.parse.group import GroupNumber
-from pentagram.parse.group import GroupTerm
+from pentagram.parse.line import Line
+from pentagram.parse.marker import Marker
+from pentagram.parse.marker import MarkerAssignment
+from pentagram.parse.marker import MarkerMethodDefinition
 from pentagram.syntax import SyntaxAssignment
 from pentagram.syntax import SyntaxBlock
 from pentagram.syntax import SyntaxComment
@@ -16,38 +16,32 @@ from pentagram.syntax import SyntaxStatement
 from pentagram.syntax import SyntaxTerm
 
 
-def parse_statements_block(group: Group) -> SyntaxBlock:
+def parse_syntax(group: Group) -> SyntaxBlock:
     return SyntaxBlock(
-        [
-            parse_one_statement(line.terms)
-            for line in group.lines
-        ]
+        [parse_one_statement(item) for item in group.items]
     )
 
 
 def parse_one_statement(
-    terms: list[GroupTerm],
+    item: Line | Group,
 ) -> SyntaxStatement:
     bindings: list[SyntaxIdentifier] = []
     for term in terms:
-        if isinstance(term, GroupIdentifier):
-            if term.name == "=":
-                return SyntaxAssignment(
-                    bindings=bindings,
-                    terms=parse_terms(
-                        terms[len(bindings) + 1 :]
-                    ),
-                )
-            elif term.name == ">>":
-                assert len(bindings) == 1
-                return SyntaxMethodDefinition(
-                    binding=bindings[0],
-                    definition=parse_one_statement(
-                        terms[2:]
-                    ),
-                )
-            else:
-                bindings.append(SyntaxIdentifier(term.name))
+        if isinstance(term, MarkerAssignment):
+            return SyntaxAssignment(
+                bindings=bindings,
+                terms=parse_terms(
+                    terms[len(bindings) + 1 :]
+                ),
+            )
+        elif isinstance(term, MarkerMethodDefinition):
+            assert len(bindings) == 1
+            return SyntaxMethodDefinition(
+                binding=bindings[0],
+                definition=parse_one_statement(terms[2:]),
+            )
+        elif isinstance(term, SyntaxIdentifier):
+            bindings.append(term)
         else:
             break
     return SyntaxExpression(parse_terms(terms))
@@ -67,6 +61,6 @@ def parse_one_term(term: GroupTerm) -> SyntaxTerm:
     elif isinstance(term, GroupComment):
         return SyntaxComment(term.text)
     elif isinstance(term, Group):
-        return parse_statements_block(term)
+        return parse_syntax(term)
     else:
         raise AssertionError(term)
