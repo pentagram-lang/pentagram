@@ -62,19 +62,13 @@ def params_group() -> Iterable[tuple[list[Line], Group]]:
                         indent=2,
                         terms=[SyntaxIdentifier("b")],
                     ),
-                    Group(
-                        [
-                            Line(
-                                indent=2,
-                                terms=[
-                                    SyntaxIdentifier("c")
-                                ],
-                            ),
-                            Line(indent=0),
-                            Line(indent=2),
-                            Line(indent=3),
-                        ]
+                    Line(
+                        indent=2,
+                        terms=[SyntaxIdentifier("c")],
                     ),
+                    Line(indent=0),
+                    Line(indent=2),
+                    Line(indent=3),
                 ]
             ),
         ]
@@ -85,8 +79,8 @@ def params_group() -> Iterable[tuple[list[Line], Group]]:
         Line(indent=0, terms=[SyntaxIdentifier("x")]),
         Line(indent=2, terms=[SyntaxIdentifier("y")]),
         Line(indent=2, comment=SyntaxComment("0")),
-        Line(indent=3, comment=SyntaxComment("1")),
-        Line(indent=1, comment=SyntaxComment("2")),
+        Line(indent=4, comment=SyntaxComment("1")),
+        Line(indent=0, comment=SyntaxComment("2")),
         Line(indent=0, terms=[SyntaxIdentifier("z")]),
     ], Group(
         [
@@ -101,11 +95,11 @@ def params_group() -> Iterable[tuple[list[Line], Group]]:
                         indent=2, comment=SyntaxComment("0")
                     ),
                     Line(
-                        indent=3, comment=SyntaxComment("1")
+                        indent=4, comment=SyntaxComment("1")
                     ),
                 ]
             ),
-            Line(indent=1, comment=SyntaxComment("2")),
+            Line(indent=0, comment=SyntaxComment("2")),
             Line(indent=0, terms=[SyntaxIdentifier("z")]),
         ]
     )
@@ -115,23 +109,21 @@ def params_group() -> Iterable[tuple[list[Line], Group]]:
         Line(indent=0, terms=[SyntaxIdentifier("x")]),
         Line(indent=2, comment=SyntaxComment("0")),
         Line(indent=2, terms=[SyntaxIdentifier("y")]),
-        Line(indent=1, comment=SyntaxComment("2")),
+        Line(indent=0, comment=SyntaxComment("2")),
         Line(indent=0, terms=[SyntaxIdentifier("z")]),
     ], Group(
         [
             Line(indent=0, terms=[SyntaxIdentifier("x")]),
+            Line(indent=2, comment=SyntaxComment("0")),
             Group(
                 [
-                    Line(
-                        indent=2, comment=SyntaxComment("0")
-                    ),
                     Line(
                         indent=2,
                         terms=[SyntaxIdentifier("y")],
                     ),
                 ]
             ),
-            Line(indent=1, comment=SyntaxComment("2")),
+            Line(indent=0, comment=SyntaxComment("2")),
             Line(indent=0, terms=[SyntaxIdentifier("z")]),
         ]
     )
@@ -139,20 +131,16 @@ def params_group() -> Iterable[tuple[list[Line], Group]]:
     # Indented comment starting a group
     yield [
         Line(indent=0, terms=[SyntaxIdentifier("x")]),
-        Line(indent=5, comment=SyntaxComment("0")),
-        Line(indent=7, comment=SyntaxComment("1")),
+        Line(indent=4, comment=SyntaxComment("0")),
+        Line(indent=8, comment=SyntaxComment("1")),
         Line(indent=2, terms=[SyntaxIdentifier("y")]),
     ], Group(
         [
             Line(indent=0, terms=[SyntaxIdentifier("x")]),
+            Line(indent=4, comment=SyntaxComment("0")),
+            Line(indent=8, comment=SyntaxComment("1")),
             Group(
                 [
-                    Line(
-                        indent=5, comment=SyntaxComment("0")
-                    ),
-                    Line(
-                        indent=7, comment=SyntaxComment("1")
-                    ),
                     Line(
                         indent=2,
                         terms=[SyntaxIdentifier("y")],

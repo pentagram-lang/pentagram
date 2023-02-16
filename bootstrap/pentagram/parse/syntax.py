@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pentagram.parse.group import Group
 from pentagram.parse.line import Line
-from pentagram.parse.marker import Marker
 from pentagram.parse.marker import MarkerAssignment
 from pentagram.parse.marker import MarkerMethodDefinition
 from pentagram.syntax import SyntaxAssignment

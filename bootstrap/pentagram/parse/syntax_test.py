@@ -3,10 +3,9 @@ from __future__ import annotations
 from collections.abc import Iterable
 from numpy import int32
 from pentagram.parse.group import Group
-from pentagram.parse.group import GroupComment
-from pentagram.parse.group import GroupIdentifier
-from pentagram.parse.group import GroupLine
-from pentagram.parse.group import GroupNumber
+from pentagram.parse.line import Line
+from pentagram.parse.marker import MarkerAssignment
+from pentagram.parse.marker import MarkerMethodDefinition
 from pentagram.parse.syntax import parse_syntax
 from pentagram.syntax import SyntaxAssignment
 from pentagram.syntax import SyntaxBlock
@@ -23,7 +22,7 @@ def params_statements() -> Iterable[
 ]:
     # Expression
     yield Group(
-        [GroupLine([GroupIdentifier("abc")])]
+        [Line(indent=0, terms=[SyntaxIdentifier("abc")])]
     ), SyntaxBlock(
         [SyntaxExpression([SyntaxIdentifier("abc")])]
     )
@@ -31,15 +30,21 @@ def params_statements() -> Iterable[
     # Comment in group
     yield Group(
         [
-            GroupLine(
+            Line(
+                indent=0,
+                terms=[
+                    SyntaxNumber(int32(0)),
+                ],
+                comment=SyntaxComment(" txt"),
+            ),
+            Group(
                 [
-                    GroupNumber(int32(0)),
-                    GroupComment(" txt"),
-                    Group(
-                        [GroupLine([GroupNumber(int32(1))])]
-                    ),
+                    Line(
+                        indent=2,
+                        terms=[SyntaxNumber(int32(1))],
+                    )
                 ]
-            )
+            ),
         ]
     ), SyntaxBlock(
         [
@@ -62,19 +67,20 @@ def params_statements() -> Iterable[
     # Simple assignment
     yield Group(
         [
-            GroupLine(
-                [
-                    GroupIdentifier("x"),
-                    GroupIdentifier("="),
-                    GroupIdentifier("y"),
-                ]
+            Line(
+                indent=0,
+                terms=[
+                    SyntaxIdentifier("x"),
+                    MarkerAssignment(),
+                    SyntaxIdentifier("y"),
+                ],
             )
         ]
     ), SyntaxBlock(
         [
             SyntaxAssignment(
-                terms=[SyntaxIdentifier("y")],
                 bindings=[SyntaxIdentifier("x")],
+                terms=[SyntaxIdentifier("y")],
             )
         ]
     )
@@ -82,45 +88,52 @@ def params_statements() -> Iterable[
     # Nested assignment
     yield Group(
         [
-            GroupLine(
+            Line(
+                indent=0,
+                terms=[
+                    SyntaxIdentifier("a"),
+                    SyntaxIdentifier("b"),
+                    MarkerAssignment(),
+                    SyntaxIdentifier("c"),
+                ],
+            ),
+            Group(
                 [
-                    GroupIdentifier("a"),
-                    GroupIdentifier("b"),
-                    GroupIdentifier("="),
-                    GroupIdentifier("c"),
-                    Group(
-                        [
-                            GroupLine(
-                                [
-                                    GroupIdentifier("d"),
-                                    GroupIdentifier("="),
-                                    GroupIdentifier("e"),
-                                ]
-                            ),
-                            GroupLine(
-                                [
-                                    GroupIdentifier("f"),
-                                    GroupIdentifier("g"),
-                                ]
-                            ),
-                        ]
+                    Line(
+                        indent=2,
+                        terms=[
+                            SyntaxIdentifier("d"),
+                            MarkerAssignment(),
+                            SyntaxIdentifier("e"),
+                        ],
+                    ),
+                    Line(
+                        indent=2,
+                        terms=[
+                            SyntaxIdentifier("f"),
+                            SyntaxIdentifier("g"),
+                        ],
                     ),
                 ]
-            )
+            ),
         ]
     ), SyntaxBlock(
         [
             SyntaxAssignment(
+                bindings=[
+                    SyntaxIdentifier("a"),
+                    SyntaxIdentifier("b"),
+                ],
                 terms=[
                     SyntaxIdentifier("c"),
                     SyntaxBlock(
                         [
                             SyntaxAssignment(
-                                terms=[
-                                    SyntaxIdentifier("e")
-                                ],
                                 bindings=[
                                     SyntaxIdentifier("d")
+                                ],
+                                terms=[
+                                    SyntaxIdentifier("e")
                                 ],
                             ),
                             SyntaxExpression(
@@ -132,10 +145,6 @@ def params_statements() -> Iterable[
                         ]
                     ),
                 ],
-                bindings=[
-                    SyntaxIdentifier("a"),
-                    SyntaxIdentifier("b"),
-                ],
             )
         ]
     )
@@ -143,12 +152,13 @@ def params_statements() -> Iterable[
     # Simple method definition
     yield Group(
         [
-            GroupLine(
-                [
-                    GroupIdentifier("a1"),
-                    GroupIdentifier(">>"),
-                    GroupIdentifier("b2"),
-                ]
+            Line(
+                indent=0,
+                terms=[
+                    SyntaxIdentifier("a1"),
+                    MarkerMethodDefinition(),
+                    SyntaxIdentifier("b2"),
+                ],
             )
         ]
     ), SyntaxBlock(
@@ -165,23 +175,25 @@ def params_statements() -> Iterable[
     # Block method definition
     yield Group(
         [
-            GroupLine(
+            Line(
+                indent=0,
+                terms=[
+                    SyntaxIdentifier("add"),
+                    MarkerMethodDefinition(),
+                ],
+            ),
+            Group(
                 [
-                    GroupIdentifier("add"),
-                    GroupIdentifier(">>"),
-                    Group(
-                        [
-                            GroupLine(
-                                [
-                                    GroupIdentifier("x"),
-                                    GroupIdentifier("y"),
-                                    GroupIdentifier("+"),
-                                ]
-                            )
-                        ]
-                    ),
+                    Line(
+                        indent=2,
+                        terms=[
+                            SyntaxIdentifier("x"),
+                            SyntaxIdentifier("y"),
+                            SyntaxIdentifier("+"),
+                        ],
+                    )
                 ]
-            )
+            ),
         ]
     ), SyntaxBlock(
         [
