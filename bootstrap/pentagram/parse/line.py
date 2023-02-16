@@ -10,7 +10,6 @@ from pentagram.parse.marker import Marker
 from pentagram.parse.marker import MarkerAssignment
 from pentagram.parse.marker import MarkerBlock
 from pentagram.parse.marker import MarkerMethodDefinition
-from pentagram.parse.marker import MarkerStartBlock
 from pentagram.parse.number import parse_number
 from pentagram.syntax import SyntaxAtom
 from pentagram.syntax import SyntaxComment
@@ -65,7 +64,7 @@ def parse_one_line_words(
     source_progress: deque[str],
 ) -> tuple[list[SyntaxAtom | Marker], SyntaxComment | None]:
     terms: list[SyntaxAtom | Marker] = []
-    comment: SyntaxComment | None = []
+    comment: SyntaxComment | None = None
     token_progress: list[str] = list()
 
     def token_end() -> None:
@@ -175,7 +174,7 @@ def parse_atom(source: str) -> SyntaxAtom:
                 base=10,
                 digits=decimal_match["digits"],
                 suffix=decimal_match["suffix"] or "",
-                sign=hex_match["sign"] or "",
+                sign=decimal_match["sign"] or "",
             )
         )
     return SyntaxIdentifier(source)

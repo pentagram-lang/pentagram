@@ -10,7 +10,7 @@ from typing import Any
 from typing import cast
 
 ignored_digits = re.compile(
-    r"^[-_]",
+    r"[-_]",
     re.VERBOSE,
 )
 
@@ -18,7 +18,7 @@ ignored_digits = re.compile(
 def parse_number(
     base: int, digits: str, suffix: str, sign: str
 ) -> integer[Any]:
-    digits = ignored_digits.sub(digits)
+    digits = ignored_digits.sub("", digits)
 
     if base == 10:
         bits = 32

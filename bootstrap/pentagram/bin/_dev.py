@@ -83,8 +83,13 @@ def check() -> None:
     subprocess.run(["mypy", "."], check=True)
 
 
-@main.command()
-def test() -> None:
+@main.command(
+    context_settings=dict(
+        ignore_unknown_options=True,
+    )
+)
+@click.argument("args", nargs=-1, type=click.UNPROCESSED)
+def test(args: tuple[str, ...]) -> None:
     subprocess.run(
         [
             "pytest-watch",
@@ -94,6 +99,7 @@ def test() -> None:
             "--",
             "-x",
             "-vvv",
+            *args,
         ],
         check=True,
     )
