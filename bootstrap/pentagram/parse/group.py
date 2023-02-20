@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pentagram.parse.line import Line
 
 
-@dataclass
+@dataclass(frozen=True, kw_only=False)
 class Group:
     items: list[Line | Group]
 

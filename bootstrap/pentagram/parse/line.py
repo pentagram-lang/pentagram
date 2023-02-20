@@ -17,7 +17,7 @@ from pentagram.syntax import SyntaxIdentifier
 from pentagram.syntax import SyntaxNumber
 
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class Line:
     indent: int
     terms: list[SyntaxAtom | Marker] = field(
@@ -121,7 +121,7 @@ def parse_one_line_comment(
         else:
             comment_progress.append(source_0)
             source_progress.popleft()
-    return SyntaxComment("".join(comment_progress))
+    return SyntaxComment(text="".join(comment_progress))
 
 
 hex_start = re.compile(

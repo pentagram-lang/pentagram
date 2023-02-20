@@ -14,61 +14,77 @@ from pentagram.test import params
 
 def params_parse() -> Iterable[tuple[str, SyntaxBlock]]:
     yield "0x123xiw", SyntaxBlock(
-        [SyntaxExpression([SyntaxNumber(int32(0x123))])]
+        statements=[
+            SyntaxExpression(
+                atoms=[SyntaxNumber(value=int32(0x123))]
+            )
+        ]
     )
     yield "abc", SyntaxBlock(
-        [SyntaxExpression([SyntaxIdentifier("abc")])]
+        statements=[
+            SyntaxExpression(
+                atoms=[SyntaxIdentifier(name="abc")]
+            )
+        ]
     )
     yield "a-b-c", SyntaxBlock(
-        [SyntaxExpression([SyntaxIdentifier("a-b-c")])]
+        statements=[
+            SyntaxExpression(
+                atoms=[SyntaxIdentifier(name="a-b-c")]
+            )
+        ]
     )
     yield "123 abc ", SyntaxBlock(
-        [
+        statements=[
             SyntaxExpression(
-                [
-                    SyntaxNumber(int32(123)),
-                    SyntaxIdentifier("abc"),
+                atoms=[
+                    SyntaxNumber(value=int32(123)),
+                    SyntaxIdentifier(name="abc"),
                 ]
             )
         ]
     )
     yield "123 abc -- de", SyntaxBlock(
-        [
+        statements=[
             SyntaxExpression(
-                [
-                    SyntaxNumber(int32(123)),
-                    SyntaxIdentifier("abc"),
-                    SyntaxComment(" de"),
+                atoms=[
+                    SyntaxNumber(value=int32(123)),
+                    SyntaxIdentifier(name="abc"),
+                    SyntaxComment(text=" de"),
                 ]
             )
         ]
     )
     yield "abc def  =    10   20", SyntaxBlock(
-        [
+        statements=[
             SyntaxAssignment(
-                terms=[
-                    SyntaxNumber(int32(10)),
-                    SyntaxNumber(int32(20)),
-                ],
                 bindings=[
-                    SyntaxIdentifier("abc"),
-                    SyntaxIdentifier("def"),
+                    SyntaxIdentifier(name="abc"),
+                    SyntaxIdentifier(name="def"),
                 ],
+                block=SyntaxBlock(
+                    statements=SyntaxExpression(
+                        atoms=[
+                            SyntaxNumber(value=int32(10)),
+                            SyntaxNumber(value=int32(20)),
+                        ],
+                    )
+                ),
             )
         ]
     )
     yield "123 abc\n456 def", SyntaxBlock(
-        [
+        statements=[
             SyntaxExpression(
-                [
-                    SyntaxNumber(int32(123)),
-                    SyntaxIdentifier("abc"),
+                atoms=[
+                    SyntaxNumber(value=int32(123)),
+                    SyntaxIdentifier(name="abc"),
                 ]
             ),
             SyntaxExpression(
-                [
-                    SyntaxNumber(int32(456)),
-                    SyntaxIdentifier("def"),
+                atoms=[
+                    SyntaxNumber(value=int32(456)),
+                    SyntaxIdentifier(name="def"),
                 ]
             ),
         ]

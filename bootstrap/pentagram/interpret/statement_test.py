@@ -26,7 +26,9 @@ def init_statement_block(
 
 
 def test_interpret_expression_enter() -> None:
-    statement = SyntaxExpression([SyntaxNumber(int32(100))])
+    statement = SyntaxExpression(
+        [SyntaxNumber(value=int32(100))]
+    )
     frame_stack = init_test_frame_stack(
         init_statement_block(statement),
         MachineExpressionStack([]),
@@ -40,7 +42,9 @@ def test_interpret_expression_enter() -> None:
 
 
 def test_interpret_expression_exit() -> None:
-    statement = SyntaxExpression([SyntaxNumber(int32(100))])
+    statement = SyntaxExpression(
+        [SyntaxNumber(value=int32(100))]
+    )
     frame_stack = init_test_frame_stack(
         init_statement_block(statement),
         MachineExpressionStack([MachineNumber(int32(100))]),
@@ -57,8 +61,8 @@ def test_interpret_expression_exit() -> None:
 
 def test_interpret_assignment_1_enter() -> None:
     statement = SyntaxAssignment(
-        terms=[SyntaxNumber(int32(3))],
-        bindings=[SyntaxIdentifier("x")],
+        terms=[SyntaxNumber(value=int32(3))],
+        bindings=[SyntaxIdentifier(name="x")],
     )
     frame_stack = init_test_frame_stack(
         init_statement_block(statement),
@@ -82,8 +86,8 @@ def test_interpret_assignment_1_enter() -> None:
 
 def test_interpret_assignment_1_exit() -> None:
     statement = SyntaxAssignment(
-        terms=[SyntaxNumber(int32(3))],
-        bindings=[SyntaxIdentifier("x")],
+        terms=[SyntaxNumber(value=int32(3))],
+        bindings=[SyntaxIdentifier(name="x")],
     )
     frame_stack = init_test_frame_stack(
         init_statement_block(statement),
@@ -104,12 +108,12 @@ def test_interpret_assignment_1_exit() -> None:
 def test_interpret_assignment_2_exit() -> None:
     statement = SyntaxAssignment(
         terms=[
-            SyntaxNumber(int32(300)),
-            SyntaxNumber(int32(400)),
+            SyntaxNumber(value=int32(300)),
+            SyntaxNumber(value=int32(400)),
         ],
         bindings=[
-            SyntaxIdentifier("abc"),
-            SyntaxIdentifier("def"),
+            SyntaxIdentifier(name="abc"),
+            SyntaxIdentifier(name="def"),
         ],
     )
     frame_stack = init_test_frame_stack(
@@ -134,9 +138,9 @@ def test_interpret_assignment_2_exit() -> None:
 
 def test_interpret_method_definition_exit() -> None:
     statement = SyntaxMethodDefinition(
-        binding=SyntaxIdentifier("f"),
+        binding=SyntaxIdentifier(name="f"),
         definition=SyntaxExpression(
-            [SyntaxIdentifier("sqrt")]
+            [SyntaxIdentifier(name="sqrt")]
         ),
     )
     frame_stack = init_test_frame_stack(

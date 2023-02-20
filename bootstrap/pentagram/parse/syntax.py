@@ -12,7 +12,10 @@ from pentagram.syntax import SyntaxIdentifier
 from pentagram.syntax import SyntaxMethodDefinition
 from pentagram.syntax import SyntaxNumber
 from pentagram.syntax import SyntaxStatement
-from pentagram.syntax import SyntaxTerm
+
+
+class SyntaxError_(Exception):
+    pass
 
 
 def parse_syntax(group: Group) -> SyntaxBlock:
@@ -54,7 +57,7 @@ def parse_terms(
 
 def parse_one_term(term: GroupTerm) -> SyntaxTerm:
     if isinstance(term, GroupNumber):
-        return SyntaxNumber(term.value)
+        return SyntaxNumber(value=term.value)
     elif isinstance(term, GroupIdentifier):
         return SyntaxIdentifier(term.name)
     elif isinstance(term, GroupComment):

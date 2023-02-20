@@ -22,13 +22,13 @@ def from_python(
         return cast(MachineValue, value)
     elif issubclass(origin_python_type, IOBase):
         assert isinstance(value, origin_python_type)
-        return MachineStream(value)
+        return MachineStream(value=value)
     elif issubclass(origin_python_type, list):
         assert isinstance(value, origin_python_type)
-        return MachineArray(value)
+        return MachineArray(value=value)
     elif issubclass(origin_python_type, integer):
         assert isinstance(value, origin_python_type)
-        return MachineNumber(value)
+        return MachineNumber(value=value)
     else:
         raise AssertionError(value)
 
