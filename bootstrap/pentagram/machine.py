@@ -8,14 +8,13 @@ from io import IOBase
 from numpy import integer
 from pentagram.syntax import SyntaxBlock
 from pentagram.syntax import SyntaxStatement
-from pentagram.syntax import SyntaxTerm
 from typing import Any
 from typing import Generic
 from typing import Type
 from typing import TypeVar
 
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class MachineValue:
     pass
 
@@ -23,7 +22,7 @@ class MachineValue:
 TItem = TypeVar("TItem", bound=MachineValue)
 
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class MachineArray(MachineValue, Generic[TItem]):
     value: list[TItem]
 
@@ -31,24 +30,26 @@ class MachineArray(MachineValue, Generic[TItem]):
 TInteger = TypeVar("TInteger", bound=integer[Any])
 
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class MachineNumber(MachineValue, Generic[TInteger]):
     value: TInteger
     value_type: Type[TInteger] = field(init=False)
 
     def __post_init__(self) -> None:
-        self.value_type = type(self.value)
+        object.__setattr__(
+            self, "value_type", type(self.value)
+        )
         assert issubclass(
             self.value_type, integer
         ), self.value_type
 
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class MachineStream(MachineValue):
     value: IOBase
 
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class MachineExpressionStack:
     values: list[MachineValue]
 
@@ -81,13 +82,13 @@ class MachineCall(ABC):
         pass
 
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class MachineBinding:
     name: str
     value_or_call: MachineValue | MachineCall
 
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class MachineEnvironment:
     bindings: dict[str, MachineValue | MachineCall]
     base: MachineEnvironment | None
@@ -139,14 +140,14 @@ class MachineEnvironment:
         )
 
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class MachineInstructionPointer:
     block: SyntaxBlock
     statement_index: int
     term_index: int
 
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class MachineFrame:
     instruction_pointer: MachineInstructionPointer
     expression_stack: MachineExpressionStack
@@ -181,7 +182,7 @@ class MachineFrame:
         return self.statement.terms[self.term_index]
 
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class MachineFrameStack:
     frames: list[MachineFrame]
 

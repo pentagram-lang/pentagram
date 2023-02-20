@@ -19,23 +19,23 @@ from pentagram.test import params
 
 def params_lines() -> Iterable[tuple[str, list[Line]]]:
     yield "a\n" "b\n", [
-        Line(indent=0, terms=[SyntaxIdentifier("a")]),
-        Line(indent=0, terms=[SyntaxIdentifier("b")]),
+        Line(indent=0, terms=[SyntaxIdentifier(name="a")]),
+        Line(indent=0, terms=[SyntaxIdentifier(name="b")]),
     ]
     yield "a0 1b c-2\n" "  def ghi\n", [
         Line(
             indent=0,
             terms=[
-                SyntaxIdentifier("a0"),
-                SyntaxNumber(uint8(1)),
-                SyntaxIdentifier("c-2"),
+                SyntaxIdentifier(name="a0"),
+                SyntaxNumber(value=uint8(1)),
+                SyntaxIdentifier(name="c-2"),
             ],
         ),
         Line(
             indent=2,
             terms=[
-                SyntaxIdentifier("def"),
-                SyntaxIdentifier("ghi"),
+                SyntaxIdentifier(name="def"),
+                SyntaxIdentifier(name="ghi"),
             ],
         ),
     ]
@@ -47,12 +47,12 @@ def params_lines() -> Iterable[tuple[str, list[Line]]]:
         Line(
             indent=3,
             terms=[],
-            comment=SyntaxComment(" desc"),
+            comment=SyntaxComment(text=" desc"),
         ),
         Line(
             indent=0,
-            terms=[SyntaxNumber(uint8(0x12))],
-            comment=SyntaxComment("xyz"),
+            terms=[SyntaxNumber(value=uint8(0x12))],
+            comment=SyntaxComment(text="xyz"),
         ),
     ]
 
@@ -65,15 +65,17 @@ def test_lines(
 
 
 def params_atom() -> Iterable[tuple[str, SyntaxAtom]]:
-    yield "abc", SyntaxIdentifier("abc")
-    yield "0", SyntaxNumber(int32(0))
-    yield "123-", SyntaxNumber(int32(-123))
-    yield "456d", SyntaxNumber(int64(456))
-    yield "0xFF", SyntaxNumber(uint8(255))
-    yield "0xF01D-AB1E", SyntaxNumber(uint32(0xF01D_AB1E))
-    yield "0xA-B_C-D", SyntaxNumber(uint16(0xABCD))
-    yield "0x0xh", SyntaxNumber(uint16(0))
-    yield "0xDDxd", SyntaxNumber(uint64(0xDD))
+    yield "abc", SyntaxIdentifier(name="abc")
+    yield "0", SyntaxNumber(value=int32(0))
+    yield "123-", SyntaxNumber(value=int32(-123))
+    yield "456d", SyntaxNumber(value=int64(456))
+    yield "0xFF", SyntaxNumber(value=uint8(255))
+    yield "0xF01D-AB1E", SyntaxNumber(
+        value=uint32(0xF01D_AB1E)
+    )
+    yield "0xA-B_C-D", SyntaxNumber(value=uint16(0xABCD))
+    yield "0x0xh", SyntaxNumber(value=uint16(0))
+    yield "0xDDxd", SyntaxNumber(value=uint64(0xDD))
 
 
 @params(params_atom)

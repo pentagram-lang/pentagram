@@ -9,81 +9,66 @@ from typing import Type
 from typing import TypeVar
 
 
-@dataclass
-class SyntaxTerm:
-    pass
-
-
-@dataclass
-class SyntaxAtom(SyntaxTerm):
+@dataclass(frozen=True, kw_only=True)
+class SyntaxAtom:
     pass
 
 
 TInteger = TypeVar("TInteger", bound=integer[Any])
 
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class SyntaxNumber(SyntaxAtom, Generic[TInteger]):
     value: TInteger
     value_type: Type[TInteger] = field(init=False)
 
     def __post_init__(self) -> None:
-        self.value_type = type(self.value)
+        object.__setattr__(
+            self, "value_type", type(self.value)
+        )
         assert issubclass(
             self.value_type, integer
         ), self.value_type
 
 
-@dataclass
-class SyntaxIdentifier(SyntaxTerm):
+@dataclass(frozen=True, kw_only=True)
+class SyntaxIdentifier(SyntaxAtom):
     name: str
 
 
-@dataclass
-class SyntaxComment(SyntaxTerm):
+@dataclass(frozen=True, kw_only=True)
+class SyntaxComment:
     text: str
 
 
-@dataclass
-class SyntaxBlock(SyntaxTerm):
+@dataclass(frozen=True, kw_only=True)
+class SyntaxBlock:
     statements: list[SyntaxStatement]
 
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class SyntaxStatement:
-    terms: list[SyntaxTerm]
+    comment: SyntaxComment | None = field(default=None)
 
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class SyntaxExpression(SyntaxStatement):
-    pass
+    atoms: list[SyntaxAtom]
 
 
-@dataclass
-class SyntaxBinding(SyntaxStatement):
+@dataclass(frozen=True, kw_only=True)
+class SyntaxAssignment(SyntaxStatement):
     bindings: list[SyntaxIdentifier]
+    block: SyntaxBlock
 
 
-@dataclass
-class SyntaxAssignment(SyntaxBinding):
-    pass
+@dataclass(frozen=True, kw_only=True)
+class SyntaxModification(SyntaxStatement):
+    bindings: list[SyntaxIdentifier]
+    block: SyntaxBlock
 
 
-@dataclass
-class SyntaxModification(SyntaxBinding):
-    pass
-
-
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class SyntaxMethodDefinition(SyntaxStatement):
     binding: SyntaxIdentifier
-    definition_block: SyntaxBlock
-
-    def __init__(
-        self,
-        binding: SyntaxIdentifier,
-        definition: SyntaxStatement,
-    ):
-        super().__init__(terms=[])
-        self.binding = binding
-        self.definition_block = SyntaxBlock([definition])
+    block: SyntaxBlock

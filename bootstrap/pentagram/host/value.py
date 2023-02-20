@@ -10,7 +10,9 @@ from typing import Any
 
 
 def value(name: str, val: Any) -> MachineBinding:
-    return MachineBinding(name, from_python(type(val), val))
+    return MachineBinding(
+        name=name, value_or_call=from_python(type(val), val)
+    )
 
 
 COUT = value("cout", sys.stdout.buffer)

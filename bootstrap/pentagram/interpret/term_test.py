@@ -16,7 +16,6 @@ from pentagram.syntax import SyntaxComment
 from pentagram.syntax import SyntaxExpression
 from pentagram.syntax import SyntaxIdentifier
 from pentagram.syntax import SyntaxNumber
-from pentagram.syntax import SyntaxTerm
 from typing import cast
 
 
@@ -25,7 +24,7 @@ def init_term_block(term: SyntaxTerm) -> SyntaxBlock:
 
 
 def test_interpret_number() -> None:
-    term = SyntaxNumber(int32(100))
+    term = SyntaxNumber(value=int32(100))
     frame_stack = init_test_frame_stack(
         init_term_block(term), MachineExpressionStack([])
     )
@@ -70,7 +69,7 @@ def test_interpret_identifier_call() -> None:
 
 
 def test_interpret_comment() -> None:
-    term = SyntaxComment("something")
+    term = SyntaxComment(text="something")
     expression_stack = MachineExpressionStack(
         [MachineNumber(int32(10))]
     )
@@ -86,7 +85,7 @@ def test_interpret_comment() -> None:
 
 
 def test_interpret_block() -> None:
-    term = init_term_block(SyntaxNumber(int32(2)))
+    term = init_term_block(SyntaxNumber(value=int32(2)))
     expression_stack = MachineExpressionStack(
         [MachineNumber(int32(10))]
     )

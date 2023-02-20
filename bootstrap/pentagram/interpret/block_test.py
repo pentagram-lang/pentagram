@@ -13,7 +13,7 @@ from pentagram.syntax import SyntaxNumber
 
 def test_interpret_block_enter() -> None:
     block = SyntaxBlock(
-        [SyntaxExpression([SyntaxNumber(int32(4))])]
+        [SyntaxExpression([SyntaxNumber(value=int32(4))])]
     )
     frame_stack = init_test_frame_stack(
         block, MachineExpressionStack([])
@@ -28,7 +28,7 @@ def test_interpret_block_enter() -> None:
 
 def test_interpret_block_exit() -> None:
     block = SyntaxBlock(
-        [SyntaxExpression([SyntaxNumber(int32(4))])]
+        [SyntaxExpression([SyntaxNumber(value=int32(4))])]
     )
     frame_stack = init_test_frame_stack(
         block, MachineExpressionStack([]), statement_index=1

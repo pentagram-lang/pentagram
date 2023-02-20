@@ -13,32 +13,51 @@ from pentagram.test import params
 
 def params_group() -> Iterable[tuple[list[Line], Group]]:
     # No lines
-    yield [], Group([])
+    yield [], Group(items=[])
 
     # Empty line
-    yield [Line(indent=0)], Group([Line(indent=0)])
+    yield [Line(indent=0)], Group(items=[Line(indent=0)])
 
     # Single identifier
     yield [
-        Line(indent=0, terms=[SyntaxIdentifier("abc")])
+        Line(indent=0, terms=[SyntaxIdentifier(name="abc")])
     ], Group(
-        [Line(indent=0, terms=[SyntaxIdentifier("abc")])]
+        items=[
+            Line(
+                indent=0,
+                terms=[SyntaxIdentifier(name="abc")],
+            )
+        ]
     )
 
     # Simple indent
     yield [
-        Line(indent=0, terms=[SyntaxNumber(int32(1))]),
-        Line(indent=0, terms=[SyntaxNumber(int32(2))]),
-        Line(indent=2, terms=[SyntaxNumber(int32(3))]),
+        Line(
+            indent=0, terms=[SyntaxNumber(value=int32(1))]
+        ),
+        Line(
+            indent=0, terms=[SyntaxNumber(value=int32(2))]
+        ),
+        Line(
+            indent=2, terms=[SyntaxNumber(value=int32(3))]
+        ),
     ], Group(
-        [
-            Line(indent=0, terms=[SyntaxNumber(int32(1))]),
-            Line(indent=0, terms=[SyntaxNumber(int32(2))]),
+        items=[
+            Line(
+                indent=0,
+                terms=[SyntaxNumber(value=int32(1))],
+            ),
+            Line(
+                indent=0,
+                terms=[SyntaxNumber(value=int32(2))],
+            ),
             Group(
-                [
+                items=[
                     Line(
                         indent=2,
-                        terms=[SyntaxNumber(int32(3))],
+                        terms=[
+                            SyntaxNumber(value=int32(3))
+                        ],
                     ),
                 ]
             ),
@@ -47,24 +66,26 @@ def params_group() -> Iterable[tuple[list[Line], Group]]:
 
     # Blank lines of different indents
     yield [
-        Line(indent=0, terms=[SyntaxIdentifier("a")]),
-        Line(indent=2, terms=[SyntaxIdentifier("b")]),
-        Line(indent=2, terms=[SyntaxIdentifier("c")]),
+        Line(indent=0, terms=[SyntaxIdentifier(name="a")]),
+        Line(indent=2, terms=[SyntaxIdentifier(name="b")]),
+        Line(indent=2, terms=[SyntaxIdentifier(name="c")]),
         Line(indent=0),
         Line(indent=2),
         Line(indent=3),
     ], Group(
-        [
-            Line(indent=0, terms=[SyntaxIdentifier("a")]),
+        items=[
+            Line(
+                indent=0, terms=[SyntaxIdentifier(name="a")]
+            ),
             Group(
-                [
+                items=[
                     Line(
                         indent=2,
-                        terms=[SyntaxIdentifier("b")],
+                        terms=[SyntaxIdentifier(name="b")],
                     ),
                     Line(
                         indent=2,
-                        terms=[SyntaxIdentifier("c")],
+                        terms=[SyntaxIdentifier(name="c")],
                     ),
                     Line(indent=0),
                     Line(indent=2),
@@ -76,74 +97,86 @@ def params_group() -> Iterable[tuple[list[Line], Group]]:
 
     # Comments in and out of group
     yield [
-        Line(indent=0, terms=[SyntaxIdentifier("x")]),
-        Line(indent=2, terms=[SyntaxIdentifier("y")]),
-        Line(indent=2, comment=SyntaxComment("0")),
-        Line(indent=4, comment=SyntaxComment("1")),
-        Line(indent=0, comment=SyntaxComment("2")),
-        Line(indent=0, terms=[SyntaxIdentifier("z")]),
+        Line(indent=0, terms=[SyntaxIdentifier(name="x")]),
+        Line(indent=2, terms=[SyntaxIdentifier(name="y")]),
+        Line(indent=2, comment=SyntaxComment(text="0")),
+        Line(indent=4, comment=SyntaxComment(text="1")),
+        Line(indent=0, comment=SyntaxComment(text="2")),
+        Line(indent=0, terms=[SyntaxIdentifier(name="z")]),
     ], Group(
-        [
-            Line(indent=0, terms=[SyntaxIdentifier("x")]),
+        items=[
+            Line(
+                indent=0, terms=[SyntaxIdentifier(name="x")]
+            ),
             Group(
-                [
+                items=[
                     Line(
                         indent=2,
-                        terms=[SyntaxIdentifier("y")],
+                        terms=[SyntaxIdentifier(name="y")],
                     ),
                     Line(
-                        indent=2, comment=SyntaxComment("0")
+                        indent=2,
+                        comment=SyntaxComment(text="0"),
                     ),
                     Line(
-                        indent=4, comment=SyntaxComment("1")
+                        indent=4,
+                        comment=SyntaxComment(text="1"),
                     ),
                 ]
             ),
-            Line(indent=0, comment=SyntaxComment("2")),
-            Line(indent=0, terms=[SyntaxIdentifier("z")]),
+            Line(indent=0, comment=SyntaxComment(text="2")),
+            Line(
+                indent=0, terms=[SyntaxIdentifier(name="z")]
+            ),
         ]
     )
 
     # Comment starting a group
     yield [
-        Line(indent=0, terms=[SyntaxIdentifier("x")]),
-        Line(indent=2, comment=SyntaxComment("0")),
-        Line(indent=2, terms=[SyntaxIdentifier("y")]),
-        Line(indent=0, comment=SyntaxComment("2")),
-        Line(indent=0, terms=[SyntaxIdentifier("z")]),
+        Line(indent=0, terms=[SyntaxIdentifier(name="x")]),
+        Line(indent=2, comment=SyntaxComment(text="0")),
+        Line(indent=2, terms=[SyntaxIdentifier(name="y")]),
+        Line(indent=0, comment=SyntaxComment(text="2")),
+        Line(indent=0, terms=[SyntaxIdentifier(name="z")]),
     ], Group(
-        [
-            Line(indent=0, terms=[SyntaxIdentifier("x")]),
-            Line(indent=2, comment=SyntaxComment("0")),
+        items=[
+            Line(
+                indent=0, terms=[SyntaxIdentifier(name="x")]
+            ),
+            Line(indent=2, comment=SyntaxComment(text="0")),
             Group(
-                [
+                items=[
                     Line(
                         indent=2,
-                        terms=[SyntaxIdentifier("y")],
+                        terms=[SyntaxIdentifier(name="y")],
                     ),
                 ]
             ),
-            Line(indent=0, comment=SyntaxComment("2")),
-            Line(indent=0, terms=[SyntaxIdentifier("z")]),
+            Line(indent=0, comment=SyntaxComment(text="2")),
+            Line(
+                indent=0, terms=[SyntaxIdentifier(name="z")]
+            ),
         ]
     )
 
     # Indented comment starting a group
     yield [
-        Line(indent=0, terms=[SyntaxIdentifier("x")]),
-        Line(indent=4, comment=SyntaxComment("0")),
-        Line(indent=8, comment=SyntaxComment("1")),
-        Line(indent=2, terms=[SyntaxIdentifier("y")]),
+        Line(indent=0, terms=[SyntaxIdentifier(name="x")]),
+        Line(indent=4, comment=SyntaxComment(text="0")),
+        Line(indent=8, comment=SyntaxComment(text="1")),
+        Line(indent=2, terms=[SyntaxIdentifier(name="y")]),
     ], Group(
-        [
-            Line(indent=0, terms=[SyntaxIdentifier("x")]),
-            Line(indent=4, comment=SyntaxComment("0")),
-            Line(indent=8, comment=SyntaxComment("1")),
+        items=[
+            Line(
+                indent=0, terms=[SyntaxIdentifier(name="x")]
+            ),
+            Line(indent=4, comment=SyntaxComment(text="0")),
+            Line(indent=8, comment=SyntaxComment(text="1")),
             Group(
-                [
+                items=[
                     Line(
                         indent=2,
-                        terms=[SyntaxIdentifier("y")],
+                        terms=[SyntaxIdentifier(name="y")],
                     ),
                 ]
             ),
@@ -152,46 +185,52 @@ def params_group() -> Iterable[tuple[list[Line], Group]]:
 
     # Blank line starting a group
     yield [
-        Line(indent=0, terms=[SyntaxIdentifier("x")]),
+        Line(indent=0, terms=[SyntaxIdentifier(name="x")]),
         Line(indent=0),
-        Line(indent=2, terms=[SyntaxIdentifier("y")]),
+        Line(indent=2, terms=[SyntaxIdentifier(name="y")]),
         Line(indent=2),
         Line(indent=0),
-        Line(indent=0, terms=[SyntaxIdentifier("z")]),
+        Line(indent=0, terms=[SyntaxIdentifier(name="z")]),
     ], Group(
-        [
-            Line(indent=0, terms=[SyntaxIdentifier("x")]),
+        items=[
+            Line(
+                indent=0, terms=[SyntaxIdentifier(name="x")]
+            ),
             Line(indent=0),
             Group(
-                [
+                items=[
                     Line(
                         indent=2,
-                        terms=[SyntaxIdentifier("y")],
+                        terms=[SyntaxIdentifier(name="y")],
                     ),
                     Line(indent=2),
                     Line(indent=0),
                 ]
             ),
-            Line(indent=0, terms=[SyntaxIdentifier("z")]),
+            Line(
+                indent=0, terms=[SyntaxIdentifier(name="z")]
+            ),
         ]
     )
 
     # Large blank line starting a group
     yield [
-        Line(indent=0, terms=[SyntaxIdentifier("x")]),
+        Line(indent=0, terms=[SyntaxIdentifier(name="x")]),
         Line(indent=3),
         Line(indent=9),
-        Line(indent=2, terms=[SyntaxIdentifier("y")]),
+        Line(indent=2, terms=[SyntaxIdentifier(name="y")]),
     ], Group(
-        [
-            Line(indent=0, terms=[SyntaxIdentifier("x")]),
+        items=[
+            Line(
+                indent=0, terms=[SyntaxIdentifier(name="x")]
+            ),
             Line(indent=3),
             Line(indent=9),
             Group(
-                [
+                items=[
                     Line(
                         indent=2,
-                        terms=[SyntaxIdentifier("y")],
+                        terms=[SyntaxIdentifier(name="y")],
                     ),
                 ]
             ),

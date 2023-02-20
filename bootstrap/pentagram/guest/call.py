@@ -10,7 +10,7 @@ from pentagram.machine import MachineInstructionPointer
 from pentagram.syntax import SyntaxBlock
 
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class GuestCall(MachineCall):
     definition_environment: MachineEnvironment
     definition_block: SyntaxBlock

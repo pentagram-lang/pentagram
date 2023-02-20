@@ -15,9 +15,9 @@ def test_interpret() -> None:
         [
             SyntaxExpression(
                 [
-                    SyntaxNumber(int32(1)),
-                    SyntaxNumber(int32(2)),
-                    SyntaxNumber(int32(3)),
+                    SyntaxNumber(value=int32(1)),
+                    SyntaxNumber(value=int32(2)),
+                    SyntaxNumber(value=int32(3)),
                 ]
             )
         ]

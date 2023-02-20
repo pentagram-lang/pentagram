@@ -25,13 +25,17 @@ from typing import Callable
 from typing import get_args
 
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class SimpleHostCall(MachineCall):
     func: Callable[..., Any]
     signature: Signature = field(init=False)
 
     def __post_init__(self) -> None:
-        self.signature = signature(self.func, eval_str=True)
+        object.__setattr__(
+            self,
+            "signature",
+            signature(self.func, eval_str=True),
+        )
 
     def __call__(
         self, frame_stack: MachineFrameStack
@@ -74,8 +78,8 @@ class SimpleHostCall(MachineCall):
 
 def simple_call(func: Callable[..., Any]) -> MachineBinding:
     return MachineBinding(
-        from_python_name(func.__name__),
-        SimpleHostCall(func),
+        name=from_python_name(func.__name__),
+        value_or_call=SimpleHostCall(func=func),
     )
 
 
