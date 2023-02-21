@@ -27,9 +27,8 @@ class Line:
 
 
 def parse_lines(source: str) -> list[Line]:
-    source_progress = deque(source)
-
     def loop() -> Iterable[Line]:
+        source_progress = deque(source)
         while source_progress:
             yield parse_one_line(source_progress)
 
