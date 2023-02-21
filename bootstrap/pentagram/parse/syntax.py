@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from collections import deque
 from pentagram.parse.group import Group
 from pentagram.parse.line import Line
+from pentagram.parse.marker import Marker
 from pentagram.parse.marker import MarkerAssignment
 from pentagram.parse.marker import MarkerMethodDefinition
 from pentagram.syntax import SyntaxAssignment
+from pentagram.syntax import SyntaxAtom
 from pentagram.syntax import SyntaxBlock
 from pentagram.syntax import SyntaxComment
 from pentagram.syntax import SyntaxExpression
@@ -12,6 +15,8 @@ from pentagram.syntax import SyntaxIdentifier
 from pentagram.syntax import SyntaxMethodDefinition
 from pentagram.syntax import SyntaxNumber
 from pentagram.syntax import SyntaxStatement
+from pentagram.syntax import SyntaxTerm
+from typing import Iterable
 
 
 class SyntaxError_(Exception):
@@ -19,50 +24,98 @@ class SyntaxError_(Exception):
 
 
 def parse_syntax(group: Group) -> SyntaxBlock:
-    return SyntaxBlock(
-        [parse_one_statement(item) for item in group.items]
-    )
+    def loop() -> Iterable[SyntaxStatement]:
+        items_progress = deque(group.items)
+        while items_progress:
+            item = items_progress.popleft()
+            if isinstance(item, Group):
+                raise SyntaxError_(
+                    "Unexpected nested group"
+                )
+            assert isinstance(item, Line), item
+            yield parse_one_statement(
+                items_progress, item, deque(item.terms)
+            )
+
+    return SyntaxBlock(statements=list(loop()))
 
 
 def parse_one_statement(
-    item: Line | Group,
+    items_progress: deque[Line | Group],
+    line: Line,
+    terms_progress: deque[SyntaxAtom | Marker],
 ) -> SyntaxStatement:
-    bindings: list[SyntaxIdentifier] = []
-    for term in terms:
+    terms: list[SyntaxAtom] = []
+    while terms_progress:
+        term = terms_progress.popleft()
         if isinstance(term, MarkerAssignment):
+            bindings = get_bindings(terms)
+            if not bindings:
+                raise SyntaxError_(
+                    "Missing assignment binding"
+                )
+            block, comment = parse_next_block(
+                items_progress, line, terms_progress
+            )
             return SyntaxAssignment(
                 bindings=bindings,
-                terms=parse_terms(
-                    terms[len(bindings) + 1 :]
-                ),
+                block=block,
+                comment=comment,
             )
         elif isinstance(term, MarkerMethodDefinition):
-            assert len(bindings) == 1
+            bindings = get_bindings(terms)
+            if not bindings:
+                raise SyntaxError_("Missing method binding")
+            elif len(bindings) > 1:
+                raise SyntaxError_(
+                    "Multiple method bindings"
+                )
+            block, comment = parse_next_block(
+                items_progress, line, terms_progress
+            )
             return SyntaxMethodDefinition(
                 binding=bindings[0],
-                definition=parse_one_statement(terms[2:]),
+                block=block,
+                comment=comment,
             )
-        elif isinstance(term, SyntaxIdentifier):
-            bindings.append(term)
         else:
-            break
-    return SyntaxExpression(parse_terms(terms))
+            assert isinstance(term, SyntaxAtom), term
+            terms.append(term)
+    return SyntaxExpression(terms=terms)
 
 
-def parse_terms(
-    terms: list[GroupTerm],
-) -> list[SyntaxTerm]:
-    return [parse_one_term(term) for term in terms]
+def get_bindings(
+    terms: list[SyntaxTerm],
+) -> list[SyntaxIdentifier]:
+    for term in terms:
+        if isinstance(term, SyntaxNumber):
+            raise SyntaxError_(
+                "Unexpected number in binding"
+            )
+        else:
+            assert isinstance(term, SyntaxIdentifier), term
+    return terms
 
 
-def parse_one_term(term: GroupTerm) -> SyntaxTerm:
-    if isinstance(term, GroupNumber):
-        return SyntaxNumber(value=term.value)
-    elif isinstance(term, GroupIdentifier):
-        return SyntaxIdentifier(term.name)
-    elif isinstance(term, GroupComment):
-        return SyntaxComment(term.text)
-    elif isinstance(term, Group):
-        return parse_syntax(term)
+def parse_next_block(
+    items_progress: deque[Line | Group],
+    line: Line,
+    terms_progress: deque[SyntaxAtom | Marker],
+) -> tuple[SyntaxStatement, SyntaxComment | None]:
+    if terms_progress:
+        block = SyntaxBlock(
+            statements=[
+                parse_one_statement(
+                    items_progress, line, terms_progress
+                )
+            ]
+        )
+        comment = None
+    elif not items_progress or not isinstance(
+        items_progress[0], Group
+    ):
+        raise SyntaxError_("Missing expected block")
     else:
-        raise AssertionError(term)
+        block = parse_syntax(items_progress.popleft())
+        comment = line.comment
+    return block, comment

@@ -10,6 +10,11 @@ from typing import TypeVar
 
 
 @dataclass(frozen=True, kw_only=True)
+class SyntaxTerm:
+    pass
+
+
+@dataclass(frozen=True, kw_only=True)
 class SyntaxAtom:
     pass
 
@@ -53,7 +58,7 @@ class SyntaxStatement:
 
 @dataclass(frozen=True, kw_only=True)
 class SyntaxExpression(SyntaxStatement):
-    atoms: list[SyntaxAtom]
+    terms: list[SyntaxTerm]
 
 
 @dataclass(frozen=True, kw_only=True)

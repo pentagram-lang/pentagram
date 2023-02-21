@@ -33,7 +33,7 @@ def params_syntax_ok() -> Iterable[
     ), SyntaxBlock(
         statements=[
             SyntaxExpression(
-                atoms=[SyntaxIdentifier(name="abc")]
+                terms=[SyntaxIdentifier(name="abc")]
             )
         ]
     )
@@ -57,7 +57,7 @@ def params_syntax_ok() -> Iterable[
                 block=SyntaxBlock(
                     statements=[
                         SyntaxExpression(
-                            atoms=[
+                            terms=[
                                 SyntaxIdentifier(name="y")
                             ]
                         )
@@ -114,24 +114,28 @@ def params_syntax_ok() -> Iterable[
                 block=SyntaxBlock(
                     statements=[
                         SyntaxExpression(
-                            atoms=SyntaxIdentifier(name="c")
+                            terms=[
+                                SyntaxIdentifier(name="c")
+                            ]
                         ),
                         SyntaxAssignment(
                             bindings=[
                                 SyntaxIdentifier(name="d")
                             ],
                             block=SyntaxBlock(
-                                statements=SyntaxExpression(
-                                    atoms=[
-                                        SyntaxIdentifier(
-                                            name="e"
-                                        )
-                                    ],
-                                )
+                                statements=[
+                                    SyntaxExpression(
+                                        terms=[
+                                            SyntaxIdentifier(
+                                                name="e"
+                                            )
+                                        ],
+                                    )
+                                ]
                             ),
                         ),
                         SyntaxExpression(
-                            atoms=[
+                            terms=[
                                 SyntaxIdentifier(name="f"),
                                 SyntaxIdentifier(name="g"),
                             ]
@@ -161,7 +165,7 @@ def params_syntax_ok() -> Iterable[
                 block=SyntaxBlock(
                     statements=[
                         SyntaxExpression(
-                            atoms=[
+                            terms=[
                                 SyntaxIdentifier(name="b2")
                             ]
                         ),
@@ -201,7 +205,7 @@ def params_syntax_ok() -> Iterable[
                 block=SyntaxBlock(
                     statements=[
                         SyntaxExpression(
-                            atoms=[
+                            terms=[
                                 SyntaxIdentifier(name="x"),
                                 SyntaxIdentifier(name="y"),
                                 SyntaxIdentifier(name="+"),
@@ -236,7 +240,7 @@ def params_syntax_error() -> Iterable[tuple[Group, str]]:
                 ]
             ),
         ]
-    ), "unexpected group"
+    ), "Unexpected nested group"
 
     # Indent without marker
     yield Group(
@@ -258,7 +262,7 @@ def params_syntax_error() -> Iterable[tuple[Group, str]]:
                 ]
             ),
         ]
-    ), "unexpected group"
+    ), "Unexpected nested group"
 
 
 @params(params_syntax_error)

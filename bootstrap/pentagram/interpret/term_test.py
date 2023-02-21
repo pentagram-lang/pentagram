@@ -16,6 +16,7 @@ from pentagram.syntax import SyntaxComment
 from pentagram.syntax import SyntaxExpression
 from pentagram.syntax import SyntaxIdentifier
 from pentagram.syntax import SyntaxNumber
+from pentagram.syntax import SyntaxTerm
 from typing import cast
 
 

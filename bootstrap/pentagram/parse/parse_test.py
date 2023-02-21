@@ -16,28 +16,28 @@ def params_parse() -> Iterable[tuple[str, SyntaxBlock]]:
     yield "0x123xiw", SyntaxBlock(
         statements=[
             SyntaxExpression(
-                atoms=[SyntaxNumber(value=int32(0x123))]
+                terms=[SyntaxNumber(value=int32(0x123))]
             )
         ]
     )
     yield "abc", SyntaxBlock(
         statements=[
             SyntaxExpression(
-                atoms=[SyntaxIdentifier(name="abc")]
+                terms=[SyntaxIdentifier(name="abc")]
             )
         ]
     )
     yield "a-b-c", SyntaxBlock(
         statements=[
             SyntaxExpression(
-                atoms=[SyntaxIdentifier(name="a-b-c")]
+                terms=[SyntaxIdentifier(name="a-b-c")]
             )
         ]
     )
     yield "123 abc ", SyntaxBlock(
         statements=[
             SyntaxExpression(
-                atoms=[
+                terms=[
                     SyntaxNumber(value=int32(123)),
                     SyntaxIdentifier(name="abc"),
                 ]
@@ -47,7 +47,7 @@ def params_parse() -> Iterable[tuple[str, SyntaxBlock]]:
     yield "123 abc -- de", SyntaxBlock(
         statements=[
             SyntaxExpression(
-                atoms=[
+                terms=[
                     SyntaxNumber(value=int32(123)),
                     SyntaxIdentifier(name="abc"),
                     SyntaxComment(text=" de"),
@@ -64,7 +64,7 @@ def params_parse() -> Iterable[tuple[str, SyntaxBlock]]:
                 ],
                 block=SyntaxBlock(
                     statements=SyntaxExpression(
-                        atoms=[
+                        terms=[
                             SyntaxNumber(value=int32(10)),
                             SyntaxNumber(value=int32(20)),
                         ],
@@ -76,13 +76,13 @@ def params_parse() -> Iterable[tuple[str, SyntaxBlock]]:
     yield "123 abc\n456 def", SyntaxBlock(
         statements=[
             SyntaxExpression(
-                atoms=[
+                terms=[
                     SyntaxNumber(value=int32(123)),
                     SyntaxIdentifier(name="abc"),
                 ]
             ),
             SyntaxExpression(
-                atoms=[
+                terms=[
                     SyntaxNumber(value=int32(456)),
                     SyntaxIdentifier(name="def"),
                 ]
