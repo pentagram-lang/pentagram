@@ -21,12 +21,12 @@ class GuestCall(MachineCall):
         next_term(frame_stack)
         frame_stack.push(
             MachineFrame(
-                MachineInstructionPointer(
-                    self.definition_block,
+                instruction_pointer=MachineInstructionPointer(
+                    block=self.definition_block,
                     statement_index=0,
                     term_index=0,
                 ),
-                frame_stack.current.expression_stack,
-                self.definition_environment.extend(),
+                expression_stack=frame_stack.current.expression_stack,
+                environment=self.definition_environment.extend(),
             )
         )

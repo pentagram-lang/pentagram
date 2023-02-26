@@ -98,7 +98,9 @@ class MachineEnvironment:
         bindings: dict[str, MachineValue | MachineCall]
         | None = None,
     ) -> MachineEnvironment:
-        return MachineEnvironment(bindings or {}, base=self)
+        return MachineEnvironment(
+            bindings=bindings or {}, base=self
+        )
 
     def __contains__(self, key: str) -> bool:
         if key in self.bindings:
@@ -140,14 +142,14 @@ class MachineEnvironment:
         )
 
 
-@dataclass(frozen=True, kw_only=True)
+@dataclass(frozen=False, kw_only=True)
 class MachineInstructionPointer:
     block: SyntaxBlock
     statement_index: int
     term_index: int
 
 
-@dataclass(frozen=True, kw_only=True)
+@dataclass(frozen=False, kw_only=True)
 class MachineFrame:
     instruction_pointer: MachineInstructionPointer
     expression_stack: MachineExpressionStack

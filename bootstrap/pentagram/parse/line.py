@@ -42,7 +42,7 @@ def parse_one_line(source_progress: deque[str]) -> Line:
         source_0 = source_progress[0]
         assert source_0 == "\n", source_progress
         source_progress.popleft()
-    return Line(indent, terms, comment)
+    return Line(indent=indent, terms=terms, comment=comment)
 
 
 def parse_one_line_indent(
@@ -158,7 +158,7 @@ def parse_atom(source: str) -> SyntaxAtom:
         hex_match = hex_pattern.match(source)
         assert hex_match is not None
         return SyntaxNumber(
-            parse_number(
+            value=parse_number(
                 base=16,
                 digits=hex_match["digits"],
                 suffix=hex_match["suffix"] or "",
@@ -169,11 +169,11 @@ def parse_atom(source: str) -> SyntaxAtom:
         decimal_match = decimal_pattern.match(source)
         assert decimal_match is not None
         return SyntaxNumber(
-            parse_number(
+            value=parse_number(
                 base=10,
                 digits=decimal_match["digits"],
                 suffix=decimal_match["suffix"] or "",
                 sign=decimal_match["sign"] or "",
             )
         )
-    return SyntaxIdentifier(source)
+    return SyntaxIdentifier(name=source)

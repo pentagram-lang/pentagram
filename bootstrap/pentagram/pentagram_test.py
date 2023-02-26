@@ -187,7 +187,11 @@ def interpret_pentagram() -> None:
         "tmp/pentagram", "wb"
     ) as pentagram_output_file:
         test_environment = base_environment().extend(
-            {"cout": MachineStream(pentagram_output_file)}
+            {
+                "cout": MachineStream(
+                    value=pentagram_output_file
+                )
+            }
         )
         main_run("../main.penta", test_environment)
 

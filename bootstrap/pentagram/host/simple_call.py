@@ -91,7 +91,7 @@ def add(
 
 
 @simple_call
-def arr(init: Any) -> list[MachineValue]:
+def arr(init: MachineValue) -> list[MachineValue]:
     return list()
 
 
@@ -114,7 +114,7 @@ def to_be(value: integer[Any]) -> list[MachineValue]:
         value.byteswap() if byteorder == "little" else value
     )
     return [
-        MachineNumber(uint8(byte))
+        MachineNumber(value=uint8(byte))
         for byte in value.tobytes()
     ]
 
@@ -125,7 +125,7 @@ def to_le(value: integer[Any]) -> list[MachineValue]:
         value if byteorder == "little" else value.byteswap()
     )
     return [
-        MachineNumber(uint8(byte))
+        MachineNumber(value=uint8(byte))
         for byte in value.tobytes()
     ]
 
@@ -133,7 +133,7 @@ def to_le(value: integer[Any]) -> list[MachineValue]:
 @simple_call
 def to_me(value: integer[Any]) -> list[MachineValue]:
     return [
-        MachineNumber(uint8(byte))
+        MachineNumber(value=uint8(byte))
         for byte in value.tobytes()
     ]
 

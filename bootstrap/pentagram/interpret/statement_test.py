@@ -22,38 +22,44 @@ from pentagram.syntax import SyntaxStatement
 def init_statement_block(
     statement: SyntaxStatement,
 ) -> SyntaxBlock:
-    return SyntaxBlock([statement])
+    return SyntaxBlock(statements=[statement])
 
 
 def test_interpret_expression_enter() -> None:
     statement = SyntaxExpression(
-        [SyntaxNumber(value=int32(100))]
+        terms=[SyntaxNumber(value=int32(100))]
     )
     frame_stack = init_test_frame_stack(
         init_statement_block(statement),
-        MachineExpressionStack([]),
+        MachineExpressionStack(values=[]),
     )
     interpret_statement(frame_stack)
     assert frame_stack == init_test_frame_stack(
         init_statement_block(statement),
-        MachineExpressionStack([MachineNumber(int32(100))]),
+        MachineExpressionStack(
+            values=[MachineNumber(value=int32(100))]
+        ),
         term_index=1,
     )
 
 
 def test_interpret_expression_exit() -> None:
     statement = SyntaxExpression(
-        [SyntaxNumber(value=int32(100))]
+        terms=[SyntaxNumber(value=int32(100))]
     )
     frame_stack = init_test_frame_stack(
         init_statement_block(statement),
-        MachineExpressionStack([MachineNumber(int32(100))]),
+        MachineExpressionStack(
+            values=[MachineNumber(value=int32(100))]
+        ),
         term_index=1,
     )
     interpret_statement(frame_stack)
     assert frame_stack == init_test_frame_stack(
         init_statement_block(statement),
-        MachineExpressionStack([MachineNumber(int32(100))]),
+        MachineExpressionStack(
+            values=[MachineNumber(value=int32(100))]
+        ),
         statement_index=1,
         term_index=0,
     )
@@ -61,12 +67,20 @@ def test_interpret_expression_exit() -> None:
 
 def test_interpret_assignment_1_enter() -> None:
     statement = SyntaxAssignment(
-        terms=[SyntaxNumber(value=int32(3))],
         bindings=[SyntaxIdentifier(name="x")],
+        block=SyntaxBlock(
+            statements=[
+                SyntaxExpression(
+                    terms=[SyntaxNumber(value=int32(3))]
+                )
+            ]
+        ),
     )
     frame_stack = init_test_frame_stack(
         init_statement_block(statement),
-        MachineExpressionStack([MachineNumber(int32(4))]),
+        MachineExpressionStack(
+            values=[MachineNumber(value=int32(4))]
+        ),
     )
     interpret_statement(frame_stack)
     assert len(frame_stack) == 2
@@ -80,26 +94,38 @@ def test_interpret_assignment_1_enter() -> None:
     )
     assert (
         frame_stack.current.expression_stack
-        == MachineExpressionStack([MachineNumber(int32(3))])
+        == MachineExpressionStack(
+            values=[MachineNumber(value=int32(3))]
+        )
     )
 
 
 def test_interpret_assignment_1_exit() -> None:
     statement = SyntaxAssignment(
-        terms=[SyntaxNumber(value=int32(3))],
         bindings=[SyntaxIdentifier(name="x")],
+        block=SyntaxBlock(
+            statements=[
+                SyntaxExpression(
+                    terms=[SyntaxNumber(value=int32(3))],
+                )
+            ]
+        ),
     )
     frame_stack = init_test_frame_stack(
         init_statement_block(statement),
-        MachineExpressionStack([MachineNumber(int32(4))]),
+        MachineExpressionStack(
+            values=[MachineNumber(value=int32(4))]
+        ),
     )
     interpret_statement(frame_stack)
     interpret_statement(frame_stack)
     assert frame_stack == init_frame_stack(
         init_statement_block(statement),
-        MachineExpressionStack([MachineNumber(int32(4))]),
+        MachineExpressionStack(
+            values=[MachineNumber(value=int32(4))]
+        ),
         make_test_environment(
-            {"x": MachineNumber(int32(3))}
+            {"x": MachineNumber(value=int32(3))}
         ),
         statement_index=1,
     )
@@ -107,29 +133,35 @@ def test_interpret_assignment_1_exit() -> None:
 
 def test_interpret_assignment_2_exit() -> None:
     statement = SyntaxAssignment(
-        terms=[
-            SyntaxNumber(value=int32(300)),
-            SyntaxNumber(value=int32(400)),
-        ],
         bindings=[
             SyntaxIdentifier(name="abc"),
             SyntaxIdentifier(name="def"),
         ],
+        block=SyntaxBlock(
+            statements=[
+                SyntaxExpression(
+                    terms=[
+                        SyntaxNumber(value=int32(300)),
+                        SyntaxNumber(value=int32(400)),
+                    ],
+                )
+            ]
+        ),
     )
     frame_stack = init_test_frame_stack(
         init_statement_block(statement),
-        MachineExpressionStack([]),
+        MachineExpressionStack(values=[]),
     )
     interpret_statement(frame_stack)
     interpret_statement(frame_stack)
     interpret_statement(frame_stack)
     assert frame_stack == init_frame_stack(
         init_statement_block(statement),
-        MachineExpressionStack([]),
+        MachineExpressionStack(values=[]),
         make_test_environment(
             {
-                "abc": MachineNumber(int32(300)),
-                "def": MachineNumber(int32(400)),
+                "abc": MachineNumber(value=int32(300)),
+                "def": MachineNumber(value=int32(400)),
             }
         ),
         statement_index=1,
@@ -139,19 +171,23 @@ def test_interpret_assignment_2_exit() -> None:
 def test_interpret_method_definition_exit() -> None:
     statement = SyntaxMethodDefinition(
         binding=SyntaxIdentifier(name="f"),
-        definition=SyntaxExpression(
-            [SyntaxIdentifier(name="sqrt")]
+        block=SyntaxBlock(
+            statements=[
+                SyntaxExpression(
+                    terms=[SyntaxIdentifier(name="sqrt")]
+                ),
+            ]
         ),
     )
     frame_stack = init_test_frame_stack(
         init_statement_block(statement),
-        MachineExpressionStack([]),
+        MachineExpressionStack(values=[]),
     )
     interpret_statement(frame_stack)
     environment = frame_stack.current.environment
     assert frame_stack == init_frame_stack(
         init_statement_block(statement),
-        MachineExpressionStack([]),
+        MachineExpressionStack(values=[]),
         environment,
         statement_index=1,
     )

@@ -32,7 +32,7 @@ def interpret_number_term(
     number: SyntaxNumber[Any],
 ) -> None:
     expression_stack = frame_stack.current.expression_stack
-    expression_stack.push(MachineNumber(number.value))
+    expression_stack.push(MachineNumber(value=number.value))
     next_term(frame_stack)
 
 
@@ -58,11 +58,11 @@ def interpret_block_term(
     next_term(frame_stack)
     frame_stack.push(
         MachineFrame(
-            MachineInstructionPointer(
-                block, statement_index=0, term_index=0
+            instruction_pointer=MachineInstructionPointer(
+                block=block, statement_index=0, term_index=0
             ),
-            frame_stack.current.expression_stack,
-            frame_stack.current.environment.extend(),
+            expression_stack=frame_stack.current.expression_stack,
+            environment=frame_stack.current.environment.extend(),
         )
     )
 
