@@ -59,9 +59,9 @@ def interpret_assignment_enter(
 ) -> None:
     old_frame = frame_stack.current
     new_frame = MachineFrame(
-        old_frame.instruction_pointer,
-        MachineExpressionStack([]),
-        old_frame.environment,
+        instruction_pointer=old_frame.instruction_pointer,
+        expression_stack=MachineExpressionStack(values=[]),
+        environment=old_frame.environment,
     )
     frame_stack.push(new_frame)
 

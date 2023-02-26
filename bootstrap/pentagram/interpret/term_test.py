@@ -21,25 +21,30 @@ from typing import cast
 
 
 def init_term_block(term: SyntaxTerm) -> SyntaxBlock:
-    return SyntaxBlock([SyntaxExpression([term])])
+    return SyntaxBlock(
+        statements=[SyntaxExpression(terms=[term])]
+    )
 
 
 def test_interpret_number() -> None:
     term = SyntaxNumber(value=int32(100))
     frame_stack = init_test_frame_stack(
-        init_term_block(term), MachineExpressionStack([])
+        init_term_block(term),
+        MachineExpressionStack(values=[]),
     )
     interpret_term(frame_stack)
     assert frame_stack == init_test_frame_stack(
         init_term_block(term),
-        MachineExpressionStack([MachineNumber(int32(100))]),
+        MachineExpressionStack(
+            values=[MachineNumber(value=int32(100))]
+        ),
         term_index=1,
     )
 
 
 def test_interpret_identifier_value() -> None:
-    term = SyntaxIdentifier(PI.name)
-    expression_stack = MachineExpressionStack([])
+    term = SyntaxIdentifier(name=PI.name)
+    expression_stack = MachineExpressionStack(values=[])
     frame_stack = init_test_frame_stack(
         init_term_block(term), expression_stack
     )
@@ -47,16 +52,16 @@ def test_interpret_identifier_value() -> None:
     assert frame_stack == init_test_frame_stack(
         init_term_block(term),
         MachineExpressionStack(
-            [cast(MachineValue, PI.value_or_call)]
+            values=[cast(MachineValue, PI.value_or_call)]
         ),
         term_index=1,
     )
 
 
 def test_interpret_identifier_call() -> None:
-    term = SyntaxIdentifier(sqrt.name)
+    term = SyntaxIdentifier(name=sqrt.name)
     expression_stack = MachineExpressionStack(
-        [MachineNumber(int32(16))]
+        values=[MachineNumber(value=int32(16))]
     )
     frame_stack = init_test_frame_stack(
         init_term_block(term), expression_stack
@@ -64,7 +69,9 @@ def test_interpret_identifier_call() -> None:
     interpret_term(frame_stack)
     assert frame_stack == init_test_frame_stack(
         init_term_block(term),
-        MachineExpressionStack([MachineNumber(int32(4))]),
+        MachineExpressionStack(
+            values=[MachineNumber(value=int32(4))]
+        ),
         term_index=1,
     )
 
@@ -72,7 +79,7 @@ def test_interpret_identifier_call() -> None:
 def test_interpret_comment() -> None:
     term = SyntaxComment(text="something")
     expression_stack = MachineExpressionStack(
-        [MachineNumber(int32(10))]
+        values=[MachineNumber(value=int32(10))]
     )
     frame_stack = init_test_frame_stack(
         init_term_block(term), expression_stack
@@ -80,7 +87,9 @@ def test_interpret_comment() -> None:
     interpret_term(frame_stack)
     assert frame_stack == init_test_frame_stack(
         init_term_block(term),
-        MachineExpressionStack([MachineNumber(int32(10))]),
+        MachineExpressionStack(
+            values=[MachineNumber(value=int32(10))]
+        ),
         term_index=1,
     )
 
@@ -88,7 +97,7 @@ def test_interpret_comment() -> None:
 def test_interpret_block() -> None:
     term = init_term_block(SyntaxNumber(value=int32(2)))
     expression_stack = MachineExpressionStack(
-        [MachineNumber(int32(10))]
+        values=[MachineNumber(value=int32(10))]
     )
     frame_stack = init_test_frame_stack(
         init_term_block(term), expression_stack
@@ -100,7 +109,7 @@ def test_interpret_block() -> None:
         == init_test_frame_stack(
             init_term_block(term),
             MachineExpressionStack(
-                [MachineNumber(int32(10))]
+                values=[MachineNumber(value=int32(10))]
             ),
             term_index=1,
         ).frames[0]
@@ -111,6 +120,6 @@ def test_interpret_block() -> None:
         ),
         environment=make_test_environment().extend(),
         expression_stack=MachineExpressionStack(
-            [MachineNumber(int32(10))]
+            values=[MachineNumber(value=int32(10))]
         ),
     )

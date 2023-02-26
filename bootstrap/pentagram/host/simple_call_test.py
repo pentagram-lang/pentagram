@@ -36,13 +36,15 @@ def call_test(
     args: list[MachineValue],
     results: list[MachineValue],
 ) -> None:
-    term = SyntaxIdentifier(binding.name)
-    block = SyntaxBlock([SyntaxExpression([term])])
-    expression_stack = MachineExpressionStack(args)
+    term = SyntaxIdentifier(name=binding.name)
+    block = SyntaxBlock(
+        statements=[SyntaxExpression(terms=[term])]
+    )
+    expression_stack = MachineExpressionStack(values=args)
     environment = make_test_environment()
     interpret(block, expression_stack, environment)
     assert expression_stack == MachineExpressionStack(
-        results
+        values=results
     )
 
 
@@ -50,14 +52,16 @@ def test_add() -> None:
     call_test(
         add,
         [
-            MachineArray([MachineNumber(uint8(0x01))]),
-            MachineNumber(uint8(0x02)),
+            MachineArray(
+                value=[MachineNumber(value=uint8(0x01))]
+            ),
+            MachineNumber(value=uint8(0x02)),
         ],
         [
             MachineArray(
-                [
-                    MachineNumber(uint8(0x01)),
-                    MachineNumber(uint8(0x02)),
+                value=[
+                    MachineNumber(value=uint8(0x01)),
+                    MachineNumber(value=uint8(0x02)),
                 ]
             ),
         ],
@@ -65,7 +69,9 @@ def test_add() -> None:
 
 
 def test_arr() -> None:
-    call_test(arr, [MachineValue()], [MachineArray([])])
+    call_test(
+        arr, [MachineValue()], [MachineArray(value=[])]
+    )
 
 
 def params_cat() -> Iterable[tuple[bytes, ...]]:
@@ -83,22 +89,22 @@ def test_cat(
         cat,
         [
             MachineArray(
-                [
-                    MachineNumber(uint8(byte))
+                value=[
+                    MachineNumber(value=uint8(byte))
                     for byte in bytes_a
                 ]
             ),
             MachineArray(
-                [
-                    MachineNumber(uint8(byte))
+                value=[
+                    MachineNumber(value=uint8(byte))
                     for byte in bytes_b
                 ]
             ),
         ],
         [
             MachineArray(
-                [
-                    MachineNumber(uint8(byte))
+                value=[
+                    MachineNumber(value=uint8(byte))
                     for byte in bytes_a + bytes_b
                 ]
             )
@@ -109,8 +115,8 @@ def test_cat(
 def test_sqrt() -> None:
     call_test(
         sqrt,
-        [MachineNumber(int32(4))],
-        [MachineNumber(int32(2))],
+        [MachineNumber(value=int32(4))],
+        [MachineNumber(value=int32(2))],
     )
 
 
@@ -127,11 +133,11 @@ def test_to_endian(
 ) -> None:
     call_test(
         to_be,
-        [MachineNumber(number)],
+        [MachineNumber(value=number)],
         [
             MachineArray(
-                [
-                    MachineNumber(uint8(byte))
+                value=[
+                    MachineNumber(value=uint8(byte))
                     for byte in reversed(expected_le)
                 ]
             )
@@ -139,11 +145,11 @@ def test_to_endian(
     )
     call_test(
         to_le,
-        [MachineNumber(number)],
+        [MachineNumber(value=number)],
         [
             MachineArray(
-                [
-                    MachineNumber(uint8(byte))
+                value=[
+                    MachineNumber(value=uint8(byte))
                     for byte in expected_le
                 ]
             )
@@ -151,11 +157,11 @@ def test_to_endian(
     )
     call_test(
         to_me,
-        [MachineNumber(number)],
+        [MachineNumber(value=number)],
         [
             MachineArray(
-                [
-                    MachineNumber(uint8(byte))
+                value=[
+                    MachineNumber(value=uint8(byte))
                     for byte in (
                         expected_le
                         if byteorder == "little"
@@ -172,10 +178,10 @@ def test_write() -> None:
     call_test(
         write,
         [
-            MachineStream(bytes_io),
+            MachineStream(value=bytes_io),
             MachineArray(
-                [
-                    MachineNumber(uint8(byte))
+                value=[
+                    MachineNumber(value=uint8(byte))
                     for byte in b"abcdef"
                 ]
             ),

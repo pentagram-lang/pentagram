@@ -81,7 +81,9 @@ def parse_one_statement(
         else:
             assert isinstance(term, SyntaxAtom), term
             terms.append(term)
-    return SyntaxExpression(terms=terms)
+    return SyntaxExpression(
+        terms=terms, comment=line.comment
+    )
 
 
 def get_bindings(

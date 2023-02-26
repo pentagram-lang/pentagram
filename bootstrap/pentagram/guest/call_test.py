@@ -19,15 +19,25 @@ def test_call_push_frame() -> None:
     call = GuestCall(
         definition_environment=make_test_environment(),
         definition_block=SyntaxBlock(
-            [SyntaxExpression([SyntaxIdentifier(name="g")])]
+            statements=[
+                SyntaxExpression(
+                    terms=[SyntaxIdentifier(name="g")]
+                )
+            ]
         ),
     )
     block = SyntaxBlock(
-        [SyntaxExpression([SyntaxIdentifier(name="f")])]
+        statements=[
+            SyntaxExpression(
+                terms=[SyntaxIdentifier(name="f")]
+            )
+        ]
     )
     frame_stack = init_test_frame_stack(
         block,
-        MachineExpressionStack([MachineNumber(int32(9))]),
+        MachineExpressionStack(
+            values=[MachineNumber(value=int32(9))]
+        ),
     )
     call(frame_stack)
     assert len(frame_stack) == 2
@@ -36,7 +46,7 @@ def test_call_push_frame() -> None:
         == init_test_frame_stack(
             block,
             MachineExpressionStack(
-                [MachineNumber(int32(9))]
+                values=[MachineNumber(value=int32(9))]
             ),
             term_index=1,
         ).frames[0]
@@ -49,7 +59,7 @@ def test_call_push_frame() -> None:
         ),
         environment=make_test_environment().extend(),
         expression_stack=MachineExpressionStack(
-            [MachineNumber(int32(9))]
+            values=[MachineNumber(value=int32(9))]
         ),
     )
 
@@ -58,23 +68,27 @@ def test_call_delegate_to_host_call() -> None:
     call = GuestCall(
         definition_environment=make_test_environment(),
         definition_block=SyntaxBlock(
-            [
+            statements=[
                 SyntaxExpression(
-                    [SyntaxIdentifier(name="sqrt")]
+                    terms=[SyntaxIdentifier(name="sqrt")]
                 )
             ]
         ),
     )
     block = SyntaxBlock(
-        [SyntaxExpression([SyntaxIdentifier(name="f")])]
+        statements=[
+            SyntaxExpression(
+                terms=[SyntaxIdentifier(name="f")]
+            )
+        ]
     )
     expression_stack = MachineExpressionStack(
-        [MachineNumber(int32(16))]
+        values=[MachineNumber(value=int32(16))]
     )
     environment = make_test_environment({"f": call})
     interpret(block, expression_stack, environment)
     assert expression_stack == MachineExpressionStack(
-        [MachineNumber(int32(4))]
+        values=[MachineNumber(value=int32(4))]
     )
 
 
@@ -82,9 +96,9 @@ def test_call_generate_values() -> None:
     call = GuestCall(
         definition_environment=make_test_environment(),
         definition_block=SyntaxBlock(
-            [
+            statements=[
                 SyntaxExpression(
-                    [
+                    terms=[
                         SyntaxNumber(value=int32(2)),
                         SyntaxNumber(value=int32(3)),
                         SyntaxNumber(value=int32(4)),
@@ -94,18 +108,22 @@ def test_call_generate_values() -> None:
         ),
     )
     block = SyntaxBlock(
-        [SyntaxExpression([SyntaxIdentifier(name="seq")])]
+        statements=[
+            SyntaxExpression(
+                terms=[SyntaxIdentifier(name="seq")]
+            )
+        ]
     )
     expression_stack = MachineExpressionStack(
-        [MachineNumber(int32(1))]
+        values=[MachineNumber(value=int32(1))]
     )
     environment = make_test_environment({"seq": call})
     interpret(block, expression_stack, environment)
     assert expression_stack == MachineExpressionStack(
-        [
-            MachineNumber(int32(1)),
-            MachineNumber(int32(2)),
-            MachineNumber(int32(3)),
-            MachineNumber(int32(4)),
+        values=[
+            MachineNumber(value=int32(1)),
+            MachineNumber(value=int32(2)),
+            MachineNumber(value=int32(3)),
+            MachineNumber(value=int32(4)),
         ]
     )

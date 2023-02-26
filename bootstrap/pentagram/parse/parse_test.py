@@ -50,8 +50,8 @@ def params_parse() -> Iterable[tuple[str, SyntaxBlock]]:
                 terms=[
                     SyntaxNumber(value=int32(123)),
                     SyntaxIdentifier(name="abc"),
-                    SyntaxComment(text=" de"),
-                ]
+                ],
+                comment=SyntaxComment(text=" de"),
             )
         ]
     )
@@ -63,12 +63,18 @@ def params_parse() -> Iterable[tuple[str, SyntaxBlock]]:
                     SyntaxIdentifier(name="def"),
                 ],
                 block=SyntaxBlock(
-                    statements=SyntaxExpression(
-                        terms=[
-                            SyntaxNumber(value=int32(10)),
-                            SyntaxNumber(value=int32(20)),
-                        ],
-                    )
+                    statements=[
+                        SyntaxExpression(
+                            terms=[
+                                SyntaxNumber(
+                                    value=int32(10)
+                                ),
+                                SyntaxNumber(
+                                    value=int32(20)
+                                ),
+                            ],
+                        )
+                    ]
                 ),
             )
         ]

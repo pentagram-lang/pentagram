@@ -12,9 +12,9 @@ from pentagram.syntax import SyntaxNumber
 
 def test_interpret() -> None:
     block = SyntaxBlock(
-        [
+        statements=[
             SyntaxExpression(
-                [
+                terms=[
                     SyntaxNumber(value=int32(1)),
                     SyntaxNumber(value=int32(2)),
                     SyntaxNumber(value=int32(3)),
@@ -22,13 +22,13 @@ def test_interpret() -> None:
             )
         ]
     )
-    expression_stack = MachineExpressionStack([])
+    expression_stack = MachineExpressionStack(values=[])
     environment = make_test_environment()
     interpret(block, expression_stack, environment)
     assert expression_stack == MachineExpressionStack(
-        [
-            MachineNumber(int32(1)),
-            MachineNumber(int32(2)),
-            MachineNumber(int32(3)),
+        values=[
+            MachineNumber(value=int32(1)),
+            MachineNumber(value=int32(2)),
+            MachineNumber(value=int32(3)),
         ]
     )

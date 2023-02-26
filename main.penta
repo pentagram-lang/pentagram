@@ -1,5 +1,6 @@
 main >>
-  program-data = [] arr
+  program-data =
+    [] arr
     generate-elf-header cat
     generate-code cat
     generate-data cat

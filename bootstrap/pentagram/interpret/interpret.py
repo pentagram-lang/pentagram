@@ -29,13 +29,15 @@ def init_frame_stack(
     term_index: int = 0,
 ) -> MachineFrameStack:
     return MachineFrameStack(
-        [
+        frames=[
             MachineFrame(
-                MachineInstructionPointer(
-                    block, statement_index, term_index
+                instruction_pointer=MachineInstructionPointer(
+                    block=block,
+                    statement_index=statement_index,
+                    term_index=term_index,
                 ),
-                expression_stack,
-                environment,
+                expression_stack=expression_stack,
+                environment=environment,
             )
         ]
     )
