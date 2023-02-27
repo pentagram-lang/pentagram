@@ -7,7 +7,9 @@ from dataclasses import field
 from io import IOBase
 from numpy import integer
 from pentagram.syntax import SyntaxBlock
+from pentagram.syntax import SyntaxExpression
 from pentagram.syntax import SyntaxStatement
+from pentagram.syntax import SyntaxTerm
 from typing import Any
 from typing import Generic
 from typing import Type
@@ -69,6 +71,9 @@ class MachineExpressionStack:
         for _ in range(count):
             values.append(self.values.pop())
         return values
+
+    def __bool__(self) -> bool:
+        return bool(self.values)
 
     def __len__(self) -> int:
         return len(self.values)
@@ -178,10 +183,6 @@ class MachineFrame:
     @term_index.setter
     def term_index(self, value: int) -> None:
         self.instruction_pointer.term_index = value
-
-    @property
-    def term(self) -> SyntaxTerm:
-        return self.statement.terms[self.term_index]
 
 
 @dataclass(frozen=True, kw_only=True)
