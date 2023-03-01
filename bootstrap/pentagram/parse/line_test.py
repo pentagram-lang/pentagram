@@ -10,6 +10,8 @@ from numpy import uint64
 from pentagram.parse.line import Line
 from pentagram.parse.line import parse_atom
 from pentagram.parse.line import parse_lines
+from pentagram.parse.marker import MarkerAssignment
+from pentagram.parse.marker import MarkerMethodDefinition
 from pentagram.syntax import SyntaxAtom
 from pentagram.syntax import SyntaxComment
 from pentagram.syntax import SyntaxIdentifier
@@ -18,10 +20,13 @@ from pentagram.test import params
 
 
 def params_lines() -> Iterable[tuple[str, list[Line]]]:
-    yield "a\n" "b\n", [
+    # Identifiers
+    yield ("a\n" "b\n"), [
         Line(indent=0, terms=[SyntaxIdentifier(name="a")]),
         Line(indent=0, terms=[SyntaxIdentifier(name="b")]),
     ]
+
+    # Numbers and indent
     yield "a0 1b c-2\n" "  def ghi\n", [
         Line(
             indent=0,
@@ -39,10 +44,14 @@ def params_lines() -> Iterable[tuple[str, list[Line]]]:
             ],
         ),
     ]
+
+    # Just indent
     yield "\n" "    \n", [
         Line(indent=0),
         Line(indent=4),
     ]
+
+    # Comments
     yield "   -- desc\n" "0x1-2--xyz\n", [
         Line(
             indent=3,
@@ -53,6 +62,30 @@ def params_lines() -> Iterable[tuple[str, list[Line]]]:
             indent=0,
             terms=[SyntaxNumber(value=uint8(0x12))],
             comment=SyntaxComment(text="xyz"),
+        ),
+    ]
+
+    # Assignment
+    yield "x = y", [
+        Line(
+            indent=0,
+            terms=[
+                SyntaxIdentifier(name="x"),
+                MarkerAssignment(),
+                SyntaxIdentifier(name="y"),
+            ],
+        ),
+    ]
+
+    # Method definition
+    yield "f >> x", [
+        Line(
+            indent=0,
+            terms=[
+                SyntaxIdentifier(name="f"),
+                MarkerMethodDefinition(),
+                SyntaxIdentifier(name="x"),
+            ],
         ),
     ]
 

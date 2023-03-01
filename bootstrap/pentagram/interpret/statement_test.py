@@ -9,15 +9,12 @@ from pentagram.interpret.statement import (
 from pentagram.interpret.test import init_test_frame_stack
 from pentagram.interpret.test import make_test_environment
 from pentagram.machine import MachineExpressionStack
-from pentagram.machine import MachineInstructionPointer
 from pentagram.machine import MachineNumber
-from pentagram.syntax import SyntaxAssignment
 from pentagram.syntax import SyntaxBlock
 from pentagram.syntax import SyntaxExpression
 from pentagram.syntax import SyntaxIdentifier
 from pentagram.syntax import SyntaxMethodDefinition
 from pentagram.syntax import SyntaxNumber
-from pentagram.syntax import SyntaxStatement
 
 
 def test_interpret_expression_enter() -> None:

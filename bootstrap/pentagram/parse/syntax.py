@@ -17,6 +17,7 @@ from pentagram.syntax import SyntaxNumber
 from pentagram.syntax import SyntaxStatement
 from pentagram.syntax import SyntaxTerm
 from typing import Iterable
+from typing import cast
 
 
 class SyntaxError_(Exception):
@@ -45,7 +46,7 @@ def parse_one_statement(
     line: Line,
     terms_progress: deque[SyntaxAtom | Marker],
 ) -> SyntaxStatement:
-    terms: list[SyntaxAtom] = []
+    terms: list[SyntaxTerm] = []
     while terms_progress:
         term = terms_progress.popleft()
         if isinstance(term, MarkerAssignment):
@@ -96,14 +97,14 @@ def get_bindings(
             )
         else:
             assert isinstance(term, SyntaxIdentifier), term
-    return terms
+    return cast(list[SyntaxIdentifier], terms)
 
 
 def parse_next_block(
     items_progress: deque[Line | Group],
     line: Line,
     terms_progress: deque[SyntaxAtom | Marker],
-) -> tuple[SyntaxStatement, SyntaxComment | None]:
+) -> tuple[SyntaxBlock, SyntaxComment | None]:
     if terms_progress:
         block = SyntaxBlock(
             statements=[
@@ -113,11 +114,20 @@ def parse_next_block(
             ]
         )
         comment = None
-    elif not items_progress or not isinstance(
-        items_progress[0], Group
-    ):
-        raise SyntaxError_("Missing expected block")
     else:
-        block = parse_syntax(items_progress.popleft())
-        comment = line.comment
+        while (
+            items_progress
+            and isinstance(items_progress[0], Line)
+            and not items_progress[0]
+        ):
+            items_progress.popleft()
+        if not items_progress or not isinstance(
+            items_progress[0], Group
+        ):
+            raise SyntaxError_("Missing expected block")
+        else:
+            block = parse_syntax(
+                cast(Group, items_progress.popleft())
+            )
+            comment = line.comment
     return block, comment

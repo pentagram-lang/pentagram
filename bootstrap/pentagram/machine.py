@@ -7,9 +7,7 @@ from dataclasses import field
 from io import IOBase
 from numpy import integer
 from pentagram.syntax import SyntaxBlock
-from pentagram.syntax import SyntaxExpression
 from pentagram.syntax import SyntaxStatement
-from pentagram.syntax import SyntaxTerm
 from typing import Any
 from typing import Generic
 from typing import Type

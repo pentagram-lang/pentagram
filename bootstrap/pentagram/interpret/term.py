@@ -4,7 +4,6 @@ from pentagram.machine import MachineCall
 from pentagram.machine import MachineFrameStack
 from pentagram.machine import MachineNumber
 from pentagram.machine import MachineValue
-from pentagram.syntax import SyntaxComment
 from pentagram.syntax import SyntaxExpression
 from pentagram.syntax import SyntaxIdentifier
 from pentagram.syntax import SyntaxNumber
@@ -20,8 +19,6 @@ def interpret_expression_term(
         interpret_number_term(frame_stack, term)
     elif isinstance(term, SyntaxIdentifier):
         interpret_identifier_term(frame_stack, term)
-    elif isinstance(term, SyntaxComment):
-        next_term(frame_stack)
     else:
         raise AssertionError(term)
 

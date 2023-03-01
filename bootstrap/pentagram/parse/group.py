@@ -18,16 +18,8 @@ def parse_group(lines: list[Line]) -> Group:
             groups[-2].items.append(groups.pop())
 
     for line in lines:
-        if not line.terms:
-            if not line.comment:
-                indent_level = substantial_indent_level
-            else:
-                assert line.indent % 2 == 0, line
-                indent_level = min(
-                    substantial_indent_level,
-                    line.indent // 2,
-                )
-                assert indent_level <= len(groups), line
+        if not line:
+            indent_level = substantial_indent_level
         else:
             assert line.indent % 2 == 0, line
             indent_level = line.indent // 2

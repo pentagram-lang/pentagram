@@ -11,7 +11,6 @@ from pentagram.machine import MachineExpressionStack
 from pentagram.machine import MachineNumber
 from pentagram.machine import MachineValue
 from pentagram.syntax import SyntaxBlock
-from pentagram.syntax import SyntaxComment
 from pentagram.syntax import SyntaxExpression
 from pentagram.syntax import SyntaxIdentifier
 from pentagram.syntax import SyntaxNumber
@@ -20,19 +19,14 @@ from typing import cast
 
 def test_interpret_number() -> None:
     term = SyntaxNumber(value=int32(100))
+    expression = SyntaxExpression(terms=[term])
     frame_stack = init_test_frame_stack(
-        SyntaxBlock(
-            statements=[SyntaxExpression(terms=[term])]
-        ),
+        SyntaxBlock(statements=[expression]),
         MachineExpressionStack(values=[]),
     )
-    interpret_expression_term(
-        frame_stack, frame_stack.current.statement
-    )
+    interpret_expression_term(frame_stack, expression)
     assert frame_stack == init_test_frame_stack(
-        SyntaxBlock(
-            statements=[SyntaxExpression(terms=[term])]
-        ),
+        SyntaxBlock(statements=[expression]),
         MachineExpressionStack(
             values=[MachineNumber(value=int32(100))]
         ),
@@ -42,20 +36,15 @@ def test_interpret_number() -> None:
 
 def test_interpret_identifier_value() -> None:
     term = SyntaxIdentifier(name=PI.name)
+    expression = SyntaxExpression(terms=[term])
     expression_stack = MachineExpressionStack(values=[])
     frame_stack = init_test_frame_stack(
-        SyntaxBlock(
-            statements=[SyntaxExpression(terms=[term])]
-        ),
+        SyntaxBlock(statements=[expression]),
         expression_stack,
     )
-    interpret_expression_term(
-        frame_stack, frame_stack.current.statement
-    )
+    interpret_expression_term(frame_stack, expression)
     assert frame_stack == init_test_frame_stack(
-        SyntaxBlock(
-            statements=[SyntaxExpression(terms=[term])]
-        ),
+        SyntaxBlock(statements=[expression]),
         MachineExpressionStack(
             values=[cast(MachineValue, PI.value_or_call)]
         ),
@@ -65,49 +54,19 @@ def test_interpret_identifier_value() -> None:
 
 def test_interpret_identifier_call() -> None:
     term = SyntaxIdentifier(name=sqrt.name)
+    expression = SyntaxExpression(terms=[term])
     expression_stack = MachineExpressionStack(
         values=[MachineNumber(value=int32(16))]
     )
     frame_stack = init_test_frame_stack(
-        SyntaxBlock(
-            statements=[SyntaxExpression(terms=[term])]
-        ),
+        SyntaxBlock(statements=[expression]),
         expression_stack,
     )
-    interpret_expression_term(
-        frame_stack, frame_stack.current.statement
-    )
+    interpret_expression_term(frame_stack, expression)
     assert frame_stack == init_test_frame_stack(
-        SyntaxBlock(
-            statements=[SyntaxExpression(terms=[term])]
-        ),
+        SyntaxBlock(statements=[expression]),
         MachineExpressionStack(
             values=[MachineNumber(value=int32(4))]
-        ),
-        term_index=1,
-    )
-
-
-def test_interpret_comment() -> None:
-    term = SyntaxComment(text="something")
-    expression_stack = MachineExpressionStack(
-        values=[MachineNumber(value=int32(10))]
-    )
-    frame_stack = init_test_frame_stack(
-        SyntaxBlock(
-            statements=[SyntaxExpression(terms=[term])]
-        ),
-        expression_stack,
-    )
-    interpret_expression_term(
-        frame_stack, frame_stack.current.statement
-    )
-    assert frame_stack == init_test_frame_stack(
-        SyntaxBlock(
-            statements=[SyntaxExpression(terms=[term])]
-        ),
-        MachineExpressionStack(
-            values=[MachineNumber(value=int32(10))]
         ),
         term_index=1,
     )

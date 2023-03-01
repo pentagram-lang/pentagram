@@ -217,6 +217,109 @@ def params_syntax_ok() -> Iterable[
         ]
     )
 
+    # Double nesting
+    yield Group(
+        items=[
+            Line(
+                indent=0,
+                terms=[
+                    SyntaxIdentifier(name="f"),
+                    MarkerMethodDefinition(),
+                ],
+            ),
+            Group(
+                items=[
+                    Line(
+                        indent=2,
+                        terms=[
+                            SyntaxIdentifier(name="x"),
+                            MarkerAssignment(),
+                        ],
+                    ),
+                    Group(
+                        items=[
+                            Line(
+                                indent=4,
+                                terms=[
+                                    SyntaxIdentifier(
+                                        name="y"
+                                    ),
+                                ],
+                            )
+                        ]
+                    ),
+                ]
+            ),
+        ]
+    ), SyntaxBlock(
+        statements=[
+            SyntaxMethodDefinition(
+                binding=SyntaxIdentifier(name="f"),
+                block=SyntaxBlock(
+                    statements=[
+                        SyntaxAssignment(
+                            bindings=[
+                                SyntaxIdentifier(name="x"),
+                            ],
+                            block=SyntaxBlock(
+                                statements=[
+                                    SyntaxExpression(
+                                        terms=[
+                                            SyntaxIdentifier(
+                                                name="y"
+                                            ),
+                                        ]
+                                    )
+                                ]
+                            ),
+                        )
+                    ]
+                ),
+            )
+        ]
+    )
+
+    # Blank line nesting
+    yield Group(
+        items=[
+            Line(
+                indent=0,
+                terms=[
+                    SyntaxIdentifier(name="f"),
+                    MarkerMethodDefinition(),
+                ],
+            ),
+            Line(
+                indent=0,
+            ),
+            Group(
+                items=[
+                    Line(
+                        indent=2,
+                        terms=[
+                            SyntaxIdentifier(name="x"),
+                        ],
+                    ),
+                ]
+            ),
+        ]
+    ), SyntaxBlock(
+        statements=[
+            SyntaxMethodDefinition(
+                binding=SyntaxIdentifier(name="f"),
+                block=SyntaxBlock(
+                    statements=[
+                        SyntaxExpression(
+                            terms=[
+                                SyntaxIdentifier(name="x"),
+                            ]
+                        )
+                    ]
+                ),
+            )
+        ]
+    )
+
 
 @params(params_syntax_ok)
 def test_syntax_ok(

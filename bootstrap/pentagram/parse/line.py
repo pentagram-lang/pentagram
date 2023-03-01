@@ -25,6 +25,9 @@ class Line:
     )
     comment: SyntaxComment | None = field(default=None)
 
+    def __bool__(self) -> bool:
+        return bool(self.terms) or bool(self.comment)
+
 
 def parse_lines(source: str) -> list[Line]:
     def loop() -> Iterable[Line]:
@@ -92,6 +95,7 @@ def parse_one_line_words(
             token_end()
             terms.append(MarkerBlock())
         elif (source_0, source_1) == (">", ">"):
+            source_progress.popleft()
             token_end()
             terms.append(MarkerMethodDefinition())
         elif (source_0, source_1) == ("-", "-"):
