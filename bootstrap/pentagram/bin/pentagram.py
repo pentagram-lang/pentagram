@@ -38,7 +38,9 @@ def main_run(
     with open(source_filename, "r") as source_file:
         source_text = source_file.read()
     root_block = parse(source_text)
-    root_expression_stack = MachineExpressionStack([])
+    root_expression_stack = MachineExpressionStack(
+        values=[]
+    )
     if not environment:
         environment = base_environment()
     interpret(
@@ -48,7 +50,9 @@ def main_run(
     assert "main" in environment, environment.bindings
     main_call = environment["main"]
     assert isinstance(main_call, GuestCall), main_call
-    main_expression_stack = MachineExpressionStack([])
+    main_expression_stack = MachineExpressionStack(
+        values=[]
+    )
     interpret(
         main_call.definition_block,
         main_expression_stack,
@@ -65,7 +69,7 @@ def main_loop() -> None:
         statement_text: str,
     ) -> list[MachineValue]:
         block = parse(statement_text)
-        expression_stack = MachineExpressionStack([])
+        expression_stack = MachineExpressionStack(values=[])
         interpret(block, expression_stack, environment)
         return expression_stack.values
 

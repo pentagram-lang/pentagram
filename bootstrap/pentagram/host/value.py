@@ -18,3 +18,5 @@ def value(name: str, val: Any) -> MachineBinding:
 COUT = value("cout", sys.stdout.buffer)
 
 PI = value("pi", int32(math.pi))
+
+EMPTY = value("[]", int32(0))

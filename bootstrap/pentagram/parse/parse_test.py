@@ -13,6 +13,7 @@ from pentagram.test import params
 
 
 def params_parse() -> Iterable[tuple[str, SyntaxBlock]]:
+    # Number
     yield "0x123xiw", SyntaxBlock(
         statements=[
             SyntaxExpression(
@@ -20,6 +21,8 @@ def params_parse() -> Iterable[tuple[str, SyntaxBlock]]:
             )
         ]
     )
+
+    # Identifier
     yield "abc", SyntaxBlock(
         statements=[
             SyntaxExpression(
@@ -27,6 +30,8 @@ def params_parse() -> Iterable[tuple[str, SyntaxBlock]]:
             )
         ]
     )
+
+    # Kebab
     yield "a-b-c", SyntaxBlock(
         statements=[
             SyntaxExpression(
@@ -34,6 +39,8 @@ def params_parse() -> Iterable[tuple[str, SyntaxBlock]]:
             )
         ]
     )
+
+    # Multiple terms
     yield "123 abc ", SyntaxBlock(
         statements=[
             SyntaxExpression(
@@ -44,6 +51,8 @@ def params_parse() -> Iterable[tuple[str, SyntaxBlock]]:
             )
         ]
     )
+
+    # End-line comment
     yield "123 abc -- de", SyntaxBlock(
         statements=[
             SyntaxExpression(
@@ -55,6 +64,30 @@ def params_parse() -> Iterable[tuple[str, SyntaxBlock]]:
             )
         ]
     )
+
+    # Comment without whitespace
+    yield "abc--de", SyntaxBlock(
+        statements=[
+            SyntaxExpression(
+                terms=[
+                    SyntaxIdentifier(name="abc"),
+                ],
+                comment=SyntaxComment(text="de"),
+            )
+        ]
+    )
+
+    # Only comment
+    yield "-- de", SyntaxBlock(
+        statements=[
+            SyntaxExpression(
+                terms=[],
+                comment=SyntaxComment(text=" de"),
+            )
+        ]
+    )
+
+    # Assignment
     yield "abc def  =    10   20", SyntaxBlock(
         statements=[
             SyntaxAssignment(
@@ -79,6 +112,8 @@ def params_parse() -> Iterable[tuple[str, SyntaxBlock]]:
             )
         ]
     )
+
+    # Multiple lines
     yield "123 abc\n456 def", SyntaxBlock(
         statements=[
             SyntaxExpression(

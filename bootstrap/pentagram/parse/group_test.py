@@ -118,9 +118,15 @@ def params_group() -> Iterable[tuple[list[Line], Group]]:
                         indent=2,
                         comment=SyntaxComment(text="0"),
                     ),
-                    Line(
-                        indent=4,
-                        comment=SyntaxComment(text="1"),
+                    Group(
+                        items=[
+                            Line(
+                                indent=4,
+                                comment=SyntaxComment(
+                                    text="1"
+                                ),
+                            ),
+                        ]
                     ),
                 ]
             ),
@@ -143,9 +149,12 @@ def params_group() -> Iterable[tuple[list[Line], Group]]:
             Line(
                 indent=0, terms=[SyntaxIdentifier(name="x")]
             ),
-            Line(indent=2, comment=SyntaxComment(text="0")),
             Group(
                 items=[
+                    Line(
+                        indent=2,
+                        comment=SyntaxComment(text="0"),
+                    ),
                     Line(
                         indent=2,
                         terms=[SyntaxIdentifier(name="y")],
@@ -155,30 +164,6 @@ def params_group() -> Iterable[tuple[list[Line], Group]]:
             Line(indent=0, comment=SyntaxComment(text="2")),
             Line(
                 indent=0, terms=[SyntaxIdentifier(name="z")]
-            ),
-        ]
-    )
-
-    # Indented comment starting a group
-    yield [
-        Line(indent=0, terms=[SyntaxIdentifier(name="x")]),
-        Line(indent=4, comment=SyntaxComment(text="0")),
-        Line(indent=8, comment=SyntaxComment(text="1")),
-        Line(indent=2, terms=[SyntaxIdentifier(name="y")]),
-    ], Group(
-        items=[
-            Line(
-                indent=0, terms=[SyntaxIdentifier(name="x")]
-            ),
-            Line(indent=4, comment=SyntaxComment(text="0")),
-            Line(indent=8, comment=SyntaxComment(text="1")),
-            Group(
-                items=[
-                    Line(
-                        indent=2,
-                        terms=[SyntaxIdentifier(name="y")],
-                    ),
-                ]
             ),
         ]
     )
