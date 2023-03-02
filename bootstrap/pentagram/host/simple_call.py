@@ -14,9 +14,9 @@ from pentagram.host.convert import from_python
 from pentagram.host.convert import from_python_name
 from pentagram.host.convert import to_python
 from pentagram.interpret.term import next_term
+from pentagram.machine import Machine
 from pentagram.machine import MachineBinding
 from pentagram.machine import MachineCall
-from pentagram.machine import MachineFrameStack
 from pentagram.machine import MachineNumber
 from pentagram.machine import MachineValue
 from sys import byteorder
@@ -37,17 +37,14 @@ class SimpleHostCall(MachineCall):
             signature(self.func, eval_str=True),
         )
 
-    def __call__(
-        self, frame_stack: MachineFrameStack
-    ) -> None:
-        frame = frame_stack.current
-        expression_stack = frame.expression_stack
+    def __call__(self, machine: Machine) -> None:
         try:
             converted_args = []
             for parameter in reversed(
                 self.signature.parameters.values()
             ):
-                arg = expression_stack.pop()
+                assert machine.expression_stack, parameter
+                arg = machine.expression_stack.pop()
                 converted_args.append(
                     to_python(parameter.annotation, arg)
                 )
@@ -72,8 +69,10 @@ class SimpleHostCall(MachineCall):
                 )
         except Exception as e:
             raise Exception(f"Error calling {self}") from e
-        expression_stack.push_many(converted_results)
-        next_term(frame_stack)
+        machine.expression_stack.push_many(
+            converted_results
+        )
+        next_term(machine)
 
 
 def simple_call(func: Callable[..., Any]) -> MachineBinding:

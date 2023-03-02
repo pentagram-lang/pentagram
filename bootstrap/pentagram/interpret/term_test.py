@@ -6,7 +6,7 @@ from pentagram.host.value import PI
 from pentagram.interpret.term import (
     interpret_expression_term,
 )
-from pentagram.interpret.test import init_test_frame_stack
+from pentagram.interpret.test import init_test_machine
 from pentagram.machine import MachineExpressionStack
 from pentagram.machine import MachineNumber
 from pentagram.machine import MachineValue
@@ -20,12 +20,12 @@ from typing import cast
 def test_interpret_number() -> None:
     term = SyntaxNumber(value=int32(100))
     expression = SyntaxExpression(terms=[term])
-    frame_stack = init_test_frame_stack(
+    machine = init_test_machine(
         SyntaxBlock(statements=[expression]),
         MachineExpressionStack(values=[]),
     )
-    interpret_expression_term(frame_stack, expression)
-    assert frame_stack == init_test_frame_stack(
+    interpret_expression_term(machine, expression)
+    assert machine == init_test_machine(
         SyntaxBlock(statements=[expression]),
         MachineExpressionStack(
             values=[MachineNumber(value=int32(100))]
@@ -38,12 +38,12 @@ def test_interpret_identifier_value() -> None:
     term = SyntaxIdentifier(name=PI.name)
     expression = SyntaxExpression(terms=[term])
     expression_stack = MachineExpressionStack(values=[])
-    frame_stack = init_test_frame_stack(
+    machine = init_test_machine(
         SyntaxBlock(statements=[expression]),
         expression_stack,
     )
-    interpret_expression_term(frame_stack, expression)
-    assert frame_stack == init_test_frame_stack(
+    interpret_expression_term(machine, expression)
+    assert machine == init_test_machine(
         SyntaxBlock(statements=[expression]),
         MachineExpressionStack(
             values=[cast(MachineValue, PI.value_or_call)]
@@ -58,12 +58,12 @@ def test_interpret_identifier_call() -> None:
     expression_stack = MachineExpressionStack(
         values=[MachineNumber(value=int32(16))]
     )
-    frame_stack = init_test_frame_stack(
+    machine = init_test_machine(
         SyntaxBlock(statements=[expression]),
         expression_stack,
     )
-    interpret_expression_term(frame_stack, expression)
-    assert frame_stack == init_test_frame_stack(
+    interpret_expression_term(machine, expression)
+    assert machine == init_test_machine(
         SyntaxBlock(statements=[expression]),
         MachineExpressionStack(
             values=[MachineNumber(value=int32(4))]

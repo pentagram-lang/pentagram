@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from numpy import int32
 from pentagram.guest.call import GuestCall
-from pentagram.interpret.interpret import init_frame_stack
+from pentagram.interpret.interpret import init_machine
 from pentagram.interpret.statement import (
     interpret_statement,
 )
-from pentagram.interpret.test import init_test_frame_stack
+from pentagram.interpret.test import init_test_machine
 from pentagram.interpret.test import make_test_environment
 from pentagram.machine import MachineExpressionStack
 from pentagram.machine import MachineNumber
@@ -21,12 +21,12 @@ def test_interpret_expression_enter() -> None:
     statement = SyntaxExpression(
         terms=[SyntaxNumber(value=int32(100))]
     )
-    frame_stack = init_test_frame_stack(
+    machine = init_test_machine(
         SyntaxBlock(statements=[statement]),
         MachineExpressionStack(values=[]),
     )
-    interpret_statement(frame_stack)
-    assert frame_stack == init_test_frame_stack(
+    interpret_statement(machine)
+    assert machine == init_test_machine(
         SyntaxBlock(statements=[statement]),
         MachineExpressionStack(
             values=[MachineNumber(value=int32(100))]
@@ -39,15 +39,15 @@ def test_interpret_expression_exit() -> None:
     statement = SyntaxExpression(
         terms=[SyntaxNumber(value=int32(100))]
     )
-    frame_stack = init_test_frame_stack(
+    machine = init_test_machine(
         SyntaxBlock(statements=[statement]),
         MachineExpressionStack(
             values=[MachineNumber(value=int32(100))]
         ),
         term_index=1,
     )
-    interpret_statement(frame_stack)
-    assert frame_stack == init_test_frame_stack(
+    interpret_statement(machine)
+    assert machine == init_test_machine(
         SyntaxBlock(statements=[statement]),
         MachineExpressionStack(
             values=[MachineNumber(value=int32(100))]
@@ -68,13 +68,13 @@ def test_interpret_method_definition_exit() -> None:
             ]
         ),
     )
-    frame_stack = init_test_frame_stack(
+    machine = init_test_machine(
         SyntaxBlock(statements=[statement]),
         MachineExpressionStack(values=[]),
     )
-    interpret_statement(frame_stack)
-    environment = frame_stack.current.environment
-    assert frame_stack == init_frame_stack(
+    interpret_statement(machine)
+    environment = machine.current_frame.environment
+    assert machine == init_machine(
         SyntaxBlock(statements=[statement]),
         MachineExpressionStack(values=[]),
         environment,

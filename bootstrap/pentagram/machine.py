@@ -15,6 +15,23 @@ from typing import TypeVar
 
 
 @dataclass(frozen=True, kw_only=True)
+class Machine:
+    frames: list[MachineFrame]
+    expression_stack: MachineExpressionStack
+
+    def push_frame(self, frame: MachineFrame) -> None:
+        self.frames.append(frame)
+
+    def pop_frame(self) -> MachineFrame:
+        return self.frames.pop()
+
+    @property
+    def current_frame(self) -> MachineFrame:
+        assert self.frames
+        return self.frames[-1]
+
+
+@dataclass(frozen=True, kw_only=True)
 class MachineValue:
     pass
 
@@ -79,9 +96,7 @@ class MachineExpressionStack:
 
 class MachineCall(ABC):
     @abstractmethod
-    def __call__(
-        self, frame_stack: MachineFrameStack
-    ) -> None:
+    def __call__(self, machine: Machine) -> None:
         pass
 
 
@@ -155,7 +170,6 @@ class MachineInstructionPointer:
 @dataclass(frozen=False, kw_only=True)
 class MachineFrame:
     instruction_pointer: MachineInstructionPointer
-    expression_stack: MachineExpressionStack
     environment: MachineEnvironment
 
     @property
@@ -181,25 +195,3 @@ class MachineFrame:
     @term_index.setter
     def term_index(self, value: int) -> None:
         self.instruction_pointer.term_index = value
-
-
-@dataclass(frozen=True, kw_only=True)
-class MachineFrameStack:
-    frames: list[MachineFrame]
-
-    def push(self, frame: MachineFrame) -> None:
-        self.frames.append(frame)
-
-    def pop(self) -> MachineFrame:
-        return self.frames.pop()
-
-    def __bool__(self) -> bool:
-        return bool(self.frames)
-
-    def __len__(self) -> int:
-        return len(self.frames)
-
-    @property
-    def current(self) -> MachineFrame:
-        assert self.frames
-        return self.frames[-1]
