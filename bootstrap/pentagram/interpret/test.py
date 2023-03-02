@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from pentagram.environment import base_environment
-from pentagram.interpret.interpret import init_frame_stack
+from pentagram.interpret.interpret import init_machine
+from pentagram.machine import Machine
 from pentagram.machine import MachineCall
 from pentagram.machine import MachineEnvironment
 from pentagram.machine import MachineExpressionStack
-from pentagram.machine import MachineFrameStack
 from pentagram.machine import MachineValue
 from pentagram.syntax import SyntaxBlock
 
@@ -17,13 +17,13 @@ def make_test_environment(
     return base_environment().extend(bindings)
 
 
-def init_test_frame_stack(
+def init_test_machine(
     block: SyntaxBlock,
     expression_stack: MachineExpressionStack,
     statement_index: int = 0,
     term_index: int = 0,
-) -> MachineFrameStack:
-    return init_frame_stack(
+) -> Machine:
+    return init_machine(
         block=block,
         expression_stack=expression_stack,
         environment=make_test_environment(),

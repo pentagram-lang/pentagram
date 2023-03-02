@@ -3,13 +3,13 @@ from __future__ import annotations
 from pentagram.interpret.statement import (
     interpret_statement,
 )
-from pentagram.machine import MachineFrameStack
+from pentagram.machine import Machine
 
 
-def interpret_block(frame_stack: MachineFrameStack) -> None:
-    block = frame_stack.current.block
-    statement_index = frame_stack.current.statement_index
+def interpret_block(machine: Machine) -> None:
+    block = machine.current_frame.block
+    statement_index = machine.current_frame.statement_index
     if statement_index < len(block.statements):
-        interpret_statement(frame_stack)
+        interpret_statement(machine)
     else:
-        frame_stack.pop()
+        machine.pop_frame()

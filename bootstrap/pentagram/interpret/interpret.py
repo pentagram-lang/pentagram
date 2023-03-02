@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from pentagram.interpret.block import interpret_block
+from pentagram.machine import Machine
 from pentagram.machine import MachineEnvironment
 from pentagram.machine import MachineExpressionStack
 from pentagram.machine import MachineFrame
-from pentagram.machine import MachineFrameStack
 from pentagram.machine import MachineInstructionPointer
 from pentagram.syntax import SyntaxBlock
 
@@ -14,21 +14,21 @@ def interpret(
     expression_stack: MachineExpressionStack,
     environment: MachineEnvironment,
 ) -> None:
-    frame_stack = init_frame_stack(
+    machine = init_machine(
         block, expression_stack, environment
     )
-    while frame_stack:
-        interpret_block(frame_stack)
+    while machine.frames:
+        interpret_block(machine)
 
 
-def init_frame_stack(
+def init_machine(
     block: SyntaxBlock,
     expression_stack: MachineExpressionStack,
     environment: MachineEnvironment,
     statement_index: int = 0,
     term_index: int = 0,
-) -> MachineFrameStack:
-    return MachineFrameStack(
+) -> Machine:
+    return Machine(
         frames=[
             MachineFrame(
                 instruction_pointer=MachineInstructionPointer(
@@ -36,8 +36,8 @@ def init_frame_stack(
                     statement_index=statement_index,
                     term_index=term_index,
                 ),
-                expression_stack=expression_stack,
                 environment=environment,
             )
-        ]
+        ],
+        expression_stack=expression_stack,
     )

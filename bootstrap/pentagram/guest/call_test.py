@@ -3,7 +3,7 @@ from __future__ import annotations
 from numpy import int32
 from pentagram.guest.call import GuestCall
 from pentagram.interpret import interpret
-from pentagram.interpret.test import init_test_frame_stack
+from pentagram.interpret.test import init_test_machine
 from pentagram.interpret.test import make_test_environment
 from pentagram.machine import MachineExpressionStack
 from pentagram.machine import MachineFrame
@@ -33,34 +33,35 @@ def test_call_push_frame() -> None:
             )
         ]
     )
-    frame_stack = init_test_frame_stack(
+    machine = init_test_machine(
         block,
         MachineExpressionStack(
             values=[MachineNumber(value=int32(9))]
         ),
     )
-    call(frame_stack)
-    assert len(frame_stack) == 2
+    call(machine)
+    assert len(machine.frames) == 2
     assert (
-        frame_stack.frames[0]
-        == init_test_frame_stack(
+        machine.frames[0]
+        == init_test_machine(
             block,
-            MachineExpressionStack(
-                values=[MachineNumber(value=int32(9))]
-            ),
+            MachineExpressionStack(values=[]),
             term_index=1,
         ).frames[0]
     )
-    assert frame_stack.frames[1] == MachineFrame(
+    assert machine.frames[1] == MachineFrame(
         instruction_pointer=MachineInstructionPointer(
             block=call.definition_block,
             statement_index=0,
             term_index=0,
         ),
         environment=make_test_environment().extend(),
-        expression_stack=MachineExpressionStack(
+    )
+    assert (
+        machine.expression_stack
+        == MachineExpressionStack(
             values=[MachineNumber(value=int32(9))]
-        ),
+        )
     )
 
 
