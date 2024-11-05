@@ -2,11 +2,19 @@
 
 ## About
 
-Pentagram is a friendly programming language that uses **ergonomics**, **determinism**, and **efficiency** to help you express your creativity.
+Pentagram is a programming language for **ergonomics**, **determinism**, and **efficiency** currently in the design & prototyping phase.
 
-- With powerful features like **significant whitespace** and **functional programming**, the Pentagram language works together with you and helps you out at every step.
+```
+-- Entry point for writing an ELF binary
+main >>
+  program-data =
+    [] arr
+    generate-elf-header cat
+    generate-code cat
+    generate-data cat
 
-- The Pentagram community is here to help too! We know how tough coding can be, and we do our best to make this a safe space where **kindness** and **empathy** are the norm.
+  cout program-data write
+```
 
 ## License
 
