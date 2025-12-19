@@ -1,0 +1,37 @@
+{
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[jsonc]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[markdown]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true,
+    "editor.wordWrap": "bounded",
+    "editor.wordWrapColumn": 75
+  },
+  "[rust]": {
+    "editor.defaultFormatter": "rust-lang.rust-analyzer",
+    "editor.formatOnSave": true
+  },
+  "[yaml]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "editor.detectIndentation": false,
+  "editor.formatOnPaste": false,
+  "editor.formatOnSave": false,
+  "editor.formatOnSaveMode": "file",
+  "editor.insertSpaces": true,
+  "editor.minimap.maxColumn": 75,
+  "editor.rulers": [75],
+  "editor.tabSize": 2,
+  "evenBetterToml.taplo.bundled": false,
+  "files.autoSave": "onFocusChange",
+  "rust-analyzer.imports.granularity.group": "item",
+  "rust-analyzer.imports.group.enable": false,
+  "rust-analyzer.check.command": "clippy"
+}

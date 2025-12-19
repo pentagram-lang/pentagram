@@ -1,0 +1,9 @@
+{
+  "recommendations": [
+    "esbenp.prettier-vscode",
+    "redhat.vscode-yaml",
+    "tamasfe.even-better-toml",
+    "rust-lang.rust-analyzer"
+  ],
+  "unwantedRecommendations": ["hookyqr.beautify"]
+}

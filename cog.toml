@@ -1,0 +1,8 @@
+# cocogitto configuration
+# https://github.com/cocogitto/cocogitto#configuration
+
+ignore_merge_commits = false
+ignore_fixup_commits = false
+skip_untracked = false
+pre_bump_hooks = []
+post_bump_hooks = []

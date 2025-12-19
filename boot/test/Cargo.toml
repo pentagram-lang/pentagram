@@ -1,0 +1,19 @@
+[package]
+name = "boot_test"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description.workspace = true
+repository.workspace = true
+readme.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+anyhow = { workspace = true }
+tokio = { workspace = true }
+watchman_client = { workspace = true }
+futures = { workspace = true }
+boot_parser = { workspace = true }
+boot_eval = { workspace = true }
+boot_types = { workspace = true }

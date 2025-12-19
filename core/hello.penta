@@ -1,0 +1,3 @@
+def main fn
+  'Hello world!' say
+end-fn,

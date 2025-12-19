@@ -1,0 +1,14 @@
+[package]
+name = "boot_parser"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description.workspace = true
+repository.workspace = true
+readme.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+winnow = { workspace = true }
+boot_types = { workspace = true }
