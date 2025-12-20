@@ -45,7 +45,7 @@ The `pt` command is the central nervous system of the Pentagram development work
 The `pt` runner organizes common tasks into high-level workflows that prioritize speed and correctness:
 
 - **The Fix Loop (`pt fix` / `pt f`)**: This is the primary tool for maintaining code health. It automatically formats Rust and Python code, applies automated fixes for common lints, and runs Clippy to catch deeper issues. For large changes, you can use `pt f l <package>` to focus these operations on a specific local area.
-- **The Check Cycle (`pt check` / `pt c`)**: This command represents our "Definition of Done." It runs the full suite of formatters, linters, and tests. It also validates the project's commit history. No task is considered complete until `pt check` passes in its entirety.
+- **The Check Cycle (`pt check` / `pt c`)**: This command represents our "Definition of Done." It runs the full suite of formatters, linters, and tests. It also validates the project's commit history. Use the `--skip-commit` flag during active development to bypass history validation while a WIP commit is present. No task is considered complete until `pt check` passes in its entirety (including history).
 - **Execution (`pt run` / `pt r`)**: Use this to execute Pentagram scripts or start the `boot_shell`. It handles the environment setup required to run the Pentagram runtime.
 
 ### Testing and Validation Rigor
@@ -73,14 +73,19 @@ We operate on a "one commit per PR" model. A commit is not a snapshot of a momen
     - **The Audit**: Analyze the git state to find your bearings. Look for WIP commit messages, check the working tree for uncommitted changes, and examine the commit history to see if you are part of a chain of unmerged PRs.
     - **The Decision**: Explicitly decide which commit is the focus of the current session. If you are starting fresh, you will create a WIP commit. If you are continuing, you will amend the existing one. Never assume the "task" matches the session boundaries.
 2.  **The Placeholder**: If starting a new PR, begin with a simple WIP message (e.g., `feat` or `fix`).
-3.  **The Living Commit**: All subsequent work—fixes, refactors, or formatting—must be folded into the identified commit using `git commit --amend`. We never create "fixup" or "lint" commits within a single PR's scope.
-4.  **Fact-Gathering**: When the implementation is stable, the transition out of WIP begins with a rigorous audit.
+3.  **The Living Commit**: All subsequent work—fixes, refactors, or formatting—must be folded into the identified commit using `git commit --amend`. We never create "fixup" or "lint" commits within a single PR's scope. While in this WIP phase, use `pt check --skip-commit` to verify the codebase without failing on commit history validation.
+
+### The Audit Process
+
+When the implementation is stable, the transition out of WIP begins with a rigorous audit. This is the "Definition of Done" for the narrative.
+
+- **Fact-Gathering**:
     - **The Audit**: Run `git show --stat` to identify every file touched by the PR.
     - **Logical Grouping**: Organize these files into logical clusters (e.g., Infrastructure, Parser, Tooling).
     - **Exhaustive Analysis**: Employ subagents (via `codebase_investigator`) to perform a deep, factual dive into every changed file. Run these subagents in parallel to ensure efficiency while maintaining depth.
     - **Diff Provisioning**: Since subagents may lack direct shell access, the parent agent must provide the relevant diff content. Pre-divide the full `git show` output into logical, separate files within a project-local temporary directory (e.g., `.tmp/diffs/`) for the subagents to analyze.
     - **No Line Left Behind**: The subagent's mandate is to extract objective data about every single change. No line of the diff can remain unexamined. This is a "facts only" research phase; do not summarize until this phase is complete.
-5.  **Narrative Synthesis**: After research, synthesize these facts into a definitive commit message. This message is the final product.
+- **Narrative Synthesis**: After research, synthesize these facts into a definitive commit message. This message is the final product.
 
 ### The Narrative (Primary Focus)
 

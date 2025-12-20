@@ -1,0 +1,2 @@
+description = "Perform a rigorous audit of the current commit as defined in AGENTS.md"
+prompt = "Perform a rigorous audit of the current commit following the instructions in the 'The Audit Process' section of AGENTS.md."

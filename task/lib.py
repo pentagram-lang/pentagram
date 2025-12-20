@@ -1,7 +1,24 @@
 import os
 import sys
+import time
 
 import click
+
+
+class Timer:
+  def __init__(self):
+    self.start = time.time()
+
+  def duration(self):
+    return time.time() - self.start
+
+
+def status(label, duration, success=True):
+  color = 'green' if success else 'red'
+  text = 'PASS' if success else 'FAIL'
+  click.echo(
+    f'[{click.style(text, fg=color, bold=True)}] {label} ({duration:.2f}s)'
+  )
 
 
 class AliasedGroup(click.Group):
@@ -15,10 +32,17 @@ class AliasedGroup(click.Group):
     return None
 
 
-def run_cmd(cmd):
+def run_cmd(cmd, label=None):
+  if label is None:
+    label = cmd
+
   click.echo(f'Running: {cmd}')
+  t = Timer()
   ret = os.system(cmd)
+  d = t.duration()
+
   if ret != 0:
+    status(label, d, success=False)
     # os.system returns exit status (shifted by 8 bits on Unix)
     exit_code = (
       os.waitstatus_to_exitcode(ret)
@@ -26,6 +50,8 @@ def run_cmd(cmd):
       else (ret >> 8)
     )
     sys.exit(exit_code)
+
+  status(label, d, success=True)
 
 
 def command_with_aliases(group, aliases=None, **kwargs):
