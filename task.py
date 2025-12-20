@@ -29,6 +29,8 @@ def do_fix_fmt():
   t = lib.Timer()
   lib.run_cmd('cargo fmt', 'rust-fmt')
   lib.run_cmd('ruff format', 'py-fmt')
+  lib.run_cmd('dprint fmt', 'dprint')
+  lib.run_cmd('nixfmt **/*.nix', 'nix-fmt')
   lib.status('fix-fmt', t.duration())
 
 
@@ -36,6 +38,8 @@ def do_check_fmt():
   t = lib.Timer()
   lib.run_cmd('cargo fmt -- --check', 'rust-fmt')
   lib.run_cmd('ruff format --check', 'py-fmt')
+  lib.run_cmd('dprint check', 'dprint')
+  lib.run_cmd('nixfmt --check **/*.nix', 'nix-fmt')
   lib.status('check-fmt', t.duration())
 
 
