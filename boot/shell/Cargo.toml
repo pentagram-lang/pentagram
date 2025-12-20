@@ -1,20 +1,20 @@
 [package]
 name = "boot_shell"
 version.workspace = true
-edition.workspace = true
-license.workspace = true
-description.workspace = true
-repository.workspace = true
-readme.workspace = true
-keywords.workspace = true
 categories.workspace = true
+edition.workspace = true
+keywords.workspace = true
+license.workspace = true
+readme.workspace = true
+repository.workspace = true
+description.workspace = true
 
 [dependencies]
 anyhow = { workspace = true }
-clap = { workspace = true, features = ["derive"] }
-tokio = { workspace = true, features = ["full"] }
-rustyline-async = { workspace = true }
-boot_parser = { workspace = true }
 boot_eval = { workspace = true }
+boot_parser = { workspace = true }
 boot_test = { workspace = true }
 boot_types = { workspace = true }
+clap = { workspace = true, features = ["derive"] }
+rustyline-async = { workspace = true }
+tokio = { workspace = true, features = ["full"] }

@@ -12,6 +12,7 @@
           (import ./nix/rust.nix { inherit rust-overlay; })
           (import ./nix/watchman.nix)
           (import ./nix/python.nix)
+          (import ./nix/nix.nix)
           (import ./nix/task.nix)
         ];
         pkgs = import nixpkgs { inherit system overlays; };
@@ -23,6 +24,7 @@
               pkgs.pentagram-rust
               pkgs.pentagram-watchman
               pkgs.pentagram-python
+              pkgs.pentagram-nix
               pkgs.pt
             ];
           };

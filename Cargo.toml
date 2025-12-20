@@ -1,33 +1,37 @@
 [workspace]
-members = ["boot/eval","boot/parser","boot/shell"
-, "boot/test", "boot/types"]
+members = [
+  "boot/eval",
+  "boot/parser",
+  "boot/shell",
+  "boot/test",
+  "boot/types",
+]
 resolver = "2"
 
 [workspace.package]
 version = "0.1.0"
-edition = "2021"
-license = "MIT OR Apache-2.0"
-description = "The Pentagram programming language"
-repository = "https://github.com/pentagram/pentagram"
-readme = "README.md"
-keywords = ["programming-language", "compiler"]
 categories = ["compilers"]
+edition = "2021"
+keywords = ["programming-language", "compiler"]
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/pentagram/pentagram"
+description = "The Pentagram programming language"
 
 [workspace.dependencies]
 anyhow = "1.0"
 clap = { version = "4.5", features = ["derive"] }
+futures = "0.3"
+rustyline-async = "0.4"
 tokio = { version = "1.43", features = ["full"] }
 watchman_client = "0.9"
-rustyline-async = "0.4"
 winnow = "0.7"
-futures = "0.3"
 
 # Internal deps
-boot_types = { path = "boot/types" }
-boot_parser = { path = "boot/parser" }
 boot_eval = { path = "boot/eval" }
+boot_parser = { path = "boot/parser" }
 boot_test = { path = "boot/test" }
-
+boot_types = { path = "boot/types" }
 
 [workspace.lints.rust]
 # Groups

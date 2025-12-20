@@ -86,6 +86,11 @@ class WatchSession:
         'anyof',
         ['suffix', 'rs'],
         ['suffix', 'py'],
+        ['suffix', 'penta'],
+        ['suffix', 'md'],
+        ['suffix', 'json'],
+        ['suffix', 'nix'],
+        ['suffix', 'toml'],
         ['name', 'Cargo.toml'],
         ['name', 'Cargo.lock'],
       ],
@@ -121,9 +126,16 @@ class WatchSession:
     # Determine context
     is_rust = True
     is_python = True
+    is_dprint = True
+    is_nix = True
     if files:
       is_rust = any(f.endswith('.rs') or 'Cargo' in f for f in files)
       is_python = any(f.endswith('.py') for f in files)
+      is_dprint = any(
+        f.endswith('.json') or f.endswith('.md') or f.endswith('.toml')
+        for f in files
+      )
+      is_nix = any(f.endswith('.nix') for f in files)
 
     all_success = True
 
@@ -153,6 +165,23 @@ class WatchSession:
             self._run_cmd, ['ruff', 'check'], 'py-lint', YELLOW
           )
         ] = 'py-lint'
+
+      if is_dprint:
+        futures[
+          executor.submit(
+            self._run_cmd, ['dprint', 'check'], 'dprint', CYAN
+          )
+        ] = 'dprint'
+
+      if is_nix:
+        futures[
+          executor.submit(
+            self._run_cmd,
+            ['nixfmt', '--check', 'flake.nix', 'nix/*.nix'],
+            'nix-fmt',
+            CYAN,
+          )
+        ] = 'nix-fmt'
 
       # 2. Rust Build Pipeline (The heavy lifter)
       if is_rust:

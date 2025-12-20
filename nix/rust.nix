@@ -1,4 +1,5 @@
-{ rust-overlay }: final: prev:
+{ rust-overlay }:
+final: prev:
 
 let
   cargo-fixit = final.rustPlatform.buildRustPackage rec {
@@ -48,6 +49,7 @@ in
       cargo-fixit
       final.cocogitto
       final.git-cliff
+      final.dprint
     ];
   };
 }

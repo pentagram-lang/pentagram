@@ -1,9 +1,11 @@
 {
   "recommendations": [
-    "esbenp.prettier-vscode",
-    "redhat.vscode-yaml",
+    "charliermarsh.ruff",
     "tamasfe.even-better-toml",
-    "rust-lang.rust-analyzer"
+    "rust-lang.rust-analyzer",
+    "jnoortheen.nix-ide",
+    "ms-python.python",
+    "dprint.dprint"
   ],
   "unwantedRecommendations": ["hookyqr.beautify"]
 }
