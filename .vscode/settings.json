@@ -45,5 +45,6 @@
   "ruff.path": ["ruff"],
   "rust-analyzer.imports.granularity.group": "item",
   "rust-analyzer.imports.group.enable": false,
+  "rust-analyzer.cargo.targetDir": "target-analyzer",
   "rust-analyzer.check.command": "clippy"
 }
