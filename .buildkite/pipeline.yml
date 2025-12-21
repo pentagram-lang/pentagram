@@ -1,0 +1,10 @@
+steps:
+  - label: ":nix: Check"
+    key: "check"
+    command: "./.buildkite/ci-check.sh"
+    agents:
+      queue: "default"
+    cache:
+      paths:
+        - ".nix-cache"
+      name: "pentagram"
