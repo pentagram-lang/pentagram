@@ -54,14 +54,12 @@ def do_fix_lint(args=None):
   lib.run_cmd('ruff check --fix', 'py-lint')
 
   # Rust Fixit
-  fix_base = ['cargo', 'fixit', '--allow-dirty', '--allow-staged']
-  fix_cmd = lib.build_cargo_cmd(fix_base, pos, extras)
+  pkg = pos[0] if pos else None
+  fix_cmd = lib.get_cargo_fix_cmd(package=pkg)
   lib.run_cmd(' '.join(fix_cmd), 'rust-fixit')
 
   # Rust Clippy
-  clippy_base = ['cargo', 'clippy']
-  clippy_cmd = lib.build_cargo_cmd(clippy_base, pos, extras)
-  lib.ensure_clippy_fails_on_warnings(clippy_cmd)
+  clippy_cmd = lib.get_cargo_clippy_cmd(package=pkg)
   lib.run_cmd(' '.join(clippy_cmd), 'clippy')
   lib.status('fix-lint', t.duration())
 
@@ -72,14 +70,13 @@ def do_check_lint(args=None):
 
   t = lib.Timer()
   pos, extras = lib.parse_args(args, max_pos=1)
+  pkg = pos[0] if pos else None
 
   # Python Lint (Check)
   lib.run_cmd('ruff check', 'py-lint')
 
   # Rust Clippy
-  clippy_base = ['cargo', 'clippy']
-  clippy_cmd = lib.build_cargo_cmd(clippy_base, pos, extras)
-  lib.ensure_clippy_fails_on_warnings(clippy_cmd)
+  clippy_cmd = lib.get_cargo_clippy_cmd(package=pkg)
   lib.run_cmd(' '.join(clippy_cmd), 'clippy')
   lib.status('check-lint', t.duration())
 
@@ -98,16 +95,12 @@ def do_btest(args=None):
       new_args.append(arg)
 
   pos, extras = lib.parse_args(new_args, max_pos=2)
+  pkg = pos[0] if len(pos) > 0 else None
+  test_name = pos[1] if len(pos) > 1 else None
 
-  test_base = ['cargo', 'test']
-  test_cmd = lib.build_cargo_cmd(test_base, pos, extras)
-
-  if nocapture:
-    # Ensure --nocapture is passed to the test binary (after --)
-    if '--' in test_cmd:
-      test_cmd.append('--nocapture')
-    else:
-      test_cmd.extend(['--', '--nocapture'])
+  test_cmd = lib.get_cargo_test_cmd(
+    package=pkg, test_name=test_name, extras=extras, nocapture=nocapture
+  )
 
   lib.run_cmd(' '.join(test_cmd), 'btest')
 
@@ -136,14 +129,17 @@ def fix(ctx):
     lib.status('fix', t.duration())
 
 
-@lib.command_with_aliases(fix, aliases=['f'])
+@lib.command_with_aliases(fix, name='fmt', aliases=['f'])
 def fmt_fix():
   """Run cargo fmt and ruff format."""
   do_fix_fmt()
 
 
 @lib.command_with_aliases(
-  fix, aliases=['l'], context_settings=dict(ignore_unknown_options=True)
+  fix,
+  name='lint',
+  aliases=['l'],
+  context_settings=dict(ignore_unknown_options=True),
 )
 @click.argument('args', nargs=-1, type=click.UNPROCESSED)
 def lint_fix(args):
@@ -173,14 +169,17 @@ def check(ctx, skip_commit):
     lib.status('check', t.duration())
 
 
-@lib.command_with_aliases(check, aliases=['f'])
+@lib.command_with_aliases(check, name='fmt', aliases=['f'])
 def fmt_check():
   """Run cargo fmt --check and ruff format --check."""
   do_check_fmt()
 
 
 @lib.command_with_aliases(
-  check, aliases=['l'], context_settings=dict(ignore_unknown_options=True)
+  check,
+  name='lint',
+  aliases=['l'],
+  context_settings=dict(ignore_unknown_options=True),
 )
 @click.argument('args', nargs=-1, type=click.UNPROCESSED)
 def lint_check(args):

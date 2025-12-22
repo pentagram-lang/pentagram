@@ -11,10 +11,12 @@ description.workspace = true
 
 [dependencies]
 anyhow = { workspace = true }
-boot_eval = { workspace = true }
-boot_parser = { workspace = true }
-boot_test = { workspace = true }
-boot_types = { workspace = true }
+boot_db = { workspace = true }
+boot_engine = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
 rustyline-async = { workspace = true }
-tokio = { workspace = true, features = ["full"] }
+tokio = { workspace = true }
+watchman_client = { workspace = true }
+
+[lints]
+workspace = true

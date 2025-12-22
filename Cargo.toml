@@ -1,10 +1,13 @@
 [workspace]
 members = [
+  "boot/analyze",
+  "boot/db",
+  "boot/engine",
   "boot/eval",
-  "boot/parser",
+  "boot/parse",
+  "boot/resolve",
   "boot/shell",
   "boot/test",
-  "boot/types",
 ]
 resolver = "2"
 
@@ -20,21 +23,24 @@ description = "The Pentagram programming language"
 
 [workspace.dependencies]
 anyhow = "1.0"
+blake3 = "1.5"
+boot_analyze = { path = "boot/analyze" }
+boot_db = { path = "boot/db" }
+boot_engine = { path = "boot/engine" }
+boot_eval = { path = "boot/eval" }
+boot_parse = { path = "boot/parse" }
+boot_resolve = { path = "boot/resolve" }
+boot_shell = { path = "boot/shell" }
+boot_test = { path = "boot/test" }
 clap = { version = "4.5", features = ["derive"] }
 futures = "0.3"
+pretty_assertions = "1.4"
 rustyline-async = "0.4"
 tokio = { version = "1.43", features = ["full"] }
 watchman_client = "0.9"
 winnow = "0.7"
 
-# Internal deps
-boot_eval = { path = "boot/eval" }
-boot_parser = { path = "boot/parser" }
-boot_test = { path = "boot/test" }
-boot_types = { path = "boot/types" }
-
 [workspace.lints.rust]
-# Groups
 future-incompatible = "warn"
 let-underscore = "warn"
 nonstandard-style = "warn"
@@ -79,6 +85,7 @@ pedantic = { level = "warn", priority = -1 }
 missing_errors_doc = "allow"
 missing_panics_doc = "allow"
 module_name_repetitions = "allow"
+must_use_candidate = "allow"
 
 # Style
 style = { level = "warn", priority = -1 }

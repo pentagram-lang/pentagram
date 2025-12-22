@@ -4,5 +4,26 @@
     "fileFiltering": {
       "respectGitIgnore": false
     }
+  },
+  "tools": {
+    "allowed": [
+      "delegate_to_agent",
+      "run_shell_command(./task.py)",
+      "run_shell_command(cargo)",
+      "run_shell_command(cat)",
+      "run_shell_command(echo)",
+      "run_shell_command(find)",
+      "run_shell_command(git diff)",
+      "run_shell_command(git log)",
+      "run_shell_command(git show)",
+      "run_shell_command(git status)",
+      "run_shell_command(head)",
+      "run_shell_command(ls)",
+      "run_shell_command(pt)",
+      "run_shell_command(python task.py)",
+      "run_shell_command(rg)",
+      "run_shell_command(tail)",
+      "run_shell_command(wc)"
+    ]
   }
 }

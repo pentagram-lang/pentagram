@@ -1,5 +1,5 @@
 [package]
-name = "boot_parser"
+name = "boot_parse"
 version.workspace = true
 categories.workspace = true
 edition.workspace = true
@@ -10,5 +10,12 @@ repository.workspace = true
 description.workspace = true
 
 [dependencies]
-boot_types = { workspace = true }
+anyhow = { workspace = true }
+boot_db = { workspace = true }
 winnow = { workspace = true }
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }

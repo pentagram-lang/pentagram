@@ -68,25 +68,95 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a23eb6b1614318a8071c9b2521f36b424b2c83db5eb3a0fead4a6c0809af6e61"
 
 [[package]]
+name = "arrayref"
+version = "0.3.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "76a2e8124351fda1ef8aaaa3bbd7ebbcb486bbcd4225aca0aa0d84bb2db8fecb"
+
+[[package]]
+name = "arrayvec"
+version = "0.7.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7c02d123df017efcdfbd739ef81735b36c5ba83ec3c59c80a9d7ecc718f92e50"
+
+[[package]]
 name = "bitflags"
 version = "2.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "812e12b5285cc515a9c72a5c1d3b6d46a19dac5acfef5265968c166106e31dd3"
 
 [[package]]
+name = "blake3"
+version = "1.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3888aaa89e4b2a40fca9848e400f6a658a5a3978de7be858e209cafa8be9a4a0"
+dependencies = [
+ "arrayref",
+ "arrayvec",
+ "cc",
+ "cfg-if",
+ "constant_time_eq",
+]
+
+[[package]]
+name = "boot_analyze"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "blake3",
+ "boot_db",
+ "pretty_assertions",
+]
+
+[[package]]
+name = "boot_db"
+version = "0.1.0"
+dependencies = [
+ "blake3",
+ "pretty_assertions",
+]
+
+[[package]]
+name = "boot_engine"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "blake3",
+ "boot_analyze",
+ "boot_db",
+ "boot_eval",
+ "boot_parse",
+ "boot_resolve",
+ "boot_test",
+ "pretty_assertions",
+]
+
+[[package]]
 name = "boot_eval"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "boot_types",
+ "boot_db",
+ "pretty_assertions",
 ]
 
 [[package]]
-name = "boot_parser"
+name = "boot_parse"
 version = "0.1.0"
 dependencies = [
- "boot_types",
+ "anyhow",
+ "boot_db",
+ "pretty_assertions",
  "winnow",
+]
+
+[[package]]
+name = "boot_resolve"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "boot_db",
+ "pretty_assertions",
 ]
 
 [[package]]
@@ -94,13 +164,12 @@ name = "boot_shell"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "boot_eval",
- "boot_parser",
- "boot_test",
- "boot_types",
+ "boot_db",
+ "boot_engine",
  "clap",
  "rustyline-async",
  "tokio",
+ "watchman_client",
 ]
 
 [[package]]
@@ -108,17 +177,10 @@ name = "boot_test"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "boot_db",
  "boot_eval",
- "boot_parser",
- "boot_types",
- "futures 0.3.31",
- "tokio",
- "watchman_client",
+ "pretty_assertions",
 ]
-
-[[package]]
-name = "boot_types"
-version = "0.1.0"
 
 [[package]]
 name = "byteorder"
@@ -133,6 +195,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b35204fbdc0b3f4446b89fc1ac2cf84a8a68971995d0bf2e925ec7cd960f9cb3"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "cc"
+version = "1.2.50"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9f50d563227a1c37cc0a263f64eca3334388c01c5e4c4861a9def205c614383c"
+dependencies = [
+ "find-msvc-tools",
+ "shlex",
 ]
 
 [[package]]
@@ -186,6 +258,12 @@ name = "colorchoice"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b05b61dc5112cbb17e4b6cd61790d9845d13888356391624cbe7e41efeac1e75"
+
+[[package]]
+name = "constant_time_eq"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7c74b8349d32d297c9134b8c88677813a227df8f779daa29bfc29c183fe3dca6"
 
 [[package]]
 name = "convert_case"
@@ -247,6 +325,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "diff"
+version = "0.1.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56254986775e3233ffa9c4d7d3faaf6d36a2c09d30b20687e9f88bc8bafc16c8"
+
+[[package]]
 name = "document-features"
 version = "0.2.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -264,6 +348,12 @@ dependencies = [
  "libc",
  "windows-sys 0.61.2",
 ]
+
+[[package]]
+name = "find-msvc-tools"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3a3076410a55c90011c298b04d0cfa770b00fa04e1e3c97d3f6c9de105a03844"
 
 [[package]]
 name = "futures"
@@ -492,6 +582,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
 
 [[package]]
+name = "pretty_assertions"
+version = "1.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3ae130e2f271fbc2ac3a40fb1d07180839cdbbe443c7a27e1e3c13c5cac0116d"
+dependencies = [
+ "diff",
+ "yansi",
+]
+
+[[package]]
 name = "proc-macro2"
 version = "1.0.103"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -620,6 +720,12 @@ dependencies = [
  "quote",
  "syn",
 ]
+
+[[package]]
+name = "shlex"
+version = "1.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
 
 [[package]]
 name = "signal-hook"
@@ -951,3 +1057,9 @@ checksum = "5a5364e9d77fcdeeaa6062ced926ee3381faa2ee02d3eb83a5c27a8825540829"
 dependencies = [
  "memchr",
 ]
+
+[[package]]
+name = "yansi"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cfe53a6657fd280eaa890a3bc59152892ffa3e30101319d168b781ed6529b049"

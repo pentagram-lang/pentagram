@@ -1,0 +1,10 @@
+description = "Skeptically evaluate the current context against coding standards"
+prompt = """
+Skeptically evaluate the current context (code, files, and recent changes) against the project's coding standards as defined in AGENTS.md.
+
+The command has two modes:
+1. **Clear Context**: If the context (specific changes, files, or narrative) is already established in the session, proceed directly to identifying any deviations from these standards.
+2. **Unclear Context**: If the context is not clear, **STOP**. Do not run any tools. Ask the user for the context or narrative you should be evaluating.
+
+For complex investigations or to understand wider impacts, you should consider delegating to the `codebase_investigator`.
+"""

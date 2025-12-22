@@ -46,5 +46,10 @@
   "rust-analyzer.imports.granularity.group": "item",
   "rust-analyzer.imports.group.enable": false,
   "rust-analyzer.cargo.targetDir": "target-analyzer",
-  "rust-analyzer.check.command": "clippy"
+  "rust-analyzer.check.command": "clippy",
+  "explorer.fileNesting.enabled": true,
+  "explorer.fileNesting.patterns": {
+    "*.rs": "${capture}_test.rs",
+    "*.penta": "${capture}.test.penta"
+  }
 }

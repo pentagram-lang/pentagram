@@ -11,9 +11,11 @@ description.workspace = true
 
 [dependencies]
 anyhow = { workspace = true }
+boot_db = { workspace = true }
 boot_eval = { workspace = true }
-boot_parser = { workspace = true }
-boot_types = { workspace = true }
-futures = { workspace = true }
-tokio = { workspace = true }
-watchman_client = { workspace = true }
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
+
+[lints]
+workspace = true
