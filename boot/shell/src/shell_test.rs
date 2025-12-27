@@ -66,10 +66,7 @@ fn test_repl_syntax_error() {
   }
 
   let out_str = String::from_utf8(output).expect("Invalid UTF-8");
-  assert_eq!(
-    out_str,
-    "            ^\n      invalid function definition\n"
-  );
+  assert_eq!(out_str, "            ^\n      expected 'fn'\n");
 }
 
 #[test]

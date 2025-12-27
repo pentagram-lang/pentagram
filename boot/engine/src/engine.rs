@@ -11,10 +11,8 @@ use crate::tst::get_engine_functions_map;
 use crate::tst::run_engine_tests_incrementally;
 use anyhow::Result as AnyhowResult;
 use boot_db::Database;
-use boot_db::FileId;
 use boot_eval::VM;
 use boot_eval::take_vm_stack;
-use boot_parse::parse_repl_module;
 use std::io::Write;
 
 pub fn execute_file(
@@ -47,23 +45,7 @@ pub fn execute_repl(
   output: &mut (dyn Write + Send),
 ) -> AnyhowResult<()> {
   let result = (|| {
-    let file_id = FileId("repl".to_string());
-    let old_functions: Vec<_> = db
-      .functions
-      .iter()
-      .filter(|f| f.file_id == file_id)
-      .cloned()
-      .collect();
-    let old_tests: Vec<_> = db
-      .tests
-      .iter()
-      .filter(|t| t.file_id == file_id)
-      .cloned()
-      .collect();
-
-    let module =
-      parse_repl_module("repl", old_functions, old_tests, line)?;
-    shred_repl(db, module.clone());
+    let module = shred_repl(db, line)?;
 
     resolve_module(db)?;
     analyze_dependencies(db)?;

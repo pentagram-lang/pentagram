@@ -177,7 +177,7 @@ class WatchSession:
         futures[
           executor.submit(
             self._run_cmd,
-            ['nixfmt', '--check', 'flake.nix', 'nix/*.nix'],
+            ['nixfmt', '--check', '*.nix', 'nix/*.nix'],
             'nix-fmt',
             CYAN,
           )

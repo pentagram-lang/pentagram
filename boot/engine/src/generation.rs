@@ -11,6 +11,15 @@ pub(crate) fn commit_engine_generation(db: &mut Database) {
     }
   });
 
+  db.token_streams.retain_mut(|ts| {
+    if ts.generation.is_new() {
+      ts.generation = Generation::OldOnly;
+      true
+    } else {
+      false
+    }
+  });
+
   db.functions.retain_mut(|f| {
     if f.generation.is_new() {
       f.generation = Generation::OldOnly;
@@ -97,6 +106,15 @@ pub(crate) fn rollback_engine_generation(db: &mut Database) {
   db.files.retain_mut(|f| {
     if f.generation.is_old() {
       f.generation = Generation::OldOnly;
+      true
+    } else {
+      false
+    }
+  });
+
+  db.token_streams.retain_mut(|ts| {
+    if ts.generation.is_old() {
+      ts.generation = Generation::OldOnly;
       true
     } else {
       false
