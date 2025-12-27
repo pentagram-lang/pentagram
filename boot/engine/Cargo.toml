@@ -1,5 +1,5 @@
 [package]
-name = "boot_eval"
+name = "boot_engine"
 version.workspace = true
 categories.workspace = true
 edition.workspace = true
@@ -11,9 +11,16 @@ description.workspace = true
 
 [dependencies]
 anyhow = { workspace = true }
+blake3 = { workspace = true }
+boot_analyze = { workspace = true }
 boot_db = { workspace = true }
+boot_eval = { workspace = true }
+boot_parse = { workspace = true }
+boot_resolve = { workspace = true }
+boot_test = { workspace = true }
 
 [dev-dependencies]
+blake3 = { workspace = true }
 pretty_assertions = { workspace = true }
 
 [lints]

@@ -97,19 +97,37 @@ def parse_args(args, max_pos=1):
   return pos, extras
 
 
-def build_cargo_cmd(base_cmd, pos_args, extras):
-  cmd = list(base_cmd)
-  if len(pos_args) > 0:
-    cmd.extend(['-p', pos_args[0]])
-  if len(pos_args) > 1:
-    cmd.append(pos_args[1])
-  cmd.extend(extras)
+def get_cargo_clippy_cmd(package=None):
+  cmd = ['cargo', 'clippy']
+  if package:
+    cmd.extend(['-p', package])
+  cmd.extend(['--all-targets', '--all-features', '--', '-D', 'warnings'])
   return cmd
 
 
-def ensure_clippy_fails_on_warnings(cmd):
-  if '--' in cmd:
-    cmd.extend(['-D', 'warnings'])
-  else:
-    cmd.extend(['--', '-D', 'warnings'])
+def get_cargo_fix_cmd(package=None):
+  cmd = ['cargo', 'fixit', '--allow-dirty', '--allow-staged']
+  if package:
+    cmd.extend(['-p', package])
+  cmd.extend(['--all-targets', '--all-features'])
+  return cmd
+
+
+def get_cargo_test_cmd(
+  package=None, test_name=None, extras=None, nocapture=False
+):
+  cmd = ['cargo', 'test']
+  if package:
+    cmd.extend(['-p', package])
+  if test_name:
+    cmd.append(test_name)
+  if extras:
+    cmd.extend(extras)
+
+  if nocapture:
+    if '--' in cmd:
+      cmd.append('--nocapture')
+    else:
+      cmd.extend(['--', '--nocapture'])
+
   return cmd

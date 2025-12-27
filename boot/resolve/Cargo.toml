@@ -1,5 +1,5 @@
 [package]
-name = "boot_types"
+name = "boot_resolve"
 version.workspace = true
 categories.workspace = true
 edition.workspace = true
@@ -10,6 +10,11 @@ repository.workspace = true
 description.workspace = true
 
 [dependencies]
+anyhow = { workspace = true }
+boot_db = { workspace = true }
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
 
 [lints]
 workspace = true

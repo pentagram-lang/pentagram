@@ -6,6 +6,7 @@ import sys
 import threading
 import time
 
+import lib
 import pywatchman
 
 # ANSI Colors
@@ -86,7 +87,6 @@ class WatchSession:
         'anyof',
         ['suffix', 'rs'],
         ['suffix', 'py'],
-        ['suffix', 'penta'],
         ['suffix', 'md'],
         ['suffix', 'json'],
         ['suffix', 'nix'],
@@ -263,7 +263,7 @@ class WatchSession:
     sub_futures.append(
       executor.submit(
         self._run_cmd,
-        ['cargo', 'clippy', '--', '-D', 'warnings'],
+        lib.get_cargo_clippy_cmd(),
         'clippy',
         YELLOW,
       )

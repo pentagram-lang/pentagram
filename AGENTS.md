@@ -78,7 +78,7 @@ The `pt` runner organizes common tasks into high-level workflows that prioritize
 
 We treat warnings as errors. The `pt` runner will fail if any lints are triggered, ensuring that technical debt does not accumulate. Testing is equally rigorous and split into two domains:
 
-- **Bootstrap Testing (`pt check btest` / `pt c bt`)**: These are the Rust-based unit and integration tests for the language's "boot" implementation. You can scope these to specific packages (e.g., `pt c bt boot_eval`) or test names (e.g., `pt c bt boot_eval arithmetic`).
+- **Bootstrap Testing (`pt check btest` / `pt c bt`)**: These are the Rust-based unit and integration tests for the language's "boot" implementation. You can scope these to specific packages (e.g., `pt c bt boot_eval`) or test names within packages (e.g., `pt c bt boot_eval arithmetic`).
 - **Language Testing (`pt check test` / `pt c t`)**: These are the end-to-end tests written in Pentagram itself (located in `core/`). They verify the high-level behavior of the language.
 - **Observability**: Use the `-n` flag (e.g., `pt c bt -n`) with bootstrap tests to disable output capture, which is essential when debugging tests that produce stdout logs.
 
@@ -86,7 +86,149 @@ We treat warnings as errors. The `pt` runner will fail if any lints are triggere
 
 The standard for any contribution is absolute: **ALL** work must result in a passing `pt check` before it can be integrated. This ensures the main branch remains stable and the history remains valid.
 
+## Rust Coding Standards
+
+The Rust codebase—our "boot" implementation—must be as readable and predictable as the Pentagram language itself. We follow these structural and stylistic rules to ensure the codebase remains a clear map of our reasoning.
+
+### Anti-OOP and Functional Purity
+
+We treat Object-Oriented Programming (OOP) as a negative goal. The Rust codebase—our "boot" implementation—must prioritize functional patterns and data-driven design.
+
+- **Data Structures are not Objects**: We do not treat structs or enums as actors with "behavior." They are passive data structures.
+- **Ergonomic Data Methods**: One-line methods are encouraged _only_ if they are fundamental to the data itself:
+  - **Constructors**: `Type::new(...)` and `Default`. Most data structures should implement `Default`.
+  - **Equality**: Implement `PartialEq` for most data structures to support high-fidelity testing and reasoning.
+  - **Data Queries**: Simple property checks (e.g., `data.is_new()`).
+  - **Data Views**: Simple transformations or accessors (e.g., `data.as_bytes()`).
+- **Functions for Logic**: All complex logic, orchestration, and transformations must live in standalone functions. We favor `run_engine(engine)` over `engine.run()`.
+- **No Thin Wrappers**: Do not create one-line method "wrappers" just to provide OOP-style syntax for a complex function. If it's a process, it's a function.
+- **The One-Statement Rule**: No method or trait implementation should ever exceed one statement in the body.
+
+### Structural Defaults and Equality
+
+We prioritize structural consistency and predictability. Data structures should be easily initialized and compared without hidden logic.
+
+- **Derived Only**: `Default`, `PartialEq`, and `Eq` must be derived using `#[derive(...)]`.
+- **No Manual Impls**: Never write a manual `impl Default` or `impl PartialEq`. If a struct cannot derive these (e.g., it contains a type that doesn't implement them), reconsider the design or wrap the problematic type.
+- **Semantic Defaults**: Derive `Default` only when a logically neutral or "empty" state is semantically meaningful and safe. Never derive it for types that require explicit identity or mandatory data to be valid (e.g., unique identifiers, configuration structs).
+- **Lean into Default**: For types that satisfy the semantic rule above, favor `Type::default()` or `Default::default()` over custom `new()` constructors.
+- **Ubiquitous Equality**: Almost every data structure should implement `PartialEq` and `Eq` to facilitate high-fidelity testing and formal reasoning about data transformations.
+
+### Entry-Point Purity
+
+We treat entry-point files—`lib.rs`, `mod.rs`, and `main.rs`—as the "Reception" of a package or module. Their only responsibility is to define the internal hierarchy and present a clean public interface.
+
+- **No Implementation**: Never place logic, type definitions, or functional code directly in these files.
+- **Manifest Only**: Use them exclusively for `mod` declarations and `pub use` re-exports. If a `main.rs` needs logic, it should call into a function defined in a proper implementation module. This ensures that a developer can understand the structure of a system at a glance without being buried in implementation details.
+
+### The Shadow Testing Pattern
+
+Testing is not an afterthought; it is the parallel narrative of our implementation. To keep this relationship explicit and tidy, we use a "shadow" file pattern.
+
+- **Paired Files**: Every file containing implementation logic (e.g., `parser.rs`) must be accompanied by a paired test file (e.g., `parser_test.rs`) in the same directory. Pure data-structure files that only define types and derive traits are exempt from this requirement.
+- **The Spirit of Testing**: A test file is not a checkbox or a placeholder; it is a high-fidelity narrative of the implementation's correctness. Every test file must contain actual, meaningful assertions that verify the module's behavior. NEVER create or leave empty "placeholder" test files. If an implementation is worth writing, its narrative is worth telling through tests.
+- **No Comments**: Tests are strictly prohibited from containing comments. The "why" and "how" of a test must be communicated entirely through the code itself.
+  - **Descriptive Naming**: Use clear, specific names for tests, variables, and constants that explicitly state the intent and scenario (e.g., `test_resolve_function_with_undefined_reference` instead of `test_resolve_error`).
+  - **Local Helpers**: Complex setups or multi-stage logic must be encapsulated in small, descriptive local helper functions within the test module. This transforms a sequence of operations into a readable narrative of function calls.
+- **Fail Fast and Hard**: Functions in tests (including `#[test]` functions and local helpers) must never return `Result`. We do not propagate errors in tests; we crash. Use `.unwrap()` or `.expect()` liberally. If a test encounters an unexpected error, it is a failure of the test's assumptions, and the process should terminate immediately to provide a clear panic trace.
+- **Testing Results**: When asserting on operations that return `Result`, use `.expect()` to extract the success value or `.expect_err()` to extract the error. After extracting an error, use `assert_eq!` to verify its content (e.g., `assert_eq!(err.to_string(), "...")`). NEVER use `.is_ok()`, `.is_err()`, or manual `match` statements, as these patterns provide poor diagnostic information when the assertion fails.
+- **End-of-File Declaration**: The test module must be declared as a submodule at the very bottom of the implementation file.
+
+This keeps the implementation clean while making the tests immediately discoverable.
+
+```rust
+#[cfg(test)]
+mod parser_test;
+```
+
+### High-Fidelity Assertions
+
+Testing in Pentagram is not just about verifying that a function "works"; it is about ensuring the system remains in a predictable, deterministic state. We avoid "probes"—assertions that only check a single field or property—in favor of high-fidelity specifications of the entire outcome.
+
+- **Total Equality**: Use `assert_eq!` on the full, raw result of an operation. A test should be a complete description of the expected state. Do not transform the data, pick specific fields, or check only the length of a collection unless it is strictly impossible to do otherwise. If the result is a complex struct or enum, assert against the whole thing.
+- **The Danger of Green-Bar Bias**: Partial checks are the primary source of "green-bar bias," where a test suite passes even if the system is in an unexpected or invalid state. For example, checking only that a collection has 3 items (`assert_eq!(list.len(), 3)`) will still pass if those items contain garbage data. By asserting total equality, we ensure that any deviation from the intended architecture is caught immediately.
+- **Pretty Diffs**: We use the `pretty_assertions` crate for all equality checks. When a high-fidelity check fails, the resulting diff should be a clear, readable map of exactly where the reality diverged from our expectations. This transforms a test failure from a mystery into a precise diagnostic report.
+
+### Cognitive Sequencing (Top-to-Bottom)
+
+Files should be written for human consumption, following the natural flow of inquiry.
+
+- **API First**: Place your most important, high-level public APIs at the very top of the file. This allows a reader to immediately grasp the "what" and the "how-to-use" without scrolling.
+- **Descending Detail**: As the reader moves down the file, they should encounter increasingly specific implementation details and low-level helpers.
+- **The Final Mark**: The file always concludes with the test module declaration, serving as the final stop in the module's narrative.
+
+### Explicit Imports and Specific Naming
+
+We prioritize clarity and precision in our interfaces and how we consume them. Code should be readable without jumping to definitions or deciphering ambiguous names.
+
+- **Singular and Full Names**: All module and file names must be singular and non-abbreviated (e.g., `utility.rs` instead of `utils.rs` or `utilities.rs`). This encourages focused, atomic modules.
+- **Self-Describing Functions**: Function names must be specific and communicate their exact purpose. Avoid generic verbs like `process` or `handle` unless the context makes the specific action unambiguous.
+- **Specific Imports**: All types, traits, and functions must be imported specifically. We never use wildcard imports (`use path::*`), as they obscure the origin of symbols and can lead to name collisions. If an external crate or module uses generic names (e.g., `Error`, `Result`, `Config`), they must be aliased to be specific (e.g., `use std::io::Error as IoError`).
+- **Location and Grouping**: All imports must be placed at the very top of the file, before any other code or attributes. They must be grouped into a single, contiguous block with no empty lines, comments, or attributes between them. Imports are strictly prohibited inside functions, modules, or any other nested scopes.
+- **Unqualified Usage**: Symbols should be used without their module prefixes in the code. If a symbol is imported, use it directly. We do not use fully-qualified paths (e.g., `crate::module::Type`) in logic, as this bypasses the clarity of the import system.
+- **Absolute Local Imports**: Within a crate, all imports of local modules must be absolute, anchored to the crate root (`use crate::module::Symbol`). We avoid relative imports (`use self::...` or `use super::...`) to maintain a consistent map of the codebase. The only exception is in test module files (e.g., `parser_test.rs`), where `use super::*;` is required at the very top of the import block to bring the local implementation into scope.
+
+**Examples:**
+
+- **Bad (Vague, Qualified, or Generic)**:
+
+  ```rust
+  use std::io::Error; // Generic name without alias
+  use crate::eval::*; // Wildcard import
+  use crate::utils::process; // Newline above this import
+
+  fn main() {
+      let result = crate::eval::handle(data); // Fully-qualified usage in logic
+  }
+  ```
+
+- **Good (Specific, Absolute, & Aliased)**:
+
+  ```rust
+  use std::io::Error as IoError; // Specific alias for generic name
+  use crate::eval::evaluate_expression; // Absolute & specific import
+  use crate::utils::process_data; // Grouped in a single block
+
+  fn main() {
+      let result = evaluate_expression(data); // Direct usage & specific name
+  }
+  ```
+
+- **Good (Test Module File)**:
+
+  ```rust
+  use super::*; // Exception for test module files
+  use crate::test_utils::setup; // Still grouped at the top
+
+  #[test]      fn test_feature() {
+          setup(); // Direct usage of specific import
+      }
+  ```
+
+### Respecting the Lints
+
+Our lints are specifically chosen for their high signal; they are not mere suggestions, but reflections of our coding standards. They often reveal non-obvious consequences of our design choices.
+
+- **Listen to the Tools**: Never blindly disable or work around lints. If a lint is triggered, analyze it and understand what it is communicating about your code's structure or reasoning.
+- **Refactor, Don't Circumvent**: A triggered lint is an invitation to refactor. Disabling lints with `#[allow(...)]` is a last resort and is strictly prohibited without a compelling, documented reason. We prefer code that is idiomatic and lint-clean by design.
+
+### Minimalist Commenting
+
+Comments are never an asset; they are always a debt and a negative goal. We believe that clarity should emerge from the structure and naming of the code itself, not from prose written alongside it.
+
+- **Strictly Prohibited**:
+  - **Removed Code**: Never replace deleted logic with a comment describing what was removed (e.g., `// logic for X removed`). If it's gone, let it be gone; the git history is our record of the past.
+  - **Change History**: Do not use comments to describe how code has changed or why a specific modification was made. This narrative belongs in the commit message.
+  - **Region Markers**: Do not use "banner" comments or markers to divide files into sections (e.g., `// --- HELPER FUNCTIONS ---`). If a file is large enough to require such markers, it should be split into smaller, more focused modules.
+- **Tolerated**:
+  - **Doc Strings**: Clear and precise doc strings (e.g., `/// ...`) for public APIs are tolerated, but only if they provide information that isn't already obvious from the signature. They must be maintained with the same rigor as the code they describe.
+  - **Technical Knowledge Notes**: Comments that capture essential technical facts or constraints (e.g., "The hardware expects this specific byte order...") are tolerated. These must be based on external, objective facts rather than descriptions of the local implementation.
+- **Disadvised**:
+  - **Flow Descriptions**: Avoid using comments to explain the "steps" of a function. If the flow is complex enough to require explanation, it is a signal to refactor the logic into smaller, clearly named sub-functions.
+
 ## Commit Standards
+
+**MANDATORY CONSTRAINT**: The commit workflow—including fact-gathering, logical grouping, and narrative synthesis—is **strictly reactive**. You must never initiate, propose, or prepare any part of this process unless the user explicitly and unambiguously requests it.
 
 Pentagram treats its history as a high-fidelity narrative. The goal is to produce a single, well-crafted commit that represents a complete pull request (PR).
 
@@ -124,7 +266,9 @@ The commit message is a technical essay on the change. It must go beyond "what" 
 
 ### Safety and Control
 
-- **User Confirmation**: Never execute `git add`, `git commit`, or `git commit --amend` without explicit user confirmation or request. You are responsible for proposing these actions, but the user maintains final authority over the git state.
+- **Zero-Trust Commit Policy**: You are **strictly prohibited** from executing `git add`, `git commit`, or `git commit --amend` without an explicit, direct command from the user. You must never "assume" permission based on context or task completion.
+- **Silence on Commits**: You must not propose, suggest, or ask to commit changes. The user defines the boundaries of the work. When the technical task is complete and verified, clearly state what you have done. The user will initiate the commit process if and when they choose.
+- **No Unsolicited Commit Prep**: You are strictly prohibited from starting any phase of the commit workflow (e.g., gathering facts, analyzing diffs, grouping files, or drafting the narrative) on your own initiative. These actions must only occur in direct response to an explicit user request to begin the commit process.
 
 ### Syntax (Secondary Focus)
 
@@ -136,3 +280,7 @@ While the narrative is paramount, it must be wrapped in strict **Conventional Co
 - **Types**: `feat`, `fix`, `refactor`, `chore`, `docs`, `test`.
 - **Linear History**: No merge commits. The history remains a single, clean line of narrative-driven entries.
 - **Validation**: Every commit is validated via `pt check` (which runs `cog check`).
+
+## Tool Use
+
+- **Search Tools**: `grep` via shell is strictly prohibited as it ignores project conventions (like `.gitignore`). Use the optimized `search_file_content` or `glob` tools for codebase investigations. If built-in tools are not suitable for a specific query, the `rg` (ripgrep) shell tool is the permitted alternative, as it respects project configuration and provides high-signal results.
