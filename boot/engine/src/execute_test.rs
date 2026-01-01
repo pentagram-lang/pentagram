@@ -7,6 +7,8 @@ use boot_db::ResolvedFunctionRecord;
 use boot_db::ResolvedStatementRecord;
 use boot_db::ResolvedTerm;
 use boot_db::ResolvedWord;
+use boot_db::Span;
+use boot_db::Spanned;
 use boot_db::StatementId;
 use boot_db::Value;
 use boot_db::hash_resolved_terms;
@@ -38,13 +40,17 @@ impl Write for TestOutput {
   }
 }
 
+fn s<T>(val: T) -> Spanned<T> {
+  Spanned::new(val, Span { start: 0, end: 0 })
+}
+
 #[test]
 fn test_execute_main() {
   let mut db = Database::default();
 
   let body = vec![
-    ResolvedTerm::Literal(Value::String("Hello".to_string())),
-    ResolvedTerm::Word(ResolvedWord::Builtin(Builtin::Say)),
+    s(ResolvedTerm::Literal(Value::String("Hello".to_string()))),
+    s(ResolvedTerm::Word(ResolvedWord::Builtin(Builtin::Say))),
   ];
   let hash = hash_resolved_terms(&body);
   db.resolved_functions.push(ResolvedFunctionRecord {
@@ -70,8 +76,8 @@ fn test_execute_statements() {
   let file_id = FileId("test.penta".to_string());
 
   let body_a = vec![
-    ResolvedTerm::Literal(Value::String("A".to_string())),
-    ResolvedTerm::Word(ResolvedWord::Builtin(Builtin::Say)),
+    s(ResolvedTerm::Literal(Value::String("A".to_string()))),
+    s(ResolvedTerm::Word(ResolvedWord::Builtin(Builtin::Say))),
   ];
   let hash_a = hash_resolved_terms(&body_a);
   db.resolved_statements.push(ResolvedStatementRecord {
@@ -84,8 +90,8 @@ fn test_execute_statements() {
   });
 
   let body_c = vec![
-    ResolvedTerm::Literal(Value::String("C".to_string())),
-    ResolvedTerm::Word(ResolvedWord::Builtin(Builtin::Say)),
+    s(ResolvedTerm::Literal(Value::String("C".to_string()))),
+    s(ResolvedTerm::Word(ResolvedWord::Builtin(Builtin::Say))),
   ];
   let hash_c = hash_resolved_terms(&body_c);
   db.resolved_statements.push(ResolvedStatementRecord {
@@ -98,8 +104,8 @@ fn test_execute_statements() {
   });
 
   let body_b = vec![
-    ResolvedTerm::Literal(Value::String("B".to_string())),
-    ResolvedTerm::Word(ResolvedWord::Builtin(Builtin::Say)),
+    s(ResolvedTerm::Literal(Value::String("B".to_string()))),
+    s(ResolvedTerm::Word(ResolvedWord::Builtin(Builtin::Say))),
   ];
   let hash_b = hash_resolved_terms(&body_b);
   db.resolved_statements.push(ResolvedStatementRecord {

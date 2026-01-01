@@ -1,6 +1,6 @@
 use crate::tst::get_engine_functions_map;
-use anyhow::Result as AnyhowResult;
 use boot_db::Database;
+use boot_db::DiagnosticResult;
 use boot_db::FileId;
 use boot_db::FunctionId;
 use boot_eval::VM;
@@ -10,7 +10,7 @@ use std::io::Write;
 pub(crate) fn run_main(
   db: &mut Database,
   output: &mut (dyn Write + Send),
-) -> AnyhowResult<()> {
+) -> DiagnosticResult<()> {
   if let Some(main_func) = db
     .resolved_functions
     .iter()
@@ -19,7 +19,7 @@ pub(crate) fn run_main(
   {
     let functions_map = get_engine_functions_map(db);
     let mut vm = VM::new(&functions_map, Box::new(output));
-    eval_vm(&mut vm, &main_func.body)?;
+    eval_vm(&mut vm, &main_func.file_id, &main_func.body)?;
   }
   Ok(())
 }
@@ -28,7 +28,7 @@ pub(crate) fn run_statements(
   db: &mut Database,
   path: &str,
   output: &mut (dyn Write + Send),
-) -> AnyhowResult<()> {
+) -> DiagnosticResult<()> {
   let functions_map = get_engine_functions_map(db);
   let mut vm = VM::new(&functions_map, Box::new(output));
   run_statements_on_vm(db, path, &mut vm)
@@ -38,7 +38,7 @@ pub(crate) fn run_statements_on_vm(
   db: &Database,
   path: &str,
   vm: &mut VM<'_>,
-) -> AnyhowResult<()> {
+) -> DiagnosticResult<()> {
   let file_id = FileId(path.to_string());
   let mut statements: Vec<_> = db
     .resolved_statements
@@ -53,7 +53,7 @@ pub(crate) fn run_statements_on_vm(
   statements.sort_by_key(|s| s.index);
 
   for stmt in statements {
-    eval_vm(vm, &stmt.body)?;
+    eval_vm(vm, &stmt.file_id, &stmt.body)?;
   }
 
   Ok(())

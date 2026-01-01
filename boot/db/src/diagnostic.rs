@@ -1,3 +1,6 @@
+use crate::db::Database;
+use crate::file::FileId;
+use crate::span::Span;
 use std::error::Error;
 use std::fmt::Display;
 use std::fmt::Formatter;
@@ -5,22 +8,35 @@ use std::fmt::Result as FormatResult;
 
 #[derive(PartialEq, Eq, Debug)]
 pub struct Diagnostic {
-  pub full_source: String,
-  pub error_offset: usize,
+  pub file_id: FileId,
+  pub span: Span,
   pub error_message: String,
+}
+
+impl Diagnostic {
+  pub fn resolve(&self, db: &Database) -> ResolvedDiagnostic {
+    let file = db
+      .files
+      .iter()
+      .find(|f| f.id == self.file_id)
+      .expect("File not found in database for diagnostic resolution");
+
+    ResolvedDiagnostic {
+      file_id: self.file_id.clone(),
+      full_source: file.source.clone(),
+      span: self.span,
+      error_message: self.error_message.clone(),
+    }
+  }
 }
 
 impl Display for Diagnostic {
   fn fmt(&self, f: &mut Formatter<'_>) -> FormatResult {
-    let (_, caret_char_pos, source_line) = get_diagnostic_line_info(self);
-
-    write!(f, "Error: {}", self.error_message)?;
-    if !source_line.is_empty() {
-      writeln!(f)?;
-      writeln!(f, "  {source_line}")?;
-      write!(f, "  {:padding$}^", "", padding = caret_char_pos)?;
-    }
-    Ok(())
+    write!(
+      f,
+      "Error in {} at {}: {}",
+      self.file_id, self.span, self.error_message
+    )
   }
 }
 
@@ -28,8 +44,26 @@ impl Error for Diagnostic {}
 
 pub type DiagnosticResult<T> = Result<T, Diagnostic>;
 
+#[derive(PartialEq, Eq, Debug, Clone)]
+pub struct ResolvedDiagnostic {
+  pub file_id: FileId,
+  pub full_source: String,
+  pub span: Span,
+  pub error_message: String,
+}
+
+impl Display for ResolvedDiagnostic {
+  fn fmt(&self, f: &mut Formatter<'_>) -> FormatResult {
+    write!(f, "{}", self.error_message)
+  }
+}
+
+impl Error for ResolvedDiagnostic {}
+
+pub type ResolvedDiagnosticResult<T> = Result<T, ResolvedDiagnostic>;
+
 pub fn get_diagnostic_line_info(
-  diagnostic: &Diagnostic,
+  diagnostic: &ResolvedDiagnostic,
 ) -> (usize, usize, String) {
   let mut line_num = 0;
   let mut line_start_offset = 0;
@@ -37,7 +71,7 @@ pub fn get_diagnostic_line_info(
   let mut current_char_idx = 0;
 
   for (byte_idx, char_val) in diagnostic.full_source.char_indices() {
-    if byte_idx == diagnostic.error_offset {
+    if byte_idx == diagnostic.span.start {
       column_char_offset = current_char_idx;
       break;
     }

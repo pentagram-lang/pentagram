@@ -102,7 +102,6 @@ dependencies = [
 name = "boot_analyze"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "blake3",
  "boot_db",
  "pretty_assertions",
@@ -120,7 +119,6 @@ dependencies = [
 name = "boot_engine"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "blake3",
  "boot_analyze",
  "boot_db",
@@ -136,7 +134,6 @@ dependencies = [
 name = "boot_eval"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "boot_db",
  "pretty_assertions",
 ]
@@ -145,7 +142,6 @@ dependencies = [
 name = "boot_lex"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "boot_db",
 ]
 
@@ -153,7 +149,6 @@ dependencies = [
 name = "boot_parse"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "boot_db",
  "boot_lex",
  "pretty_assertions",
@@ -163,7 +158,6 @@ dependencies = [
 name = "boot_resolve"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "boot_db",
  "pretty_assertions",
 ]
@@ -185,7 +179,6 @@ dependencies = [
 name = "boot_test"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "boot_db",
  "boot_eval",
  "pretty_assertions",

@@ -10,9 +10,15 @@ use boot_db::ResolvedFunctionRecord;
 use boot_db::ResolvedTerm;
 use boot_db::ResolvedTestRecord;
 use boot_db::ResolvedWord;
+use boot_db::Span;
+use boot_db::Spanned;
 use boot_db::TestId;
 use boot_db::Value;
 use pretty_assertions::assert_eq;
+
+fn s<T>(val: T) -> Spanned<T> {
+  Spanned::new(val, Span { start: 0, end: 0 })
+}
 
 #[test]
 fn test_analyze_dependency_transitive_hash() {
@@ -29,9 +35,9 @@ fn test_analyze_dependency_transitive_hash() {
   let func_b = ResolvedFunctionRecord {
     id: FunctionId("b".to_string()),
     file_id: file_id.clone(),
-    body: vec![ResolvedTerm::Word(ResolvedWord::Function(FunctionId(
+    body: vec![s(ResolvedTerm::Word(ResolvedWord::Function(FunctionId(
       "a".to_string(),
-    )))],
+    ))))],
     content_hash: ContentHash([2; 32]),
     generation: Generation::NewOnly,
   };
@@ -39,9 +45,9 @@ fn test_analyze_dependency_transitive_hash() {
   let test_t = ResolvedTestRecord {
     id: TestId("t".to_string()),
     file_id: file_id.clone(),
-    body: vec![ResolvedTerm::Word(ResolvedWord::Function(FunctionId(
+    body: vec![s(ResolvedTerm::Word(ResolvedWord::Function(FunctionId(
       "b".to_string(),
-    )))],
+    ))))],
     content_hash: ContentHash([3; 32]),
     generation: Generation::NewOnly,
   };
@@ -51,7 +57,7 @@ fn test_analyze_dependency_transitive_hash() {
     resolved_tests: &[test_t],
   };
 
-  let result = analyze_dependency_graph(&input).unwrap();
+  let result = analyze_dependency_graph(&input);
 
   let mut hasher_a = Hasher::new();
   hasher_a.update(&[1; 32]);
@@ -97,11 +103,11 @@ fn test_analyze_dependency_basic() {
     id: FunctionId("main".to_string()),
     file_id,
     body: vec![
-      ResolvedTerm::Literal(Value::Integer(10)),
-      ResolvedTerm::Word(ResolvedWord::Function(FunctionId(
+      s(ResolvedTerm::Literal(Value::Integer(10))),
+      s(ResolvedTerm::Word(ResolvedWord::Function(FunctionId(
         "inc".to_string(),
-      ))),
-      ResolvedTerm::Word(ResolvedWord::Builtin(Builtin::Add)),
+      )))),
+      s(ResolvedTerm::Word(ResolvedWord::Builtin(Builtin::Add))),
     ],
     content_hash: ContentHash([1; 32]),
     generation: Generation::NewOnly,
@@ -120,7 +126,7 @@ fn test_analyze_dependency_basic() {
     resolved_tests: &[],
   };
 
-  let result = analyze_dependency_graph(&input).unwrap();
+  let result = analyze_dependency_graph(&input);
 
   let mut hasher_inc = Hasher::new();
   hasher_inc.update(&[2; 32]);
