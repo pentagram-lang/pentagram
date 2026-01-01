@@ -283,4 +283,7 @@ While the narrative is paramount, it must be wrapped in strict **Conventional Co
 
 ## Tool Use
 
-- **Search Tools**: `grep` via shell is strictly prohibited as it ignores project conventions (like `.gitignore`). Use the optimized `search_file_content` or `glob` tools for codebase investigations. If built-in tools are not suitable for a specific query, the `rg` (ripgrep) shell tool is the permitted alternative, as it respects project configuration and provides high-signal results.
+- **PROHIBITED TOOLS**: The use of `grep` via shell is **strictly forbidden**. It is slow, ignores project conventions (like `.gitignore`), and produces low-signal output. Any attempt to use `grep` is a failure of operational standards.
+- **Search Tools**: Use the optimized `search_file_content` or `glob` tools for all codebase investigations. These are your primary instruments for gathering facts.
+- **The ripgrep Exception**: If, and only if, the built-in search tools are fundamentally unsuitable for a specific, complex query, you may use the `rg` (ripgrep) shell tool. `rg` is permitted because it respects project configuration and provides high-performance, high-signal results.
+- **Output Efficiency**: Always prioritize tool flags that minimize output volume. Large, unfiltered outputs are a drain on the reasoning partnership.

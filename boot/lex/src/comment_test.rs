@@ -1,7 +1,7 @@
 use super::*;
 use crate::char_cursor::CharCursor;
 use crate::char_cursor::advance_char_cursor;
-use boot_db::TriviaTokenKind;
+use boot_db::TriviaToken;
 
 #[test]
 fn test_lex_comment_simple() {
@@ -10,7 +10,7 @@ fn test_lex_comment_simple() {
   advance_char_cursor(&mut cursor);
   advance_char_cursor(&mut cursor);
   let token = lex_comment(&mut cursor, 0);
-  assert_eq!(token, TokenKind::Trivia(TriviaTokenKind::Comment));
+  assert_eq!(token, Token::Trivia(TriviaToken::Comment));
   assert_eq!(cursor.head, Some(' '));
 }
 
@@ -21,7 +21,7 @@ fn test_lex_comment_multiline() {
   advance_char_cursor(&mut cursor);
   advance_char_cursor(&mut cursor);
   let token = lex_comment(&mut cursor, 0);
-  assert_eq!(token, TokenKind::Trivia(TriviaTokenKind::Comment));
+  assert_eq!(token, Token::Trivia(TriviaToken::Comment));
   assert_eq!(cursor.head, Some(' '));
 }
 
@@ -32,7 +32,7 @@ fn test_lex_comment_nested_style() {
   advance_char_cursor(&mut cursor);
   advance_char_cursor(&mut cursor);
   let token = lex_comment(&mut cursor, 0);
-  assert_eq!(token, TokenKind::Trivia(TriviaTokenKind::Comment));
+  assert_eq!(token, Token::Trivia(TriviaToken::Comment));
   assert_eq!(cursor.head, Some(' '));
 }
 
@@ -43,7 +43,7 @@ fn test_lex_comment_mismatch_too_many_closers() {
   advance_char_cursor(&mut cursor);
   advance_char_cursor(&mut cursor);
   let token = lex_comment(&mut cursor, 0);
-  assert_eq!(token, TokenKind::Unknown("-- hello ---".to_string()));
+  assert_eq!(token, Token::Unknown("-- hello ---".to_string()));
 }
 
 #[test]
@@ -53,5 +53,5 @@ fn test_lex_comment_mismatch_too_few_closers() {
   advance_char_cursor(&mut cursor);
   advance_char_cursor(&mut cursor);
   let token = lex_comment(&mut cursor, 0);
-  assert_eq!(token, TokenKind::Unknown("--- hello -- next".to_string()));
+  assert_eq!(token, Token::Unknown("--- hello -- next".to_string()));
 }

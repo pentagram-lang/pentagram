@@ -4,10 +4,11 @@ use crate::token_cursor::TokenCursor;
 use crate::token_cursor::advance_token_cursor;
 use boot_db::Diagnostic;
 use boot_db::DiagnosticResult;
-use boot_db::IdentifierTokenKind;
-use boot_db::KeywordTokenKind;
-use boot_db::PunctuationTokenKind;
-use boot_db::TokenKind;
+use boot_db::IdentifierToken;
+use boot_db::KeywordToken;
+use boot_db::PunctuationToken;
+use boot_db::Span;
+use boot_db::Token;
 
 pub(crate) fn parse_function(
   cursor: &mut TokenCursor<'_>,
@@ -16,23 +17,26 @@ pub(crate) fn parse_function(
 
   let Some(token) = cursor.head else {
     return Err(Diagnostic {
-      full_source: cursor.source.to_string(),
-      error_offset: cursor.source.len(),
+      file_id: cursor.file_id.clone(),
+      span: Span {
+        start: cursor.source_len,
+        end: cursor.source_len,
+      },
       error_message: "Unexpected end of input, expected function name"
         .to_string(),
     });
   };
 
-  let name = match &token.kind {
-    TokenKind::Identifier(IdentifierTokenKind::Word(s)) => {
+  let name = match &token.value {
+    Token::Identifier(IdentifierToken::Word(s)) => {
       let name = s.clone();
       advance_token_cursor(cursor);
       name
     }
     _ => {
       return Err(Diagnostic {
-        full_source: cursor.source.to_string(),
-        error_offset: token.start,
+        file_id: cursor.file_id.clone(),
+        span: token.span,
         error_message: "expected function name".to_string(),
       });
     }
@@ -40,24 +44,24 @@ pub(crate) fn parse_function(
 
   match cursor.head {
     Some(token)
-      if matches!(
-        token.kind,
-        TokenKind::Keyword(KeywordTokenKind::Fn)
-      ) =>
+      if matches!(token.value, Token::Keyword(KeywordToken::Fn)) =>
     {
       advance_token_cursor(cursor);
     }
     Some(token) => {
       return Err(Diagnostic {
-        full_source: cursor.source.to_string(),
-        error_offset: token.start,
+        file_id: cursor.file_id.clone(),
+        span: token.span,
         error_message: "expected 'fn'".to_string(),
       });
     }
     None => {
       return Err(Diagnostic {
-        full_source: cursor.source.to_string(),
-        error_offset: cursor.source.len(),
+        file_id: cursor.file_id.clone(),
+        span: Span {
+          start: cursor.source_len,
+          end: cursor.source_len,
+        },
         error_message: "Unexpected end of input, expected 'fn'"
           .to_string(),
       });
@@ -66,35 +70,36 @@ pub(crate) fn parse_function(
 
   let mut body = Vec::new();
   while let Some(t) = cursor.head {
-    if matches!(t.kind, TokenKind::Keyword(KeywordTokenKind::EndFn)) {
+    if matches!(t.value, Token::Keyword(KeywordToken::EndFn)) {
       break;
     }
     body.push(parse_term(cursor)?);
 
     if let Some(t) = cursor.head {
-      if t.kind == TokenKind::Punctuation(PunctuationTokenKind::Comma) {
+      if t.value == Token::Punctuation(PunctuationToken::Comma) {
         advance_token_cursor(cursor);
       }
     }
   }
 
   match cursor.head {
-    Some(t)
-      if matches!(t.kind, TokenKind::Keyword(KeywordTokenKind::EndFn)) =>
-    {
+    Some(t) if matches!(t.value, Token::Keyword(KeywordToken::EndFn)) => {
       advance_token_cursor(cursor);
     }
     Some(t) => {
       return Err(Diagnostic {
-        full_source: cursor.source.to_string(),
-        error_offset: t.start,
+        file_id: cursor.file_id.clone(),
+        span: t.span,
         error_message: "expected 'end-fn'".to_string(),
       });
     }
     None => {
       return Err(Diagnostic {
-        full_source: cursor.source.to_string(),
-        error_offset: cursor.source.len(),
+        file_id: cursor.file_id.clone(),
+        span: Span {
+          start: cursor.source_len,
+          end: cursor.source_len,
+        },
         error_message: "Unexpected end of input, expected 'end-fn'"
           .to_string(),
       });
@@ -102,7 +107,7 @@ pub(crate) fn parse_function(
   }
 
   if let Some(t) = cursor.head {
-    if t.kind == TokenKind::Punctuation(PunctuationTokenKind::Comma) {
+    if t.value == Token::Punctuation(PunctuationToken::Comma) {
       advance_token_cursor(cursor);
     }
   }

@@ -1,4 +1,5 @@
 use super::*;
+use boot_db::ContentHash;
 use boot_db::FileId;
 use boot_db::FunctionId;
 use boot_db::FunctionRecord;
@@ -9,8 +10,7 @@ use boot_lex::lex_source;
 #[test]
 fn test_parse_repl_merge() {
   let source = "def new_fn fn end-fn";
-  let ts =
-    lex_source("repl", source, boot_db::ContentHash([0; 32])).unwrap();
+  let ts = lex_source("repl", source, ContentHash([0; 32])).unwrap();
 
   let old_funcs = vec![];
   let old_tests = vec![];

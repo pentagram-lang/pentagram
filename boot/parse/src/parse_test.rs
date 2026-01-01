@@ -1,8 +1,14 @@
 use super::*;
+use boot_db::ContentHash;
+use boot_db::Database;
 use boot_db::FileId;
+use boot_db::FileRecord;
 use boot_db::FunctionId;
 use boot_db::FunctionRecord;
 use boot_db::Generation;
+use boot_db::ResolvedDiagnosticResult;
+use boot_db::Span;
+use boot_db::Spanned;
 use boot_db::StatementId;
 use boot_db::StatementRecord;
 use boot_db::Term;
@@ -10,18 +16,48 @@ use boot_db::TestId;
 use boot_db::TestRecord;
 use boot_db::Value;
 use boot_db::hash_terms;
+use boot_db::resolve_diagnostic;
 use pretty_assertions::assert_eq;
 
-fn parse_str(input: &str) -> AnyhowResult<ParsedModule> {
-  let tokens =
-    boot_lex::lex_source("test", input, boot_db::ContentHash([0; 32]))?;
-  parse_source("test", input, &tokens)
+fn parse_str(input: &str) -> ResolvedDiagnosticResult<ParsedModule> {
+  let tokens = boot_lex::lex_source("test", input, ContentHash([0; 32]))
+    .map_err(|diagnostic| {
+    let mut db = Database::default();
+    db.files.push(FileRecord {
+      id: FileId("test".to_string()),
+      path: "test".to_string(),
+      source: input.to_string(),
+      content_hash: ContentHash([0; 32]),
+      generation: Generation::NewOnly,
+    });
+    resolve_diagnostic(&diagnostic, &db)
+  })?;
+  let result = parse_source("test", input, &tokens);
+
+  match result {
+    Err(diagnostic) => {
+      let mut db = Database::default();
+      db.files.push(FileRecord {
+        id: FileId("test".to_string()),
+        path: "test".to_string(),
+        source: input.to_string(),
+        content_hash: ContentHash([0; 32]),
+        generation: Generation::NewOnly,
+      });
+      Err(resolve_diagnostic(&diagnostic, &db))
+    }
+    Ok(module) => Ok(module),
+  }
+}
+
+fn s<T>(value: T, start: usize, end: usize) -> Spanned<T> {
+  Spanned::new(value, Span { start, end })
 }
 
 #[test]
 fn test_integer() {
   let result = parse_str("123,").expect("Parse failed");
-  let body = vec![Term::Literal(Value::Integer(123))];
+  let body = vec![s(Term::Literal(Value::Integer(123)), 0, 3)];
   let expected = ParsedModule {
     functions: vec![],
     tests: vec![],
@@ -40,7 +76,8 @@ fn test_integer() {
 #[test]
 fn test_string() {
   let result = parse_str("'hello',").expect("Parse failed");
-  let body = vec![Term::Literal(Value::String("hello".to_string()))];
+  let body =
+    vec![s(Term::Literal(Value::String("hello".to_string())), 0, 7)];
   let expected = ParsedModule {
     functions: vec![],
     tests: vec![],
@@ -59,9 +96,9 @@ fn test_string() {
 #[test]
 fn test_ops() {
   let result = parse_str("1 2 +,").expect("Parse failed");
-  let body_0 = vec![Term::Literal(Value::Integer(1))];
-  let body_1 = vec![Term::Literal(Value::Integer(2))];
-  let body_2 = vec![Term::Word("+".to_string())];
+  let body_0 = vec![s(Term::Literal(Value::Integer(1)), 0, 1)];
+  let body_1 = vec![s(Term::Literal(Value::Integer(2)), 2, 3)];
+  let body_2 = vec![s(Term::Word("+".to_string()), 4, 5)];
 
   let expected = ParsedModule {
     functions: vec![],
@@ -107,12 +144,12 @@ fn test_def() {
       name: "main".to_string(),
       file_id: FileId("test".to_string()),
       body: vec![
-        Term::Literal(Value::String("Hi".to_string())),
-        Term::Word("say".to_string()),
+        s(Term::Literal(Value::String("Hi".to_string())), 12, 16),
+        s(Term::Word("say".to_string()), 17, 20),
       ],
       content_hash: hash_terms(&[
-        Term::Literal(Value::String("Hi".to_string())),
-        Term::Word("say".to_string()),
+        s(Term::Literal(Value::String("Hi".to_string())), 12, 16),
+        s(Term::Word("say".to_string()), 17, 20),
       ]),
       generation: Generation::NewOnly,
       index: 0,
@@ -128,23 +165,20 @@ fn test_def() {
 fn test_parse_error_malformed_def() {
   let input = "def f 2 end-fn,";
   let err = parse_str(input).expect_err("Should have failed");
-  assert_eq!(
-    err.to_string(),
-    "Error: expected 'fn'\n  def f 2 end-fn,\n        ^"
-  );
+  assert_eq!(err.error_message, "expected 'fn'");
 }
 
 #[test]
 fn test_parse_error_reserved_word() {
   let input = "fn";
   let err = parse_str(input).expect_err("Should have failed");
-  assert_eq!(err.to_string(), "Error: expected term\n  fn\n  ^");
+  assert_eq!(err.error_message, "expected term");
 }
 #[test]
 fn test_comments() {
   let input = "-- comment --\n 1,";
   let result = parse_str(input).expect("Parse failed");
-  let body = vec![Term::Literal(Value::Integer(1))];
+  let body = vec![s(Term::Literal(Value::Integer(1)), 15, 16)];
   let expected = ParsedModule {
     functions: vec![],
     tests: vec![],
@@ -162,20 +196,37 @@ fn test_comments() {
 
 #[test]
 fn test_multiline_test() {
-  let input = r"
+  let input = "
         test
             1 1 + 2 eq assert
         end-test,
     ";
   let result = parse_str(input).expect("Parse failed");
 
+  // Offset calculation:
+  // \n (1)
+  //         test (8 spaces + 4 = 12) -> end at 13
+  // \n (1)
+  //             (12 spaces)
+  // 1 (1) -> 13 + 1 + 12 = 26. End 27.
+  //   (1)
+  // 1 (1) -> 28. End 29.
+  //   (1)
+  // + (1) -> 30. End 31.
+  //   (1)
+  // 2 (1) -> 32. End 33.
+  //   (1)
+  // eq (2) -> 34. End 36.
+  //    (1)
+  // assert (6) -> 37. End 43.
+
   let body = vec![
-    Term::Literal(Value::Integer(1)),
-    Term::Literal(Value::Integer(1)),
-    Term::Word("+".to_string()),
-    Term::Literal(Value::Integer(2)),
-    Term::Word("eq".to_string()),
-    Term::Word("assert".to_string()),
+    s(Term::Literal(Value::Integer(1)), 26, 27),
+    s(Term::Literal(Value::Integer(1)), 28, 29),
+    s(Term::Word("+".to_string()), 30, 31),
+    s(Term::Literal(Value::Integer(2)), 32, 33),
+    s(Term::Word("eq".to_string()), 34, 36),
+    s(Term::Word("assert".to_string()), 37, 43),
   ];
   let hash = hash_terms(&body);
 

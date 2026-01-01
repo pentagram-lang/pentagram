@@ -1,13 +1,13 @@
 use crate::char_cursor::CharCursor;
 use crate::char_cursor::advance_char_cursor;
 use crate::char_cursor::char_cursor_slice;
-use boot_db::TokenKind;
-use boot_db::TriviaTokenKind;
+use boot_db::Token;
+use boot_db::TriviaToken;
 
 pub(crate) fn lex_comment(
   cursor: &mut CharCursor<'_>,
   start: usize,
-) -> TokenKind {
+) -> Token {
   let mut opener_count = 2; // Two '-' already advanced in lex_source
   while cursor.head == Some('-') {
     opener_count += 1;
@@ -24,11 +24,11 @@ pub(crate) fn lex_comment(
       }
 
       if closer_count == opener_count {
-        return TokenKind::Trivia(TriviaTokenKind::Comment);
+        return Token::Trivia(TriviaToken::Comment);
       }
 
       if closer_count > opener_count {
-        return TokenKind::Unknown(
+        return Token::Unknown(
           char_cursor_slice(cursor, start).to_string(),
         );
       }
@@ -37,7 +37,7 @@ pub(crate) fn lex_comment(
     }
   }
 
-  TokenKind::Unknown(char_cursor_slice(cursor, start).to_string())
+  Token::Unknown(char_cursor_slice(cursor, start).to_string())
 }
 
 #[cfg(test)]

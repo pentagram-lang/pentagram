@@ -5,6 +5,7 @@ use boot_db::FunctionId;
 use boot_db::FunctionRecord;
 use boot_db::Generation;
 use boot_db::ResolvedFunctionRecord;
+use boot_db::hash_resolved_terms;
 use pretty_assertions::assert_eq;
 
 #[test]
@@ -38,7 +39,7 @@ fn test_resolve_engine_filtering() {
     id: FunctionId("new_func".to_string()),
     file_id: file_id.clone(),
     body: vec![],
-    content_hash: boot_db::hash_resolved_terms(&[]),
+    content_hash: hash_resolved_terms(&[]),
     generation: Generation::NewOnly,
   }];
 

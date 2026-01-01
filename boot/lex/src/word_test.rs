@@ -1,16 +1,16 @@
 use super::*;
-use boot_db::IdentifierTokenKind;
-use boot_db::KeywordTokenKind;
+use boot_db::IdentifierToken;
+use boot_db::KeywordToken;
 
-fn ident(s: &str) -> TokenKind {
-  TokenKind::Identifier(IdentifierTokenKind::Word(s.to_string()))
+fn ident(s: &str) -> Token {
+  Token::Identifier(IdentifierToken::Word(s.to_string()))
 }
 
-fn unknown(s: &str) -> TokenKind {
-  TokenKind::Unknown(s.to_string())
+fn unknown(s: &str) -> Token {
+  Token::Unknown(s.to_string())
 }
 
-fn check(input: &str, expected: &TokenKind) {
+fn check(input: &str, expected: &Token) {
   let mut cursor = CharCursor::new(input);
   let token = if input.starts_with('-')
     && !input.starts_with("--")
@@ -29,7 +29,7 @@ fn check(input: &str, expected: &TokenKind) {
 
 #[test]
 fn test_lex_keyword_def() {
-  check("def", &TokenKind::Keyword(KeywordTokenKind::Def));
+  check("def", &Token::Keyword(KeywordToken::Def));
 }
 
 #[test]

@@ -3,6 +3,8 @@ use boot_db::ContentHash;
 use boot_db::FileId;
 use boot_db::FunctionRecord;
 use boot_db::Generation;
+use boot_db::Span;
+use boot_db::Spanned;
 use boot_db::StatementId;
 use boot_db::StatementRecord;
 use boot_db::Term;
@@ -11,6 +13,10 @@ use boot_db::hash_terms;
 use pretty_assertions::assert_eq;
 use std::slice::from_ref;
 
+fn s<T>(val: T) -> Spanned<T> {
+  Spanned::new(val, Span { start: 0, end: 0 })
+}
+
 #[test]
 fn test_resolve_undefined_reference() {
   let file_id = FileId("test.penta".to_string());
@@ -18,7 +24,7 @@ fn test_resolve_undefined_reference() {
     id: FunctionId("main".to_string()),
     name: "main".to_string(),
     file_id,
-    body: vec![Term::Word("unknown_func".to_string())],
+    body: vec![s(Term::Word("unknown_func".to_string()))],
     content_hash: ContentHash([0; 32]),
     generation: Generation::NewOnly,
     index: 0,
@@ -31,7 +37,10 @@ fn test_resolve_undefined_reference() {
   };
 
   let result = resolve_module(&input).expect_err("Should have failed");
-  assert_eq!(result.to_string(), "Undefined reference: unknown_func");
+  assert_eq!(
+    result.to_string(),
+    "Error in test.penta at 0..0: Undefined reference: unknown_func"
+  );
 }
 
 #[test]
@@ -50,7 +59,7 @@ fn test_resolve_known_reference() {
     id: FunctionId("main".to_string()),
     name: "main".to_string(),
     file_id: file_id.clone(),
-    body: vec![Term::Word("inc".to_string())],
+    body: vec![s(Term::Word("inc".to_string()))],
     content_hash: ContentHash([0; 32]),
     generation: Generation::NewOnly,
     index: 0,
@@ -67,9 +76,9 @@ fn test_resolve_known_reference() {
   let inc_body = vec![];
   let inc_hash = hash_resolved_terms(&inc_body);
 
-  let main_body = vec![ResolvedTerm::Word(ResolvedWord::Function(
+  let main_body = vec![s(ResolvedTerm::Word(ResolvedWord::Function(
     FunctionId("inc".to_string()),
-  ))];
+  )))];
   let main_hash = hash_resolved_terms(&main_body);
 
   let expected = ResolveOutput {
@@ -109,7 +118,7 @@ fn test_resolve_statement_scope_fail() {
     index: 15,
   };
 
-  let body = vec![Term::Word("B".to_string())];
+  let body = vec![s(Term::Word("B".to_string()))];
   let stmt = StatementRecord {
     id: StatementId("test.penta:10".to_string()),
     file_id: file_id.clone(),
@@ -127,7 +136,10 @@ fn test_resolve_statement_scope_fail() {
 
   let result =
     resolve_module(&input).expect_err("Scoped lookup should fail for B");
-  assert_eq!(result.to_string(), "Undefined reference: B");
+  assert_eq!(
+    result.to_string(),
+    "Error in test.penta at 0..0: Undefined reference: B"
+  );
 }
 
 #[test]
@@ -143,7 +155,7 @@ fn test_resolve_statement_scope_success() {
     index: 5,
   };
 
-  let body = vec![Term::Word("A".to_string())];
+  let body = vec![s(Term::Word("A".to_string()))];
   let stmt = StatementRecord {
     id: StatementId("test.penta:10".to_string()),
     file_id: file_id.clone(),
@@ -169,7 +181,7 @@ fn test_resolve_redefinition_fail() {
     id: FunctionId("foo".to_string()),
     name: "foo".to_string(),
     file_id: file_id.clone(),
-    body: vec![Term::Word("foo".to_string())],
+    body: vec![s(Term::Word("foo".to_string()))],
     content_hash: ContentHash([1; 32]),
     generation: Generation::NewOnly,
     index: 0,
@@ -192,5 +204,8 @@ fn test_resolve_redefinition_fail() {
 
   let result =
     resolve_module(&input).expect_err("Should detect redefinition");
-  assert_eq!(result.to_string(), "Function redefinition: foo");
+  assert_eq!(
+    result.to_string(),
+    "Error in test.penta at 0..0: Function redefinition: foo"
+  );
 }
