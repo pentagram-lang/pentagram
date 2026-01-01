@@ -72,7 +72,7 @@ fn test_incremental_execution_logic() {
     generation: Generation::OldOnly,
   });
 
-  run_engine_tests_incrementally(&mut db).expect("Run failed");
+  run_engine_tests_incrementally(&mut db);
 
   let mut results = db.test_results.clone();
   results.sort_by(|a, b| a.id.0.cmp(&b.id.0));

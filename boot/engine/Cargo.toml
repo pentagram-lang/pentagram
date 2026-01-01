@@ -10,7 +10,6 @@ repository.workspace = true
 description.workspace = true
 
 [dependencies]
-anyhow = { workspace = true }
 blake3 = { workspace = true }
 boot_analyze = { workspace = true }
 boot_db = { workspace = true }

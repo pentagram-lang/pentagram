@@ -9,8 +9,10 @@ use crate::shred::shred_file;
 use crate::shred::shred_repl;
 use crate::tst::get_engine_functions_map;
 use crate::tst::run_engine_tests_incrementally;
-use anyhow::Result as AnyhowResult;
 use boot_db::Database;
+use boot_db::DiagnosticResult;
+use boot_db::ResolvedDiagnosticResult;
+use boot_db::resolve_diagnostic;
 use boot_eval::VM;
 use boot_eval::take_vm_stack;
 use std::io::Write;
@@ -20,76 +22,85 @@ pub fn execute_file(
   path: &str,
   content: &str,
   output: &mut (dyn Write + Send),
-) -> AnyhowResult<()> {
-  let result = (|| {
+) -> ResolvedDiagnosticResult<()> {
+  let result: DiagnosticResult<()> = (|| {
     shred_file(db, path, content)?;
     resolve_module(db)?;
-    analyze_dependencies(db)?;
+    analyze_dependencies(db);
     run_statements(db, path, output)?;
     run_main(db, output)?;
     Ok(())
   })();
 
-  if result.is_err() {
+  if let Err(diagnostic) = result {
+    let resolved = resolve_diagnostic(&diagnostic, db);
     rollback_engine_generation(db);
+    Err(resolved)
   } else {
     commit_engine_generation(db);
+    Ok(())
   }
-
-  result
 }
 
 pub fn execute_repl(
   db: &mut Database,
   line: &str,
   output: &mut (dyn Write + Send),
-) -> AnyhowResult<()> {
-  let result = (|| {
+) -> ResolvedDiagnosticResult<()> {
+  let result: DiagnosticResult<()> = (|| {
     let module = shred_repl(db, line)?;
 
     resolve_module(db)?;
-    analyze_dependencies(db)?;
+    analyze_dependencies(db);
 
     let functions_map = get_engine_functions_map(db);
     let mut vm = VM::new(&functions_map, Box::new(output));
 
     if !module.statements.is_empty() {
-      run_statements_on_vm(db, "repl", &mut vm)?;
+      let file_id = db
+        .files
+        .iter()
+        .rfind(|f| f.id.0.starts_with("repl:"))
+        .map(|f| f.id.clone())
+        .expect("REPL file not found after shredding");
+
+      run_statements_on_vm(db, &file_id.0, &mut vm)?;
     }
 
     let stack = take_vm_stack(&mut vm);
 
     if !stack.is_empty() {
-      write!(vm.stdout_mut(), "[")?;
+      write!(vm.stdout_mut(), "[").expect("REPL IO failure");
       for v in stack {
-        write!(vm.stdout_mut(), " {v}")?;
+        write!(vm.stdout_mut(), " {v}").expect("REPL IO failure");
       }
-      writeln!(vm.stdout_mut(), " ]")?;
+      writeln!(vm.stdout_mut(), " ]").expect("REPL IO failure");
     }
     Ok(())
   })();
 
-  if result.is_err() {
+  if let Err(diagnostic) = result {
+    let resolved = resolve_diagnostic(&diagnostic, db);
     rollback_engine_generation(db);
+    Err(resolved)
   } else {
     commit_engine_generation(db);
+    Ok(())
   }
-
-  result
 }
 
 pub fn execute_tests(
   db: &mut Database,
   files: &[(&str, &str)],
   output: &mut (dyn Write + Send),
-) -> AnyhowResult<()> {
-  let result = (|| {
+) -> ResolvedDiagnosticResult<()> {
+  let result: DiagnosticResult<()> = (|| {
     for (path, content) in files {
       shred_file(db, path, content)?;
     }
     resolve_module(db)?;
-    analyze_dependencies(db)?;
-    run_engine_tests_incrementally(db)?;
+    analyze_dependencies(db);
+    run_engine_tests_incrementally(db);
 
     let mut results: Vec<_> = db
       .test_results
@@ -101,22 +112,24 @@ pub fn execute_tests(
 
     for res in results {
       let status = if res.passed { "PASS" } else { "FAIL" };
-      writeln!(output, "{} {}", status, res.id.0)?;
+      writeln!(output, "{} {}", status, res.id.0)
+        .expect("Test output failure");
       if !res.passed {
-        write!(output, "{}", res.output)?;
+        write!(output, "{}", res.output).expect("Test output failure");
       }
     }
 
     Ok(())
   })();
 
-  if result.is_err() {
+  if let Err(diagnostic) = result {
+    let resolved = resolve_diagnostic(&diagnostic, db);
     rollback_engine_generation(db);
+    Err(resolved)
   } else {
     commit_engine_generation(db);
+    Ok(())
   }
-
-  result
 }
 
 #[cfg(test)]

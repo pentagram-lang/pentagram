@@ -1,48 +1,50 @@
 use super::*;
-use boot_db::IdentifierTokenKind;
-use boot_db::LiteralTokenKind;
+use boot_db::IdentifierToken;
+use boot_db::KeywordToken;
+use boot_db::LiteralToken;
+use boot_db::PunctuationToken;
 
-fn check(input: &str, expected: &[TokenKind]) {
+fn check(input: &str, expected: &[Token]) {
   let record = lex_source("test.penta", input, ContentHash([0; 32]))
     .expect("Failed to lex source");
 
-  let actual: Vec<TokenKind> =
-    record.tokens.into_iter().map(|t| t.kind).collect();
-  let expected_vec: Vec<TokenKind> = expected.to_vec();
+  let actual: Vec<Token> =
+    record.tokens.into_iter().map(|t| t.value).collect();
+  let expected_vec: Vec<Token> = expected.to_vec();
 
   assert_eq!(actual, expected_vec, "Failed for input: '{input}'");
 }
 
-fn ident(s: &str) -> TokenKind {
-  TokenKind::Identifier(IdentifierTokenKind::Word(s.to_string()))
+fn ident(s: &str) -> Token {
+  Token::Identifier(IdentifierToken::Word(s.to_string()))
 }
 
-fn integer(i: i64) -> TokenKind {
-  TokenKind::Literal(LiteralTokenKind::Integer(i))
+fn integer(i: i64) -> Token {
+  Token::Literal(LiteralToken::Integer(i))
 }
 
-fn string(s: &str) -> TokenKind {
-  TokenKind::Literal(LiteralTokenKind::String(s.to_string()))
+fn string(s: &str) -> Token {
+  Token::Literal(LiteralToken::String(s.to_string()))
 }
 
-fn invalid_term() -> TokenKind {
-  TokenKind::Trivia(TriviaTokenKind::InvalidTermination)
+fn invalid_term() -> Token {
+  Token::Trivia(TriviaToken::InvalidTermination)
 }
 
-fn unknown(s: &str) -> TokenKind {
-  TokenKind::Unknown(s.to_string())
+fn unknown(s: &str) -> Token {
+  Token::Unknown(s.to_string())
 }
 
-fn whitespace() -> TokenKind {
-  TokenKind::Trivia(TriviaTokenKind::Whitespace)
+fn whitespace() -> Token {
+  Token::Trivia(TriviaToken::Whitespace)
 }
 
-fn comma() -> TokenKind {
-  TokenKind::Punctuation(boot_db::PunctuationTokenKind::Comma)
+fn comma() -> Token {
+  Token::Punctuation(PunctuationToken::Comma)
 }
 
-fn keyword(k: boot_db::KeywordTokenKind) -> TokenKind {
-  TokenKind::Keyword(k)
+fn keyword(k: KeywordToken) -> Token {
+  Token::Keyword(k)
 }
 
 #[test]
@@ -64,13 +66,13 @@ fn test_lex_function_def() {
   check(
     "def foo fn end-fn",
     &[
-      keyword(boot_db::KeywordTokenKind::Def),
+      keyword(KeywordToken::Def),
       whitespace(),
       ident("foo"),
       whitespace(),
-      keyword(boot_db::KeywordTokenKind::Fn),
+      keyword(KeywordToken::Fn),
       whitespace(),
-      keyword(boot_db::KeywordTokenKind::EndFn),
+      keyword(KeywordToken::EndFn),
     ],
   );
 }
@@ -147,7 +149,7 @@ fn test_lex_termination_comment_invalid() {
   check(
     "-- foo --bar",
     &[
-      TokenKind::Trivia(TriviaTokenKind::Comment),
+      Token::Trivia(TriviaToken::Comment),
       invalid_term(),
       ident("bar"),
     ],

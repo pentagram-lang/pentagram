@@ -3,8 +3,8 @@ use crate::term::parse_term;
 use crate::token_cursor::TokenCursor;
 use crate::token_cursor::advance_token_cursor;
 use boot_db::DiagnosticResult;
-use boot_db::PunctuationTokenKind;
-use boot_db::TokenKind;
+use boot_db::PunctuationToken;
+use boot_db::Token;
 
 pub(crate) fn parse_statement(
   cursor: &mut TokenCursor<'_>,
@@ -12,7 +12,7 @@ pub(crate) fn parse_statement(
   let term = parse_term(cursor)?;
 
   if let Some(t) = cursor.head {
-    if t.kind == TokenKind::Punctuation(PunctuationTokenKind::Comma) {
+    if t.value == Token::Punctuation(PunctuationToken::Comma) {
       advance_token_cursor(cursor);
     }
   }

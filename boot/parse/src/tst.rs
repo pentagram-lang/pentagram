@@ -4,9 +4,10 @@ use crate::token_cursor::TokenCursor;
 use crate::token_cursor::advance_token_cursor;
 use boot_db::Diagnostic;
 use boot_db::DiagnosticResult;
-use boot_db::KeywordTokenKind;
-use boot_db::PunctuationTokenKind;
-use boot_db::TokenKind;
+use boot_db::KeywordToken;
+use boot_db::PunctuationToken;
+use boot_db::Span;
+use boot_db::Token;
 
 pub(crate) fn parse_test(
   cursor: &mut TokenCursor<'_>,
@@ -15,13 +16,13 @@ pub(crate) fn parse_test(
 
   let mut body = Vec::new();
   while let Some(t) = cursor.head {
-    if matches!(t.kind, TokenKind::Keyword(KeywordTokenKind::EndTest)) {
+    if matches!(t.value, Token::Keyword(KeywordToken::EndTest)) {
       break;
     }
     body.push(parse_term(cursor)?);
 
     if let Some(t) = cursor.head {
-      if t.kind == TokenKind::Punctuation(PunctuationTokenKind::Comma) {
+      if t.value == Token::Punctuation(PunctuationToken::Comma) {
         advance_token_cursor(cursor);
       }
     }
@@ -29,24 +30,24 @@ pub(crate) fn parse_test(
 
   match cursor.head {
     Some(t)
-      if matches!(
-        t.kind,
-        TokenKind::Keyword(KeywordTokenKind::EndTest)
-      ) =>
+      if matches!(t.value, Token::Keyword(KeywordToken::EndTest)) =>
     {
       advance_token_cursor(cursor);
     }
     Some(t) => {
       return Err(Diagnostic {
-        full_source: cursor.source.to_string(),
-        error_offset: t.start,
+        file_id: cursor.file_id.clone(),
+        span: t.span,
         error_message: "expected 'end-test'".to_string(),
       });
     }
     None => {
       return Err(Diagnostic {
-        full_source: cursor.source.to_string(),
-        error_offset: cursor.source.len(),
+        file_id: cursor.file_id.clone(),
+        span: Span {
+          start: cursor.source_len,
+          end: cursor.source_len,
+        },
         error_message: "Unexpected end of input, expected 'end-test'"
           .to_string(),
       });
@@ -54,7 +55,7 @@ pub(crate) fn parse_test(
   }
 
   if let Some(t) = cursor.head {
-    if t.kind == TokenKind::Punctuation(PunctuationTokenKind::Comma) {
+    if t.value == Token::Punctuation(PunctuationToken::Comma) {
       advance_token_cursor(cursor);
     }
   }

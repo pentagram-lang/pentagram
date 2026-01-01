@@ -10,7 +10,6 @@ repository.workspace = true
 description.workspace = true
 
 [dependencies]
-anyhow = { workspace = true }
 boot_db = { workspace = true }
 boot_eval = { workspace = true }
 
