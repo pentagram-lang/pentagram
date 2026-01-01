@@ -1,14 +1,26 @@
 use super::*;
+use boot_db::FileId;
 use boot_db::FunctionId;
+use boot_db::FunctionRecord;
+use boot_db::Generation;
 use boot_db::StatementId;
 use boot_db::StatementRecord;
+use boot_db::Term;
 use boot_db::TestId;
+use boot_db::TestRecord;
+use boot_db::Value;
 use boot_db::hash_terms;
 use pretty_assertions::assert_eq;
 
+fn parse_str(input: &str) -> AnyhowResult<ParsedModule> {
+  let tokens =
+    boot_lex::lex_source("test", input, boot_db::ContentHash([0; 32]))?;
+  parse_source("test", input, &tokens)
+}
+
 #[test]
 fn test_integer() {
-  let result = parse_source("test", "123,").expect("Parse failed");
+  let result = parse_str("123,").expect("Parse failed");
   let body = vec![Term::Literal(Value::Integer(123))];
   let expected = ParsedModule {
     functions: vec![],
@@ -27,7 +39,7 @@ fn test_integer() {
 
 #[test]
 fn test_string() {
-  let result = parse_source("test", "'hello',").expect("Parse failed");
+  let result = parse_str("'hello',").expect("Parse failed");
   let body = vec![Term::Literal(Value::String("hello".to_string()))];
   let expected = ParsedModule {
     functions: vec![],
@@ -46,7 +58,7 @@ fn test_string() {
 
 #[test]
 fn test_ops() {
-  let result = parse_source("test", "1 2 +,").expect("Parse failed");
+  let result = parse_str("1 2 +,").expect("Parse failed");
   let body_0 = vec![Term::Literal(Value::Integer(1))];
   let body_1 = vec![Term::Literal(Value::Integer(2))];
   let body_2 = vec![Term::Word("+".to_string())];
@@ -87,7 +99,7 @@ fn test_ops() {
 #[test]
 fn test_def() {
   let input = "def main fn 'Hi' say end-fn,";
-  let result = parse_source("test", input).expect("Parse failed");
+  let result = parse_str(input).expect("Parse failed");
 
   let expected = ParsedModule {
     functions: vec![FunctionRecord {
@@ -115,24 +127,23 @@ fn test_def() {
 #[test]
 fn test_parse_error_malformed_def() {
   let input = "def f 2 end-fn,";
-  let err = parse_source("test", input).expect_err("Should have failed");
+  let err = parse_str(input).expect_err("Should have failed");
   assert_eq!(
     err.to_string(),
-    "Error: invalid function definition\n  def f 2 end-fn,\n        ^"
+    "Error: expected 'fn'\n  def f 2 end-fn,\n        ^"
   );
 }
 
 #[test]
 fn test_parse_error_reserved_word() {
   let input = "fn";
-  let err = parse_source("test", input).expect_err("Should have failed");
-  assert_eq!(err.to_string(), "Error: invalid end of input\n  fn\n  ^");
+  let err = parse_str(input).expect_err("Should have failed");
+  assert_eq!(err.to_string(), "Error: expected term\n  fn\n  ^");
 }
-
 #[test]
 fn test_comments() {
-  let input = "-- comment\n 1,";
-  let result = parse_source("test", input).expect("Parse failed");
+  let input = "-- comment --\n 1,";
+  let result = parse_str(input).expect("Parse failed");
   let body = vec![Term::Literal(Value::Integer(1))];
   let expected = ParsedModule {
     functions: vec![],
@@ -156,7 +167,7 @@ fn test_multiline_test() {
             1 1 + 2 eq assert
         end-test,
     ";
-  let result = parse_source("test", input).expect("Parse failed");
+  let result = parse_str(input).expect("Parse failed");
 
   let body = vec![
     Term::Literal(Value::Integer(1)),

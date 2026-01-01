@@ -4,6 +4,7 @@ members = [
   "boot/db",
   "boot/engine",
   "boot/eval",
+  "boot/lex",
   "boot/parse",
   "boot/resolve",
   "boot/shell",
@@ -28,6 +29,7 @@ boot_analyze = { path = "boot/analyze" }
 boot_db = { path = "boot/db" }
 boot_engine = { path = "boot/engine" }
 boot_eval = { path = "boot/eval" }
+boot_lex = { path = "boot/lex" }
 boot_parse = { path = "boot/parse" }
 boot_resolve = { path = "boot/resolve" }
 boot_shell = { path = "boot/shell" }
@@ -38,7 +40,6 @@ pretty_assertions = "1.4"
 rustyline-async = "0.4"
 tokio = { version = "1.43", features = ["full"] }
 watchman_client = "0.9"
-winnow = "0.7"
 
 [workspace.lints.rust]
 future-incompatible = "warn"

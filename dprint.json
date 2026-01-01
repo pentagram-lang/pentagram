@@ -18,14 +18,7 @@
     "newLineKind": "lf",
     "cargo.applyConventions": true
   },
-  "excludes": [
-    "**/*.rs",
-    "**/*.py",
-    "**/*.penta",
-    "**/target",
-    "Cargo.lock",
-    "flake.lock"
-  ],
+  "incremental": true,
   "plugins": [
     "https://plugins.dprint.dev/json-0.21.0.wasm",
     "https://plugins.dprint.dev/markdown-0.20.0.wasm",

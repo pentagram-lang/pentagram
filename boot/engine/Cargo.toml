@@ -15,6 +15,7 @@ blake3 = { workspace = true }
 boot_analyze = { workspace = true }
 boot_db = { workspace = true }
 boot_eval = { workspace = true }
+boot_lex = { workspace = true }
 boot_parse = { workspace = true }
 boot_resolve = { workspace = true }
 boot_test = { workspace = true }

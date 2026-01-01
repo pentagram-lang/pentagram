@@ -1,5 +1,5 @@
 [package]
-name = "boot_parse"
+name = "boot_lex"
 version.workspace = true
 categories.workspace = true
 edition.workspace = true
@@ -15,7 +15,3 @@ boot_db = { workspace = true }
 
 [lints]
 workspace = true
-
-[dev-dependencies]
-boot_lex = { path = "../lex" }
-pretty_assertions = { workspace = true }

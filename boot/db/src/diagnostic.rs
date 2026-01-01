@@ -26,6 +26,8 @@ impl Display for Diagnostic {
 
 impl Error for Diagnostic {}
 
+pub type DiagnosticResult<T> = Result<T, Diagnostic>;
+
 pub fn get_diagnostic_line_info(
   diagnostic: &Diagnostic,
 ) -> (usize, usize, String) {
