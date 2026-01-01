@@ -1,6 +1,7 @@
 use anyhow::Result as AnyhowResult;
 use boot_db::FunctionId;
 use boot_db::ResolvedTerm;
+use boot_db::Spanned;
 use boot_db::TestId;
 use boot_eval::VM;
 use boot_eval::eval_vm;
@@ -17,8 +18,8 @@ pub struct TestRunResult {
 
 #[derive(Debug)]
 pub struct TestInput<'a> {
-  pub tests_to_run: &'a [(TestId, Vec<ResolvedTerm>)],
-  pub functions: &'a HashMap<FunctionId, Vec<ResolvedTerm>>,
+  pub tests_to_run: &'a [(TestId, Vec<Spanned<ResolvedTerm>>)],
+  pub functions: &'a HashMap<FunctionId, Vec<Spanned<ResolvedTerm>>>,
 }
 
 #[allow(clippy::print_stdout)]

@@ -2,6 +2,7 @@ use boot_db::FileId;
 use boot_db::FunctionId;
 use boot_db::FunctionRecord;
 use boot_db::Generation;
+use boot_db::Spanned;
 use boot_db::StatementId;
 use boot_db::StatementRecord;
 use boot_db::Term;
@@ -27,17 +28,17 @@ impl ParsedModule {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ParsedFunction {
   pub(crate) name: String,
-  pub(crate) body: Vec<Term>,
+  pub(crate) body: Vec<Spanned<Term>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ParsedTest {
-  pub(crate) body: Vec<Term>,
+  pub(crate) body: Vec<Spanned<Term>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ParsedStatement {
-  pub(crate) term: Term,
+  pub(crate) term: Spanned<Term>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

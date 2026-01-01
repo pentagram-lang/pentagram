@@ -3,6 +3,7 @@ use boot_db::Database;
 use boot_db::FunctionId;
 use boot_db::Generation;
 use boot_db::ResolvedTerm;
+use boot_db::Spanned;
 use boot_db::TestId;
 use boot_db::TestResultRecord;
 use boot_db::hash_test_result;
@@ -31,7 +32,7 @@ pub(crate) fn run_engine_tests_incrementally(
 
 fn select_tests_for_execution(
   db: &Database,
-) -> Vec<(TestId, Vec<ResolvedTerm>)> {
+) -> Vec<(TestId, Vec<Spanned<ResolvedTerm>>)> {
   db.test_dependencies
     .iter()
     .filter(|dep| dep.generation == Generation::NewOnly)
@@ -97,7 +98,7 @@ fn merge_results_into_database(
 
 pub(crate) fn get_engine_functions_map(
   db: &Database,
-) -> HashMap<FunctionId, Vec<ResolvedTerm>> {
+) -> HashMap<FunctionId, Vec<Spanned<ResolvedTerm>>> {
   db.resolved_functions
     .iter()
     .filter(|f| f.generation.is_new())

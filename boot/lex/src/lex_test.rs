@@ -2,47 +2,47 @@ use super::*;
 use boot_db::IdentifierTokenKind;
 use boot_db::LiteralTokenKind;
 
-fn check(input: &str, expected: &[TokenKind]) {
+fn check(input: &str, expected: &[Token]) {
   let record = lex_source("test.penta", input, ContentHash([0; 32]))
     .expect("Failed to lex source");
 
-  let actual: Vec<TokenKind> =
-    record.tokens.into_iter().map(|t| t.kind).collect();
-  let expected_vec: Vec<TokenKind> = expected.to_vec();
+  let actual: Vec<Token> =
+    record.tokens.into_iter().map(|t| t.value).collect();
+  let expected_vec: Vec<Token> = expected.to_vec();
 
   assert_eq!(actual, expected_vec, "Failed for input: '{input}'");
 }
 
-fn ident(s: &str) -> TokenKind {
-  TokenKind::Identifier(IdentifierTokenKind::Word(s.to_string()))
+fn ident(s: &str) -> Token {
+  Token::Identifier(IdentifierTokenKind::Word(s.to_string()))
 }
 
-fn integer(i: i64) -> TokenKind {
-  TokenKind::Literal(LiteralTokenKind::Integer(i))
+fn integer(i: i64) -> Token {
+  Token::Literal(LiteralTokenKind::Integer(i))
 }
 
-fn string(s: &str) -> TokenKind {
-  TokenKind::Literal(LiteralTokenKind::String(s.to_string()))
+fn string(s: &str) -> Token {
+  Token::Literal(LiteralTokenKind::String(s.to_string()))
 }
 
-fn invalid_term() -> TokenKind {
-  TokenKind::Trivia(TriviaTokenKind::InvalidTermination)
+fn invalid_term() -> Token {
+  Token::Trivia(TriviaTokenKind::InvalidTermination)
 }
 
-fn unknown(s: &str) -> TokenKind {
-  TokenKind::Unknown(s.to_string())
+fn unknown(s: &str) -> Token {
+  Token::Unknown(s.to_string())
 }
 
-fn whitespace() -> TokenKind {
-  TokenKind::Trivia(TriviaTokenKind::Whitespace)
+fn whitespace() -> Token {
+  Token::Trivia(TriviaTokenKind::Whitespace)
 }
 
-fn comma() -> TokenKind {
-  TokenKind::Punctuation(boot_db::PunctuationTokenKind::Comma)
+fn comma() -> Token {
+  Token::Punctuation(boot_db::PunctuationTokenKind::Comma)
 }
 
-fn keyword(k: boot_db::KeywordTokenKind) -> TokenKind {
-  TokenKind::Keyword(k)
+fn keyword(k: boot_db::KeywordTokenKind) -> Token {
+  Token::Keyword(k)
 }
 
 #[test]
@@ -147,7 +147,7 @@ fn test_lex_termination_comment_invalid() {
   check(
     "-- foo --bar",
     &[
-      TokenKind::Trivia(TriviaTokenKind::Comment),
+      Token::Trivia(TriviaTokenKind::Comment),
       invalid_term(),
       ident("bar"),
     ],

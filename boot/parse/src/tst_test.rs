@@ -1,6 +1,8 @@
 use super::*;
 use crate::shred::ParsedTest;
 use crate::token_cursor::TokenCursor;
+use boot_db::Span;
+use boot_db::Spanned;
 use boot_db::Term;
 use boot_db::Token;
 use boot_db::Value;
@@ -11,15 +13,18 @@ fn test_parse_test_block() {
   let source = "test 1 end-test";
   let ts =
     lex_source("test", source, boot_db::ContentHash([0; 32])).unwrap();
-  let tokens: Vec<&Token> = ts
+  let tokens: Vec<&Spanned<Token>> = ts
     .tokens
     .iter()
-    .filter(|t| !matches!(t.kind, TokenKind::Trivia(_)))
+    .filter(|t| !matches!(t.value, Token::Trivia(_)))
     .collect();
   let mut cursor = TokenCursor::new(source, &tokens);
 
   let item = parse_test(&mut cursor).unwrap();
-  let expected_body = vec![Term::Literal(Value::Integer(1))];
+  let expected_body = vec![Spanned::new(
+    Term::Literal(Value::Integer(1)),
+    Span { start: 5, end: 6 },
+  )];
   assert_eq!(
     item,
     ParsedTest {

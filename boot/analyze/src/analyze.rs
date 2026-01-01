@@ -9,6 +9,7 @@ use boot_db::ResolvedFunctionRecord;
 use boot_db::ResolvedTerm;
 use boot_db::ResolvedTestRecord;
 use boot_db::ResolvedWord;
+use boot_db::Spanned;
 use boot_db::TestId;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -198,9 +199,12 @@ fn compute_function_hash(
   final_hash
 }
 
-fn find_calls(terms: &[ResolvedTerm], calls: &mut HashSet<FunctionId>) {
+fn find_calls(
+  terms: &[Spanned<ResolvedTerm>],
+  calls: &mut HashSet<FunctionId>,
+) {
   for term in terms {
-    if let ResolvedTerm::Word(ResolvedWord::Function(id)) = term {
+    if let ResolvedTerm::Word(ResolvedWord::Function(id)) = &term.value {
       calls.insert(id.clone());
     }
   }

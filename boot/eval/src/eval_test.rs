@@ -2,8 +2,14 @@ use super::*;
 use boot_db::FunctionId;
 use boot_db::ResolvedTerm;
 use boot_db::ResolvedWord;
+use boot_db::Span;
+use boot_db::Spanned;
 use pretty_assertions::assert_eq;
 use std::io::Cursor;
+
+fn s<T>(val: T) -> Spanned<T> {
+  Spanned::new(val, Span { start: 0, end: 0 })
+}
 
 #[test]
 fn test_arithmetic() {
@@ -13,9 +19,9 @@ fn test_arithmetic() {
   eval_vm(
     &mut vm,
     &[
-      ResolvedTerm::Literal(Value::Integer(1)),
-      ResolvedTerm::Literal(Value::Integer(2)),
-      ResolvedTerm::Word(ResolvedWord::Builtin(Builtin::Add)),
+      s(ResolvedTerm::Literal(Value::Integer(1))),
+      s(ResolvedTerm::Literal(Value::Integer(2))),
+      s(ResolvedTerm::Word(ResolvedWord::Builtin(Builtin::Add))),
     ],
   )
   .expect("Arithmetic should succeed");
@@ -28,8 +34,8 @@ fn test_def_call() {
   functions.insert(
     FunctionId("inc".to_string()),
     vec![
-      ResolvedTerm::Literal(Value::Integer(1)),
-      ResolvedTerm::Word(ResolvedWord::Builtin(Builtin::Add)),
+      s(ResolvedTerm::Literal(Value::Integer(1))),
+      s(ResolvedTerm::Word(ResolvedWord::Builtin(Builtin::Add))),
     ],
   );
 
@@ -38,10 +44,10 @@ fn test_def_call() {
   eval_vm(
     &mut vm,
     &[
-      ResolvedTerm::Literal(Value::Integer(10)),
-      ResolvedTerm::Word(ResolvedWord::Function(FunctionId(
+      s(ResolvedTerm::Literal(Value::Integer(10))),
+      s(ResolvedTerm::Word(ResolvedWord::Function(FunctionId(
         "inc".to_string(),
-      ))),
+      )))),
     ],
   )
   .expect("Function call should succeed");
@@ -56,10 +62,10 @@ fn test_assert() {
   let err = eval_vm(
     &mut vm,
     &[
-      ResolvedTerm::Literal(Value::Integer(1)),
-      ResolvedTerm::Literal(Value::Integer(2)),
-      ResolvedTerm::Word(ResolvedWord::Builtin(Builtin::Eq)),
-      ResolvedTerm::Word(ResolvedWord::Builtin(Builtin::Assert)),
+      s(ResolvedTerm::Literal(Value::Integer(1))),
+      s(ResolvedTerm::Literal(Value::Integer(2))),
+      s(ResolvedTerm::Word(ResolvedWord::Builtin(Builtin::Eq))),
+      s(ResolvedTerm::Word(ResolvedWord::Builtin(Builtin::Assert))),
     ],
   )
   .expect_err("Assert should fail for non-equal values");

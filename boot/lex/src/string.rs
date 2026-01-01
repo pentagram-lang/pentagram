@@ -2,12 +2,12 @@ use crate::char_cursor::CharCursor;
 use crate::char_cursor::advance_char_cursor;
 use crate::char_cursor::char_cursor_slice;
 use boot_db::LiteralTokenKind;
-use boot_db::TokenKind;
+use boot_db::Token;
 
 pub(crate) fn lex_string(
   cursor: &mut CharCursor<'_>,
   start: usize,
-) -> TokenKind {
+) -> Token {
   advance_char_cursor(cursor); // Consumes first '
   let mut opener_count = 1;
   while cursor.head == Some('\'') {
@@ -29,13 +29,13 @@ pub(crate) fn lex_string(
 
       if closer_count == opener_count {
         let content = &cursor.input[content_start .. closer_start];
-        return TokenKind::Literal(LiteralTokenKind::String(
+        return Token::Literal(LiteralTokenKind::String(
           content.to_string(),
         ));
       }
 
       if closer_count > opener_count {
-        return TokenKind::Unknown(
+        return Token::Unknown(
           char_cursor_slice(cursor, start).to_string(),
         );
       }
@@ -44,7 +44,7 @@ pub(crate) fn lex_string(
     }
   }
 
-  TokenKind::Unknown(char_cursor_slice(cursor, start).to_string())
+  Token::Unknown(char_cursor_slice(cursor, start).to_string())
 }
 
 #[cfg(test)]
