@@ -150,6 +150,7 @@ async fn run_file(
   let content = fs::read_to_string(path).await?;
   let path_str = path.to_string_lossy();
   execute_tests(db, &[(&path_str, &content)], output)
+    .map_err(anyhow::Error::new)
 }
 
 async fn run_repl(db: &mut Database) -> AnyhowResult<()> {

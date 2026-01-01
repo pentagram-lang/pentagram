@@ -1,8 +1,8 @@
-use anyhow::Result as AnyhowResult;
 use boot_db::Database;
+use boot_db::FileId;
 use boot_db::FunctionId;
 use boot_db::Generation;
-use boot_db::ResolvedTerm;
+use boot_db::SpannedResolvedTerm;
 use boot_db::TestId;
 use boot_db::TestResultRecord;
 use boot_db::hash_test_result;
@@ -11,27 +11,23 @@ use boot_test::TestRunResult;
 use boot_test::run_tests;
 use std::collections::HashMap;
 
-pub(crate) fn run_engine_tests_incrementally(
-  db: &mut Database,
-) -> AnyhowResult<()> {
+pub(crate) fn run_engine_tests_incrementally(db: &mut Database) {
   let tests_to_run = select_tests_for_execution(db);
   let functions = get_engine_functions_map(db);
   let results = run_tests(&TestInput {
     tests_to_run: &tests_to_run,
     functions: &functions,
-  })?;
+  });
 
   let mut next_results = create_records_from_run_results(results);
   next_results.extend(promote_unchanged_results(db));
 
   merge_results_into_database(db, next_results);
-
-  Ok(())
 }
 
 fn select_tests_for_execution(
   db: &Database,
-) -> Vec<(TestId, Vec<ResolvedTerm>)> {
+) -> Vec<(TestId, FileId, Vec<SpannedResolvedTerm>)> {
   db.test_dependencies
     .iter()
     .filter(|dep| dep.generation == Generation::NewOnly)
@@ -40,7 +36,13 @@ fn select_tests_for_execution(
         .iter()
         .find(|t| t.id == dep.id && t.generation.is_new())
     })
-    .map(|resolved| (resolved.id.clone(), resolved.body.clone()))
+    .map(|resolved| {
+      (
+        resolved.id.clone(),
+        resolved.file_id.clone(),
+        resolved.body.clone(),
+      )
+    })
     .collect()
 }
 
@@ -97,11 +99,11 @@ fn merge_results_into_database(
 
 pub(crate) fn get_engine_functions_map(
   db: &Database,
-) -> HashMap<FunctionId, Vec<ResolvedTerm>> {
+) -> HashMap<FunctionId, (FileId, Vec<SpannedResolvedTerm>)> {
   db.resolved_functions
     .iter()
     .filter(|f| f.generation.is_new())
-    .map(|f| (f.id.clone(), f.body.clone()))
+    .map(|f| (f.id.clone(), (f.file_id.clone(), f.body.clone())))
     .collect()
 }
 
