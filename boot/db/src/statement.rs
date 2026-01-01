@@ -1,7 +1,7 @@
 use crate::file::FileId;
 use crate::generation::Generation;
 use crate::hash::ContentHash;
-use crate::term::Term;
+use crate::term::SpannedTerm;
 use std::fmt;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -17,7 +17,7 @@ impl fmt::Display for StatementId {
 pub struct StatementRecord {
   pub id: StatementId,
   pub file_id: FileId,
-  pub body: Vec<Term>,
+  pub body: Vec<SpannedTerm>,
   pub content_hash: ContentHash,
   pub generation: Generation,
   pub index: u32,

@@ -3,12 +3,18 @@ use boot_db::FileId;
 use boot_db::FunctionId;
 use boot_db::FunctionRecord;
 use boot_db::Generation;
+use boot_db::Span;
+use boot_db::Spanned;
 use boot_db::Term;
 use boot_db::TestId;
 use boot_db::TestResultRecord;
 use boot_db::Value;
 use boot_db::hash_test_result;
 use pretty_assertions::assert_eq;
+
+fn s<T>(val: T, start: usize, end: usize) -> Spanned<T> {
+  Spanned::new(val, Span { start, end })
+}
 
 #[test]
 fn test_engine_basic_flow() {
@@ -28,13 +34,26 @@ fn test_engine_basic_flow() {
 
   let main_hash = db.functions[0].content_hash;
 
+  // script counting:
+  // 0: \n
+  // 1-4: spaces
+  // 5-7: def
+  // 8: space
+  // 9-12: main
+  // 13: space
+  // 14-15: fn
+  // 16: space
+  // 17-23: 'Hello' (length 7)
+  // 24: space
+  // 25-27: say (length 3)
+
   let expected_functions = vec![FunctionRecord {
     id: FunctionId("main".to_string()),
     name: "main".to_string(),
     file_id: FileId("test.penta".to_string()),
     body: vec![
-      Term::Literal(Value::String("Hello".to_string())),
-      Term::Word("say".to_string()),
+      s(Term::Literal(Value::String("Hello".to_string())), 17, 24),
+      s(Term::Word("say".to_string()), 25, 28),
     ],
     content_hash: main_hash,
     generation: Generation::OldOnly,
@@ -240,7 +259,7 @@ fn test_engine_rollback() {
     id: FunctionId("a".to_string()),
     name: "a".to_string(),
     file_id: FileId("file1.penta".to_string()),
-    body: vec![Term::Literal(Value::Integer(1))],
+    body: vec![s(Term::Literal(Value::Integer(1)), 9, 10)],
     content_hash: hash_a,
     generation: Generation::OldOnly,
     index: 0,

@@ -11,9 +11,15 @@ use boot_db::ResolvedFunctionRecord;
 use boot_db::ResolvedTerm;
 use boot_db::ResolvedTestRecord;
 use boot_db::ResolvedWord;
+use boot_db::Span;
+use boot_db::Spanned;
 use boot_db::TestId;
 use boot_db::TestRecord;
 use pretty_assertions::assert_eq;
+
+fn s<T>(val: T) -> Spanned<T> {
+  Spanned::new(val, Span { start: 0, end: 0 })
+}
 
 #[test]
 fn test_analyze_dependencies_mapping() {
@@ -62,7 +68,9 @@ fn test_analyze_dependencies_mapping() {
   db.resolved_functions.push(ResolvedFunctionRecord {
     id: id_b.clone(),
     file_id: file_id.clone(),
-    body: vec![ResolvedTerm::Word(ResolvedWord::Function(id_a.clone()))],
+    body: vec![s(ResolvedTerm::Word(ResolvedWord::Function(
+      id_a.clone(),
+    )))],
     content_hash: ContentHash([2; 32]),
     generation: Generation::NewOnly,
   });
@@ -70,7 +78,9 @@ fn test_analyze_dependencies_mapping() {
   db.resolved_tests.push(ResolvedTestRecord {
     id: id_t.clone(),
     file_id: file_id.clone(),
-    body: vec![ResolvedTerm::Word(ResolvedWord::Function(id_b.clone()))],
+    body: vec![s(ResolvedTerm::Word(ResolvedWord::Function(
+      id_b.clone(),
+    )))],
     content_hash: ContentHash([3; 32]),
     generation: Generation::NewOnly,
   });

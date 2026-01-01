@@ -8,6 +8,7 @@ use boot_db::ResolvedStatementRecord;
 use boot_db::ResolvedTerm;
 use boot_db::ResolvedTestRecord;
 use boot_db::ResolvedWord;
+use boot_db::Spanned;
 use boot_db::StatementId;
 use boot_db::StatementRecord;
 use boot_db::Term;
@@ -155,24 +156,33 @@ fn resolve_statements(
 }
 
 fn resolve_body<F>(
-  terms: &[Term],
+  terms: &[Spanned<Term>],
   resolve_name: F,
-) -> AnyhowResult<Vec<ResolvedTerm>>
+) -> AnyhowResult<Vec<Spanned<ResolvedTerm>>>
 where
   F: Fn(&FunctionId) -> AnyhowResult<FunctionId>,
 {
   let mut resolved = Vec::with_capacity(terms.len());
   for term in terms {
-    match term {
-      Term::Literal(v) => resolved.push(ResolvedTerm::Literal(v.clone())),
+    let span = term.span;
+    match &term.value {
+      Term::Literal(v) => {
+        resolved
+          .push(Spanned::new(ResolvedTerm::Literal(v.clone()), span));
+      }
       Term::Word(w) => {
         if let Some(builtin) = parse_builtin(w) {
-          resolved
-            .push(ResolvedTerm::Word(ResolvedWord::Builtin(builtin)));
+          resolved.push(Spanned::new(
+            ResolvedTerm::Word(ResolvedWord::Builtin(builtin)),
+            span,
+          ));
         } else {
           let func_id = FunctionId(w.clone());
           let id = resolve_name(&func_id)?;
-          resolved.push(ResolvedTerm::Word(ResolvedWord::Function(id)));
+          resolved.push(Spanned::new(
+            ResolvedTerm::Word(ResolvedWord::Function(id)),
+            span,
+          ));
         }
       }
     }

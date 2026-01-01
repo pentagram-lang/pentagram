@@ -4,6 +4,7 @@ use boot_db::Builtin;
 use boot_db::FunctionId;
 use boot_db::ResolvedTerm;
 use boot_db::ResolvedWord;
+use boot_db::Spanned;
 use boot_db::Value;
 use std::collections::HashMap;
 use std::collections::hash_map::RandomState;
@@ -14,7 +15,7 @@ use std::mem;
 
 pub struct VM<'a, S = RandomState> {
   stack: Vec<Value>,
-  functions: &'a HashMap<FunctionId, Vec<ResolvedTerm>, S>,
+  functions: &'a HashMap<FunctionId, Vec<Spanned<ResolvedTerm>>, S>,
   stdout: Box<dyn Write + Send + 'a>,
 }
 
@@ -37,7 +38,7 @@ fn fmt_vm<S: BuildHasher>(
 
 impl<'a, S: BuildHasher> VM<'a, S> {
   pub fn new(
-    functions: &'a HashMap<FunctionId, Vec<ResolvedTerm>, S>,
+    functions: &'a HashMap<FunctionId, Vec<Spanned<ResolvedTerm>>, S>,
     stdout: Box<dyn Write + Send + 'a>,
   ) -> Self {
     Self {
@@ -50,10 +51,10 @@ impl<'a, S: BuildHasher> VM<'a, S> {
 
 pub fn eval_vm<S: BuildHasher>(
   vm: &mut VM<'_, S>,
-  terms: &[ResolvedTerm],
+  terms: &[Spanned<ResolvedTerm>],
 ) -> AnyhowResult<()> {
   for term in terms {
-    step_vm(vm, term.clone())?;
+    step_vm(vm, term.value.clone())?;
   }
   Ok(())
 }

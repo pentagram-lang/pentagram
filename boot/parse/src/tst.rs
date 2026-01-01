@@ -6,7 +6,7 @@ use boot_db::Diagnostic;
 use boot_db::DiagnosticResult;
 use boot_db::KeywordTokenKind;
 use boot_db::PunctuationTokenKind;
-use boot_db::TokenKind;
+use boot_db::Token;
 
 pub(crate) fn parse_test(
   cursor: &mut TokenCursor<'_>,
@@ -15,13 +15,13 @@ pub(crate) fn parse_test(
 
   let mut body = Vec::new();
   while let Some(t) = cursor.head {
-    if matches!(t.kind, TokenKind::Keyword(KeywordTokenKind::EndTest)) {
+    if matches!(t.value, Token::Keyword(KeywordTokenKind::EndTest)) {
       break;
     }
     body.push(parse_term(cursor)?);
 
     if let Some(t) = cursor.head {
-      if t.kind == TokenKind::Punctuation(PunctuationTokenKind::Comma) {
+      if t.value == Token::Punctuation(PunctuationTokenKind::Comma) {
         advance_token_cursor(cursor);
       }
     }
@@ -29,17 +29,14 @@ pub(crate) fn parse_test(
 
   match cursor.head {
     Some(t)
-      if matches!(
-        t.kind,
-        TokenKind::Keyword(KeywordTokenKind::EndTest)
-      ) =>
+      if matches!(t.value, Token::Keyword(KeywordTokenKind::EndTest)) =>
     {
       advance_token_cursor(cursor);
     }
     Some(t) => {
       return Err(Diagnostic {
         full_source: cursor.source.to_string(),
-        error_offset: t.start,
+        error_offset: t.span.start,
         error_message: "expected 'end-test'".to_string(),
       });
     }
@@ -54,7 +51,7 @@ pub(crate) fn parse_test(
   }
 
   if let Some(t) = cursor.head {
-    if t.kind == TokenKind::Punctuation(PunctuationTokenKind::Comma) {
+    if t.value == Token::Punctuation(PunctuationTokenKind::Comma) {
       advance_token_cursor(cursor);
     }
   }

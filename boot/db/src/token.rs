@@ -1,10 +1,11 @@
 use crate::file::FileId;
 use crate::generation::Generation;
 use crate::hash::ContentHash;
+use crate::span::Spanned;
 use std::fmt;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum TokenKind {
+pub enum Token {
   Keyword(KeywordTokenKind),
   Punctuation(PunctuationTokenKind),
   Literal(LiteralTokenKind),
@@ -45,12 +46,7 @@ pub enum TriviaTokenKind {
   InvalidTermination,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Token {
-  pub kind: TokenKind,
-  pub start: usize,
-  pub end: usize,
-}
+pub type SpannedToken = Spanned<Token>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TokenStreamId(pub String);
@@ -65,7 +61,7 @@ impl fmt::Display for TokenStreamId {
 pub struct TokenStreamRecord {
   pub id: TokenStreamId,
   pub file_id: FileId,
-  pub tokens: Vec<Token>,
+  pub tokens: Vec<SpannedToken>,
   pub content_hash: ContentHash,
   pub generation: Generation,
 }

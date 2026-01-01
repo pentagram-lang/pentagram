@@ -1,14 +1,18 @@
+use boot_db::Spanned;
 use boot_db::Token;
 
 pub(crate) struct TokenCursor<'a> {
   pub(crate) source: &'a str,
-  pub(crate) tokens: &'a [&'a Token],
-  pub(crate) head: Option<&'a Token>,
+  pub(crate) tokens: &'a [&'a Spanned<Token>],
+  pub(crate) head: Option<&'a Spanned<Token>>,
   pub(crate) index: usize,
 }
 
 impl<'a> TokenCursor<'a> {
-  pub(crate) fn new(source: &'a str, tokens: &'a [&'a Token]) -> Self {
+  pub(crate) fn new(
+    source: &'a str,
+    tokens: &'a [&'a Spanned<Token>],
+  ) -> Self {
     let head = tokens.first().copied();
     Self {
       source,

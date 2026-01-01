@@ -13,8 +13,9 @@ use anyhow::Result;
 use boot_db::ContentHash;
 use boot_db::FileId;
 use boot_db::Generation;
+use boot_db::Span;
+use boot_db::Spanned;
 use boot_db::Token;
-use boot_db::TokenKind;
 use boot_db::TokenStreamId;
 use boot_db::TokenStreamRecord;
 use boot_db::TriviaTokenKind;
@@ -51,18 +52,17 @@ pub fn lex_source(
     };
 
     let end = cursor.offset;
-    tokens.push(Token { kind, start, end });
+    tokens.push(Spanned::new(kind, Span { start, end }));
 
     if let Termination::Check = termination {
       match cursor.head {
         Some(',') | None => {}
         Some(c) if c.is_whitespace() => {}
         _ => {
-          tokens.push(Token {
-            kind: TokenKind::Trivia(TriviaTokenKind::InvalidTermination),
-            start: end,
-            end,
-          });
+          tokens.push(Spanned::new(
+            Token::Trivia(TriviaTokenKind::InvalidTermination),
+            Span { start, end },
+          ));
         }
       }
     }
@@ -77,7 +77,7 @@ pub fn lex_source(
   })
 }
 
-fn lex_hyphen(cursor: &mut CharCursor<'_>, start: usize) -> TokenKind {
+fn lex_hyphen(cursor: &mut CharCursor<'_>, start: usize) -> Token {
   advance_char_cursor(cursor);
   match cursor.head {
     Some('-') => {
@@ -89,7 +89,7 @@ fn lex_hyphen(cursor: &mut CharCursor<'_>, start: usize) -> TokenKind {
   }
 }
 
-fn lex_plus(cursor: &mut CharCursor<'_>, start: usize) -> TokenKind {
+fn lex_plus(cursor: &mut CharCursor<'_>, start: usize) -> Token {
   advance_char_cursor(cursor);
   match cursor.head {
     Some(c) if c.is_ascii_digit() => lex_integer(cursor, start),

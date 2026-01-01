@@ -4,13 +4,14 @@ use boot_db::Diagnostic;
 use boot_db::DiagnosticResult;
 use boot_db::IdentifierTokenKind;
 use boot_db::LiteralTokenKind;
+use boot_db::Spanned;
 use boot_db::Term;
-use boot_db::TokenKind;
+use boot_db::Token;
 use boot_db::Value;
 
 pub(crate) fn parse_term(
   cursor: &mut TokenCursor<'_>,
-) -> DiagnosticResult<Term> {
+) -> DiagnosticResult<Spanned<Term>> {
   let Some(token) = cursor.head else {
     return Err(Diagnostic {
       full_source: cursor.source.to_string(),
@@ -20,24 +21,25 @@ pub(crate) fn parse_term(
   };
   advance_token_cursor(cursor);
 
-  match &token.kind {
-    TokenKind::Literal(LiteralTokenKind::Integer(i)) => {
-      Ok(Term::Literal(Value::Integer(*i)))
+  let span = token.span;
+  match &token.value {
+    Token::Literal(LiteralTokenKind::Integer(i)) => {
+      Ok(Spanned::new(Term::Literal(Value::Integer(*i)), span))
     }
-    TokenKind::Literal(LiteralTokenKind::String(s)) => {
-      Ok(Term::Literal(Value::String(s.clone())))
+    Token::Literal(LiteralTokenKind::String(s)) => {
+      Ok(Spanned::new(Term::Literal(Value::String(s.clone())), span))
     }
-    TokenKind::Identifier(IdentifierTokenKind::Word(s)) => {
-      Ok(Term::Word(s.clone()))
+    Token::Identifier(IdentifierTokenKind::Word(s)) => {
+      Ok(Spanned::new(Term::Word(s.clone()), span))
     }
-    TokenKind::Unknown(c) => Err(Diagnostic {
+    Token::Unknown(c) => Err(Diagnostic {
       full_source: cursor.source.to_string(),
-      error_offset: token.start,
+      error_offset: span.start,
       error_message: format!("Unexpected character: {c}"),
     }),
     _ => Err(Diagnostic {
       full_source: cursor.source.to_string(),
-      error_offset: token.start,
+      error_offset: span.start,
       error_message: "expected term".to_string(),
     }),
   }

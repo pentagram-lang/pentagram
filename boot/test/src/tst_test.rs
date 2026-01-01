@@ -2,7 +2,13 @@ use super::*;
 use boot_db::FunctionId;
 use boot_db::ResolvedTerm;
 use boot_db::ResolvedWord;
+use boot_db::Span;
+use boot_db::Spanned;
 use pretty_assertions::assert_eq;
+
+fn s<T>(val: T) -> Spanned<T> {
+  Spanned::new(val, Span { start: 0, end: 0 })
+}
 
 #[test]
 fn test_run_tests_pure() {
@@ -10,21 +16,27 @@ fn test_run_tests_pure() {
   functions.insert(
     FunctionId("inc".to_string()),
     vec![
-      ResolvedTerm::Literal(boot_db::Value::Integer(1)),
-      ResolvedTerm::Word(ResolvedWord::Builtin(boot_db::Builtin::Add)),
+      s(ResolvedTerm::Literal(boot_db::Value::Integer(1))),
+      s(ResolvedTerm::Word(ResolvedWord::Builtin(
+        boot_db::Builtin::Add,
+      ))),
     ],
   );
 
   let tests = vec![(
     TestId("test.1".to_string()),
     vec![
-      ResolvedTerm::Literal(boot_db::Value::Integer(10)),
-      ResolvedTerm::Word(ResolvedWord::Function(FunctionId(
+      s(ResolvedTerm::Literal(boot_db::Value::Integer(10))),
+      s(ResolvedTerm::Word(ResolvedWord::Function(FunctionId(
         "inc".to_string(),
+      )))),
+      s(ResolvedTerm::Literal(boot_db::Value::Integer(11))),
+      s(ResolvedTerm::Word(ResolvedWord::Builtin(
+        boot_db::Builtin::Eq,
       ))),
-      ResolvedTerm::Literal(boot_db::Value::Integer(11)),
-      ResolvedTerm::Word(ResolvedWord::Builtin(boot_db::Builtin::Eq)),
-      ResolvedTerm::Word(ResolvedWord::Builtin(boot_db::Builtin::Assert)),
+      s(ResolvedTerm::Word(ResolvedWord::Builtin(
+        boot_db::Builtin::Assert,
+      ))),
     ],
   )];
 
