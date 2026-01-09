@@ -2,9 +2,9 @@ use crate::shred::ParsedModule;
 use crate::shred::shred_items;
 use crate::token_cursor::TokenCursor;
 use crate::top_level::parse_top_level_item;
-use anyhow::Result as AnyhowResult;
+use boot_db::DiagnosticResult;
+use boot_db::SpannedToken;
 use boot_db::Token;
-use boot_db::TokenKind;
 use boot_db::TokenStreamRecord;
 use boot_db::TriviaTokenKind;
 
@@ -12,21 +12,22 @@ pub fn parse_source(
   path: &str,
   source: &str,
   token_stream: &TokenStreamRecord,
-) -> AnyhowResult<ParsedModule> {
-  let tokens: Vec<&Token> = token_stream
+) -> DiagnosticResult<ParsedModule> {
+  let tokens: Vec<&SpannedToken> = token_stream
     .tokens
     .iter()
     .filter(|t| {
       !matches!(
-        t.kind,
-        TokenKind::Trivia(
+        t.value,
+        Token::Trivia(
           TriviaTokenKind::Whitespace | TriviaTokenKind::Comment
         )
       )
     })
     .collect();
 
-  let mut cursor = TokenCursor::new(source, &tokens);
+  let mut cursor =
+    TokenCursor::new(token_stream.file_id.clone(), source.len(), &tokens);
   let mut items = Vec::new();
 
   while cursor.head.is_some() {

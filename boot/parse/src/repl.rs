@@ -1,6 +1,6 @@
 use crate::parse::parse_source;
 use crate::shred::ParsedModule;
-use anyhow::Result as AnyhowResult;
+use boot_db::DiagnosticResult;
 use boot_db::TokenStreamRecord;
 use std::collections::HashSet;
 
@@ -10,7 +10,7 @@ pub fn parse_repl_module(
   token_stream: &TokenStreamRecord,
   old_functions: Vec<boot_db::FunctionRecord>,
   old_tests: Vec<boot_db::TestRecord>,
-) -> AnyhowResult<ParsedModule> {
+) -> DiagnosticResult<ParsedModule> {
   let new_module = parse_source(path, source, token_stream)?;
 
   let new_def_names: HashSet<String> = new_module

@@ -1,4 +1,3 @@
-use anyhow::Result as AnyhowResult;
 use blake3::Hasher;
 use boot_db::ContentHash;
 use boot_db::DependencyFunctionRecord;
@@ -9,6 +8,7 @@ use boot_db::ResolvedFunctionRecord;
 use boot_db::ResolvedTerm;
 use boot_db::ResolvedTestRecord;
 use boot_db::ResolvedWord;
+use boot_db::SpannedResolvedTerm;
 use boot_db::TestId;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -27,7 +27,7 @@ pub struct AnalyzeOutput {
 
 pub fn analyze_dependency_graph(
   input: &AnalyzeInput<'_>,
-) -> AnyhowResult<AnalyzeOutput> {
+) -> AnalyzeOutput {
   let (function_deps, test_deps) = extract_direct_deps(input);
   let (transitive_function_hashes, transitive_test_hashes) =
     compute_transitive_hashes(input, &function_deps, &test_deps);
@@ -60,10 +60,10 @@ pub fn analyze_dependency_graph(
     });
   }
 
-  Ok(AnalyzeOutput {
+  AnalyzeOutput {
     function_dependencies,
     test_dependencies,
-  })
+  }
 }
 
 fn extract_direct_deps(
@@ -198,9 +198,12 @@ fn compute_function_hash(
   final_hash
 }
 
-fn find_calls(terms: &[ResolvedTerm], calls: &mut HashSet<FunctionId>) {
+fn find_calls(
+  terms: &[SpannedResolvedTerm],
+  calls: &mut HashSet<FunctionId>,
+) {
   for term in terms {
-    if let ResolvedTerm::Word(ResolvedWord::Function(id)) = term {
+    if let ResolvedTerm::Word(ResolvedWord::Function(id)) = &term.value {
       calls.insert(id.clone());
     }
   }

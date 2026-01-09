@@ -1,7 +1,7 @@
-use anyhow::Result as AnyhowResult;
 use blake3::Hasher;
 use boot_db::ContentHash;
 use boot_db::Database;
+use boot_db::DiagnosticResult;
 use boot_db::FileId;
 use boot_db::FileRecord;
 use boot_db::Generation;
@@ -14,7 +14,7 @@ pub(crate) fn shred_file(
   db: &mut Database,
   path: &str,
   content: &str,
-) -> AnyhowResult<ParsedModule> {
+) -> DiagnosticResult<ParsedModule> {
   let mut hasher = Hasher::new();
   hasher.update(content.as_bytes());
 
@@ -71,41 +71,55 @@ pub(crate) fn shred_file(
 pub(crate) fn shred_repl(
   db: &mut Database,
   line: &str,
-) -> AnyhowResult<ParsedModule> {
-  let file_id = FileId("repl".to_string());
-  let dummy_hash = ContentHash([0; 32]);
-
-  if let Some(existing) = db.files.iter_mut().find(|f| f.id == file_id) {
-    existing.content_hash = dummy_hash;
-    existing.generation = Generation::NewOnly;
-  } else {
-    db.files.push(FileRecord {
-      id: file_id.clone(),
-      path: "repl".to_string(),
-      source: String::new(),
-      content_hash: dummy_hash,
-      generation: Generation::NewOnly,
-    });
+) -> DiagnosticResult<ParsedModule> {
+  // Preserve history
+  for f in &mut db.files {
+    if f.id.0.starts_with("repl:") {
+      f.generation = Generation::NewAndOld;
+    }
+  }
+  for ts in &mut db.token_streams {
+    if ts.file_id.0.starts_with("repl:") {
+      ts.generation = Generation::NewAndOld;
+    }
   }
 
-  let token_stream = boot_lex::lex_source("repl", line, dummy_hash)?;
+  let repl_count = db
+    .files
+    .iter()
+    .filter(|f| f.id.0.starts_with("repl:"))
+    .count();
+  let next_index = repl_count + 1;
+  let file_id_str = format!("repl:{next_index}");
+  let file_id = FileId(file_id_str.clone());
+  let dummy_hash = ContentHash([0; 32]);
+
+  db.files.push(FileRecord {
+    id: file_id.clone(),
+    path: file_id_str.clone(),
+    source: line.to_string(),
+    content_hash: dummy_hash,
+    generation: Generation::NewOnly,
+  });
+
+  let token_stream = boot_lex::lex_source(&file_id_str, line, dummy_hash)?;
   upsert_token_stream(db, &file_id, &token_stream);
 
   let old_functions: Vec<_> = db
     .functions
     .iter()
-    .filter(|f| f.file_id == file_id)
+    .filter(|f| f.file_id.0.starts_with("repl:"))
     .cloned()
     .collect();
   let old_tests: Vec<_> = db
     .tests
     .iter()
-    .filter(|t| t.file_id == file_id)
+    .filter(|t| t.file_id.0.starts_with("repl:"))
     .cloned()
     .collect();
 
   let module = parse_repl_module(
-    "repl",
+    &file_id_str,
     line,
     &token_stream,
     old_functions,

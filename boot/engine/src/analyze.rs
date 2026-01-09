@@ -1,10 +1,9 @@
-use anyhow::Result as AnyhowResult;
 use boot_analyze::AnalyzeInput;
 use boot_analyze::analyze_dependency_graph;
 use boot_db::Database;
 use boot_db::Generation;
 
-pub(crate) fn analyze_dependencies(db: &mut Database) -> AnyhowResult<()> {
+pub(crate) fn analyze_dependencies(db: &mut Database) {
   let resolved_functions: Vec<_> = db
     .resolved_functions
     .iter()
@@ -22,7 +21,7 @@ pub(crate) fn analyze_dependencies(db: &mut Database) -> AnyhowResult<()> {
   let analyze_output = analyze_dependency_graph(&AnalyzeInput {
     resolved_functions: &resolved_functions,
     resolved_tests: &resolved_tests,
-  })?;
+  });
 
   let mut new_function_deps = analyze_output.function_dependencies;
   for existing in &mut db.function_dependencies {
@@ -49,8 +48,6 @@ pub(crate) fn analyze_dependencies(db: &mut Database) -> AnyhowResult<()> {
     }
   }
   db.test_dependencies.extend(new_test_deps);
-
-  Ok(())
 }
 
 #[cfg(test)]

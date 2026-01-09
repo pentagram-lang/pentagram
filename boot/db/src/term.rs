@@ -1,6 +1,7 @@
 use crate::builtin::Builtin;
 use crate::function::FunctionId;
 use crate::hash::ContentHash;
+use crate::span::Spanned;
 use crate::value::Value;
 use blake3::Hasher;
 
@@ -22,10 +23,15 @@ pub enum ResolvedTerm {
   Word(ResolvedWord),
 }
 
-pub fn hash_terms(terms: &[Term]) -> ContentHash {
+pub type SpannedTerm = Spanned<Term>;
+pub type SpannedResolvedTerm = Spanned<ResolvedTerm>;
+
+pub fn hash_terms(terms: &[SpannedTerm]) -> ContentHash {
   let mut hasher = Hasher::new();
   for t in terms {
-    update_term_hash(t, &mut hasher);
+    hasher.update(&t.span.start.to_le_bytes());
+    hasher.update(&t.span.end.to_le_bytes());
+    update_term_hash(&t.value, &mut hasher);
   }
   hasher.finalize().into()
 }
@@ -47,10 +53,12 @@ pub fn update_term_hash(term: &Term, hasher: &mut Hasher) {
   }
 }
 
-pub fn hash_resolved_terms(terms: &[ResolvedTerm]) -> ContentHash {
+pub fn hash_resolved_terms(terms: &[SpannedResolvedTerm]) -> ContentHash {
   let mut hasher = Hasher::new();
   for t in terms {
-    update_resolved_term_hash(t, &mut hasher);
+    hasher.update(&t.span.start.to_le_bytes());
+    hasher.update(&t.span.end.to_le_bytes());
+    update_resolved_term_hash(&t.value, &mut hasher);
   }
   hasher.finalize().into()
 }

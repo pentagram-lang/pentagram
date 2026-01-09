@@ -66,7 +66,10 @@ fn test_repl_syntax_error() {
   }
 
   let out_str = String::from_utf8(output).expect("Invalid UTF-8");
-  assert_eq!(out_str, "            ^\n      expected 'fn'\n");
+  assert_eq!(
+    out_str,
+    "Error: expected 'fn'\n  def f 2 end-fn,\n        ^\n"
+  );
 }
 
 #[test]
@@ -80,5 +83,34 @@ fn test_repl_step_error() {
   }
 
   let out_str = String::from_utf8(output).expect("Invalid UTF-8");
-  assert_eq!(out_str, "Error: Undefined reference: unknown_word\n");
+  assert_eq!(
+    out_str,
+    "Error: Undefined reference: unknown_word\n  unknown_word\n  ^\n"
+  );
+}
+
+#[test]
+fn test_repl_error_previous_input() {
+  let mut db = Database::default();
+  let mut output = Vec::new();
+
+  {
+    let mut cursor = Cursor::new(&mut output);
+    step_repl(&mut db, "def boom fn 1 2 eq assert end-fn", &mut cursor)
+      .expect("Step 1 failed");
+  }
+
+  output.clear();
+
+  {
+    let mut cursor = Cursor::new(&mut output);
+    step_repl(&mut db, "boom", &mut cursor).expect("Step 2 failed");
+  }
+
+  let out_str = String::from_utf8(output).expect("Invalid UTF-8");
+
+  assert_eq!(
+    out_str,
+    "Error: Assertion failed\n  In repl:1:\n  def boom fn 1 2 eq assert end-fn\n                     ^\n"
+  );
 }
