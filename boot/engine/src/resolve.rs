@@ -1,10 +1,10 @@
-use anyhow::Result as AnyhowResult;
 use boot_db::Database;
+use boot_db::DiagnosticResult;
 use boot_db::Generation;
 use boot_resolve::ResolveInput;
 use boot_resolve::resolve_module as resolve_source_module;
 
-pub(crate) fn resolve_module(db: &mut Database) -> AnyhowResult<()> {
+pub(crate) fn resolve_module(db: &mut Database) -> DiagnosticResult<()> {
   let functions: Vec<_> = db
     .functions
     .iter()

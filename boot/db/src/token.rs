@@ -1,20 +1,21 @@
 use crate::file::FileId;
 use crate::generation::Generation;
 use crate::hash::ContentHash;
+use crate::span::Spanned;
 use std::fmt;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum TokenKind {
-  Keyword(KeywordTokenKind),
-  Punctuation(PunctuationTokenKind),
-  Literal(LiteralTokenKind),
-  Identifier(IdentifierTokenKind),
-  Trivia(TriviaTokenKind),
+pub enum Token {
+  Keyword(KeywordToken),
+  Punctuation(PunctuationToken),
+  Literal(LiteralToken),
+  Identifier(IdentifierToken),
+  Trivia(TriviaToken),
   Unknown(String),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum KeywordTokenKind {
+pub enum KeywordToken {
   Def,
   Fn,
   EndFn,
@@ -23,34 +24,29 @@ pub enum KeywordTokenKind {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PunctuationTokenKind {
+pub enum PunctuationToken {
   Comma,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum LiteralTokenKind {
+pub enum LiteralToken {
   Integer(i64),
   String(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum IdentifierTokenKind {
+pub enum IdentifierToken {
   Word(String),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TriviaTokenKind {
+pub enum TriviaToken {
   Whitespace,
   Comment,
   InvalidTermination,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Token {
-  pub kind: TokenKind,
-  pub start: usize,
-  pub end: usize,
-}
+pub type SpannedToken = Spanned<Token>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TokenStreamId(pub String);
@@ -65,7 +61,7 @@ impl fmt::Display for TokenStreamId {
 pub struct TokenStreamRecord {
   pub id: TokenStreamId,
   pub file_id: FileId,
-  pub tokens: Vec<Token>,
+  pub tokens: Vec<SpannedToken>,
   pub content_hash: ContentHash,
   pub generation: Generation,
 }

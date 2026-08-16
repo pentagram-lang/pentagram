@@ -1,23 +1,21 @@
 use crate::char_cursor::CharCursor;
 use crate::char_cursor::advance_char_cursor;
 use crate::char_cursor::char_cursor_slice;
-use boot_db::IdentifierTokenKind;
-use boot_db::KeywordTokenKind;
-use boot_db::TokenKind;
+use boot_db::IdentifierToken;
+use boot_db::KeywordToken;
+use boot_db::Token;
 
 pub(crate) fn lex_word(
   cursor: &mut CharCursor<'_>,
   start: usize,
   head: char,
-) -> TokenKind {
+) -> Token {
   let mut state = WordState::default();
   process_char(&mut state, head);
   advance_char_cursor(cursor);
 
   if state.is_invalid {
-    return TokenKind::Unknown(
-      char_cursor_slice(cursor, start).to_string(),
-    );
+    return Token::Unknown(char_cursor_slice(cursor, start).to_string());
   }
 
   lex_word_impl(cursor, start, state)
@@ -26,7 +24,7 @@ pub(crate) fn lex_word(
 pub(crate) fn lex_word_hyphen_prefix(
   cursor: &mut CharCursor<'_>,
   start: usize,
-) -> TokenKind {
+) -> Token {
   let mut state = WordState::default();
   process_char(&mut state, '-');
   lex_word_impl(cursor, start, state)
@@ -35,7 +33,7 @@ pub(crate) fn lex_word_hyphen_prefix(
 pub(crate) fn lex_word_plus_prefix(
   cursor: &mut CharCursor<'_>,
   start: usize,
-) -> TokenKind {
+) -> Token {
   let mut state = WordState::default();
   process_char(&mut state, '+');
   lex_word_impl(cursor, start, state)
@@ -45,7 +43,7 @@ fn lex_word_impl(
   cursor: &mut CharCursor<'_>,
   start: usize,
   mut state: WordState,
-) -> TokenKind {
+) -> Token {
   while let Some(c) = cursor.head {
     if !c.is_alphanumeric() && c != '-' && c != '_' {
       break;
@@ -56,18 +54,16 @@ fn lex_word_impl(
 
   let word = char_cursor_slice(cursor, start);
   if state.is_invalid || state.first_char.is_none() {
-    return TokenKind::Unknown(word.to_string());
+    return Token::Unknown(word.to_string());
   }
 
   match word {
-    "def" => TokenKind::Keyword(KeywordTokenKind::Def),
-    "fn" => TokenKind::Keyword(KeywordTokenKind::Fn),
-    "end-fn" => TokenKind::Keyword(KeywordTokenKind::EndFn),
-    "test" => TokenKind::Keyword(KeywordTokenKind::Test),
-    "end-test" => TokenKind::Keyword(KeywordTokenKind::EndTest),
-    _ => {
-      TokenKind::Identifier(IdentifierTokenKind::Word(word.to_string()))
-    }
+    "def" => Token::Keyword(KeywordToken::Def),
+    "fn" => Token::Keyword(KeywordToken::Fn),
+    "end-fn" => Token::Keyword(KeywordToken::EndFn),
+    "test" => Token::Keyword(KeywordToken::Test),
+    "end-test" => Token::Keyword(KeywordToken::EndTest),
+    _ => Token::Identifier(IdentifierToken::Word(word.to_string())),
   }
 }
 
