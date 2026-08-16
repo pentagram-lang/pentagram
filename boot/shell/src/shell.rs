@@ -20,7 +20,7 @@ use watchman_client::fields::NameOnly;
 use watchman_client::pdu::SubscribeRequest;
 
 #[derive(Parser)]
-#[command(name = "pt")]
+#[command(name = "0")]
 #[command(about = "Pentagram boot shell", long_about = None)]
 struct Cli {
   #[command(subcommand)]

@@ -1,18 +1,14 @@
 #!/usr/bin/env python3
 import os
-import sys
 
 import click
 
-# Add the task directory to path to import boot and lib
-sys.path.append(os.path.join(os.path.dirname(__file__), 'task'))
-import lib
-import watch
-
-import boot
+from proj import project as project_runner
+from zero import agent as agent_runner
+from zero import boot, commit_message, doc_lint, lib, repo_policy, watch
 
 # Always run from the project root
-os.chdir(os.path.dirname(os.path.abspath(__file__)))
+os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 @click.group(cls=lib.AliasedGroup, invoke_without_command=True)
@@ -109,8 +105,52 @@ def do_test():
   lib.run_cmd('cargo run -p boot_shell -- test core', 'test')
 
 
+def do_ptest():
+  lib.run_cmd(
+    'python -m unittest discover -s proj -p "*_test.py"',
+    'project-test',
+  )
+
+
+def do_ztest():
+  lib.run_cmd(
+    'python -m unittest discover -s zero -p "*_test.py"',
+    'command-plane-test',
+  )
+
+
 def do_check_history():
   lib.run_cmd('cog check', 'history')
+
+
+def do_check_repo_policy():
+  t = lib.Timer()
+  try:
+    repo_policy.check_repository_policy(os.getcwd())
+  except repo_policy.RepositoryPolicyError as error:
+    raise click.ClickException(str(error)) from error
+  lib.status('repo-policy', t.duration())
+
+
+def do_check_doc_lint():
+  t = lib.Timer()
+  try:
+    doc_lint.check_documentation(os.getcwd())
+  except (doc_lint.DocumentationLintError, RuntimeError) as error:
+    raise click.ClickException(str(error)) from error
+  lib.status('doc-lint', t.duration())
+
+
+def do_check_commit_message():
+  t = lib.Timer()
+  try:
+    commit_message.check_commit_message(os.getcwd())
+  except (
+    commit_message.CommitMessageLintError,
+    RuntimeError,
+  ) as error:
+    raise click.ClickException(str(error)) from error
+  lib.status('commit-message', t.duration())
 
 
 def do_generate_changelog():
@@ -153,7 +193,7 @@ def lint_fix(args):
   '-s',
   '--skip-commit',
   is_flag=True,
-  help='Skip commit history validation.',
+  help='Skip commit-message and history validation.',
 )
 @click.pass_context
 def check(ctx, skip_commit):
@@ -162,9 +202,14 @@ def check(ctx, skip_commit):
     t = lib.Timer()
     do_check_fmt()
     do_check_lint()
+    do_check_repo_policy()
+    do_check_doc_lint()
+    do_ztest()
+    do_ptest()
     do_btest()
     do_test()
     if not skip_commit:
+      do_check_commit_message()
       do_check_history()
     lib.status('check', t.duration())
 
@@ -173,6 +218,18 @@ def check(ctx, skip_commit):
 def fmt_check():
   """Run cargo fmt --check and ruff format --check."""
   do_check_fmt()
+
+
+@lib.command_with_aliases(check, name='doc', aliases=['d'])
+def doc_check():
+  """Run documentation lint."""
+  do_check_doc_lint()
+
+
+@lib.command_with_aliases(check, name='commit', aliases=['m'])
+def commit_check():
+  """Run commit-message line-length validation."""
+  do_check_commit_message()
 
 
 @lib.command_with_aliases(
@@ -202,6 +259,18 @@ def test():
   do_test()
 
 
+@lib.command_with_aliases(check, name='ptest')
+def project_test():
+  """Run project control-plane tests."""
+  do_ptest()
+
+
+@lib.command_with_aliases(check, name='ztest')
+def command_plane_test():
+  """Run command-plane tests."""
+  do_ztest()
+
+
 @lib.command_with_aliases(check, aliases=['h'])
 def history():
   """Run cog check."""
@@ -226,10 +295,78 @@ def run(args):
   boot.run_shell(args)
 
 
+@lib.group_with_aliases(cli, aliases=['a'])
+def agent():
+  """Launch a Pentagram-configured coding agent."""
+
+
+@lib.command_with_aliases(
+  agent,
+  name='codex-luna-yolo',
+  aliases=['luna', 'cluna'],
+  context_settings=dict(ignore_unknown_options=True, help_option_names=[]),
+)
+@click.argument('args', nargs=-1, type=click.UNPROCESSED)
+def codex_luna_agent(args):
+  """Launch Codex Luna with the Pentagram system prompt."""
+  agent_runner.launch('codex-luna-yolo', args)
+
+
+@lib.command_with_aliases(
+  agent,
+  name='codex-sol-yolo',
+  aliases=['sol', 'csol'],
+  context_settings=dict(ignore_unknown_options=True, help_option_names=[]),
+)
+@click.argument('args', nargs=-1, type=click.UNPROCESSED)
+def codex_sol_agent(args):
+  """Launch Codex Sol with the Pentagram system prompt."""
+  agent_runner.launch('codex-sol-yolo', args)
+
+
+@lib.command_with_aliases(
+  agent,
+  name='claude-sonnet-yolo',
+  aliases=['sonnet', 'csonnet'],
+  context_settings=dict(ignore_unknown_options=True, help_option_names=[]),
+)
+@click.argument('args', nargs=-1, type=click.UNPROCESSED)
+def claude_sonnet_agent(args):
+  """Launch Claude Sonnet with the Pentagram system prompt."""
+  agent_runner.launch('claude-sonnet-yolo', args)
+
+
+@lib.command_with_aliases(
+  agent,
+  name='claude-fable-yolo',
+  aliases=['fable', 'cfable'],
+  context_settings=dict(ignore_unknown_options=True, help_option_names=[]),
+)
+@click.argument('args', nargs=-1, type=click.UNPROCESSED)
+def claude_fable_agent(args):
+  """Launch Claude Fable with the Pentagram system prompt."""
+  agent_runner.launch('claude-fable-yolo', args)
+
+
+@lib.command_with_aliases(
+  agent,
+  name='agy-flash-yolo',
+  aliases=['flash', 'aflash'],
+  context_settings=dict(ignore_unknown_options=True, help_option_names=[]),
+)
+@click.argument('args', nargs=-1, type=click.UNPROCESSED)
+def agy_agent(args):
+  """Launch Antigravity with the Pentagram workspace rules."""
+  agent_runner.launch('agy-flash-yolo', args)
+
+
 @lib.command_with_aliases(cli, aliases=['w'])
 def watch_cmd():
   """Watch for changes and run tests."""
   watch.run_watch()
+
+
+cli.add_command(project_runner.project_group, name='proj')
 
 
 if __name__ == '__main__':
