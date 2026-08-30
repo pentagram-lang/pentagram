@@ -12,4 +12,4 @@ Structure applies the aims defined in the [Pentagram manifesto](../../manifesto.
 
 ## Commit message
 
-[Commit message](commit-message.md) defines the structured format for Pentagram commit messages. The document specifies the parseable subject line, narrative body, repository-portability requirements, and a suggested preparation process; the [Pentagram agent system](../../sys.md) retains authority over source-control workflow and authorization.
+[Commit message](commit-message.md) defines the structured format for Pentagram commit messages. The document specifies the parseable subject line, narrative body, repository-portability requirements, and a suggested preparation process; the [source-control document](../../source-control.md) owns the shared workflow, while the [Pentagram agent system](../../sys.md) adds agent-specific authority.

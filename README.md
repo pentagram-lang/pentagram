@@ -32,7 +32,11 @@ The [project workflow](proj/README.md) defines how contributors plan, execute, c
 
 ## Setup
 
-The [setup document](setup.md) explains how to install the repository's Nix profile.
+The [setup document](setup.md) explains how to install the repository's Nix profile and initialize its Jujutsu workspace.
+
+## Source control
+
+The [source-control document](source-control.md) defines Pentagram's Jujutsu repository model, mutable-change workflow, recovery boundary, and branch-publication process.
 
 ## System
 

@@ -1,10 +1,10 @@
 # Commit message
 
-Within [structure](README.md), a commit message is the durable technical narrative of one complete contribution. The subject names the resulting change, and the body explains the intent, architecture, findings, and impact needed to understand it.
+Within [structure](README.md), a commit message is the durable technical narrative of one complete contribution. In Jujutsu, it is the final description of the squashed change that becomes the published Git commit. The subject names the resulting change, and the body explains the intent, architecture, findings, and impact needed to understand it.
 
 The format makes repository history ergonomic to scan, deterministic for readers and tools to interpret, and efficient to use as a source of established design context.
 
-This document defines the final message format. [Pentagram agent system: source control](../../sys.md#source-control) defines the branch workflow, the temporary `WIP` message, validation requirements, and the authorization boundary for commit operations.
+This document defines the final message format. The [development-change workflow](../../source-control.md#maintain-distinct-changes) defines mutable changes and temporary `wip:` descriptions. The [publication workflow](../../source-control.md#publish-a-branch) defines final squashing, bookmarks, validation order, and publication. The [Pentagram agent system](../../sys.md) adds agent-specific authority.
 
 ## Subject line
 
@@ -63,21 +63,21 @@ The body must agree with the complete commit. Distinguish current behaviour from
 
 A commit message must remain accurate and useful in any repository checkout. Use repository-relative paths and stable system names. Describe behaviour and decisions without depending on one machine, home directory, editor, chat, or temporary project artifact.
 
-Do not identify the current operator, refer to personal files, or record uncommitted state from `.tmp/`. Do not use phrases such as “in this session,” “the current conversation,” or “the agent found” when the durable fact can be stated directly.
+Do not identify the current operator, refer to personal files, or record provisional state from `.tmp/`. Do not use phrases such as “in this session,” “the current conversation,” or “the agent found” when the durable fact can be stated directly.
 
 Name external systems when they materially affect the contribution, but keep the local consequence understandable without access to transient external state. Record unresolved uncertainty only when the uncertainty remains part of the committed result.
 
 ## Suggested agentic process
 
-The format above is normative. The following preparation process is suggested; the source-control workflow and authorization rules remain authoritative in [Pentagram agent system: source control](../../sys.md#source-control).
+The format above is normative. The following preparation process is suggested; the [publication workflow](../../source-control.md#publish-a-branch) and [Pentagram agent system](../../sys.md) remain authoritative.
 
-Because a commit message is the durable technical narrative of the complete contribution, preparing one requires an accurate account of the whole diff. The process separates fact-finding from narrative synthesis to reduce omissions, unsupported claims, and distorted emphasis. Independent subagents examine distinct logical parts of the diff. The coordinating contributor verifies their reports, resolves discrepancies, and writes and audits the subject and body from the established facts.
+Before preparing a final message, squash every intermediate change owned by the branch into one change on top of its parent. Because the message is the durable technical narrative of that complete contribution, preparing it requires an accurate account of the whole squashed diff. The process separates fact-finding from narrative synthesis to reduce omissions, unsupported claims, and distorted emphasis. Independent subagents examine distinct logical parts of the diff. The coordinating contributor verifies their reports, resolves discrepancies, and writes and audits the subject and body from the established facts.
 
 ### Audit the contribution
 
-1. Identify the exact parent and inspect the complete branch diff and statistics. Account for every changed file.
+1. Identify the exact parent and squashed change, then inspect their complete diff and statistics. Account for every changed file.
 2. Group the changed files into logical clusters rather than by file type or editing order. Each cluster is one subagent's distinct review scope.
-3. Write each cluster's diff to a separate file under `.tmp/` with ordinary shell redirection: `git diff ... -- ... > .tmp/...`. Together, the files must cover the complete branch diff. Put only the diff in each file.
+3. Write each cluster's diff to a separate file under `.tmp/` with `jj diff --git --from PARENT --to CHANGE -- FILESETS > .tmp/...`. Together, the files must cover the complete branch diff. Put only the diff in each file.
 4. Keep each diff file unchanged while its review is active. Regenerate the affected file after a material revision and before re-review.
 
 ### Review with independent subagents
@@ -119,3 +119,4 @@ Re-review may continue with the same subagent or start a new isolated subagent. 
 3. Read the message from the perspective of a contributor who has the repository but not the authoring session.
 4. Check the subject grammar and length, body wrapping, narrative completeness, repository portability, and agreement with the final diff.
 5. Validate the complete message under [quality](../quality/README.md).
+6. Apply the audited message to the exact final change with the revision-targeted action in the [publication workflow](../../source-control.md#publish-a-branch).

@@ -24,7 +24,7 @@ Review the repository as it exists. The reviewer works read-only, and the contri
 
 A current reviewer reads the complete subject and follows relevant repository context normally. If reviewed material changes before the contributor evaluates the report, identify which coverage and findings the change affects and rerun that review work against the current repository. Prepare a new packet when the assignment itself changes.
 
-For a change review, write the complete assigned diff under `.tmp/` with the appropriate `git diff` command. Inspect the diff before giving its path and the resulting repository context to the reviewer. Regenerate the diff and rerun affected review work after a material revision.
+For a change review, write the complete assigned diff under `.tmp/` with `jj diff --git` and explicit base and result revisions. Inspect the diff before giving its path and the resulting repository context to the reviewer. Regenerate the diff and rerun affected review work after a material revision.
 
 ## Prepare one review packet
 

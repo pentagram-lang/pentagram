@@ -1,6 +1,17 @@
 # Setup
 
-Install the repository's Nix profile before using the `0` command or building the project.
+Initialize Jujutsu and install the repository's Nix profile before changing or building Pentagram. Jujutsu is installed separately; the repository profile does not currently provide it.
+
+## Source control
+
+From a new repository checkout, initialize Jujutsu with the existing Git repository as its colocated backend:
+
+```sh
+jj git init --colocate
+jj status
+```
+
+Do not run the initialization command again in a checkout that already contains `.jj/`. The [source-control document](source-control.md) defines the repository model and working commands.
 
 ## Nix package manager
 

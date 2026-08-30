@@ -201,7 +201,7 @@ Each project is stored in its own provisional SQLite database at:
 .tmp/<project-name>.sqlite3
 ```
 
-Project databases are intentionally not Git-tracked. They contain working state that is useful across sessions but remains provisional until the project reconciles its durable conclusions into the repository’s documentation, code, tests, or other permanent artifacts.
+Project databases are intentionally excluded from repository tracking. They contain working state that is useful across sessions but remains provisional until the project reconciles its durable conclusions into the repository’s documentation, code, tests, or other permanent artifacts.
 
 Multiple projects may be active at once. A project name is unique among the active database files. When a new project is created with an existing name, the existing database is moved to `.tmp/archive/` with its filesystem ctime appended to the base name before the replacement is created. Creating a project never overwrites an existing project database.
 

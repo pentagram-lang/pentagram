@@ -6,7 +6,7 @@
 
 Markdown must match the formatter configured in [`dprint.json`](../../dprint.json). Prose uses soft wrapping rather than manual line breaks.
 
-The Markdown rules below read current files from Git's inventory. This includes tracked files and non-ignored untracked files that exist in the working tree. Deleted and Git-ignored files are absent.
+The Markdown rules below read current files through the colocated Git inventory. This is an automated interoperability mechanism allowed by the [source-control model](../../source-control.md#working-copy), not a contributor command surface. Run `jj status` before the check so Jujutsu has snapshotted and exported the current working copy. The inventory includes tracked files and non-ignored untracked files that exist in the working tree. Deleted and ignored files are absent.
 
 ## Heading identifiers
 
@@ -38,8 +38,10 @@ The companion must follow the headings, labels, order, and required content defi
 
 Final commit messages must follow Conventional Commit grammar. [Commit message](../structure/commit-message.md) defines the accepted subject forms and types.
 
+Temporary `wip:` change descriptions are not final commit messages and must be squashed or replaced before complete validation and publication.
+
 ## Commit message line length
 
 A complete commit subject must not exceed 72 characters. Body prose must wrap at 72 characters. Only a line made entirely of one exact literal may exceed the limit. [Commit message](../structure/commit-message.md) defines the recognized literal forms and complete format.
 
-The commit check reads the current `HEAD` message. It does not rewrite or recheck historical messages.
+The commit check reads the current exported Git `HEAD` message. It does not rewrite or recheck historical messages. The [source-control publication sequence](../../source-control.md#publish-a-branch) places an empty `@` above the final bookmarked change and runs `jj status` before validation so this check reads the intended commit.

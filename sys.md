@@ -39,7 +39,7 @@ Apply both rules only where the aim meaningfully applies.
 
 The [manifesto](manifesto.md) explains these aims and is always required reading.
 
-Always load the [project workflow](proj/README.md) and relevant project state through `0 proj` before meaningful work. Read the [documentation standards](doc/README.md), [coding standards](code/README.md), and [environment engineering](env/README.md) guidance for global context.
+Always load the [project workflow](proj/README.md) and relevant project state through `0 proj` before meaningful work. Read the [documentation standards](doc/README.md), [coding standards](code/README.md), [environment engineering](env/README.md), and [source control](source-control.md) guidance for global context.
 
 Local documentation is the primary surface for all work. Start from the nearest `README.md` when reading or authoring documentation; it provides key orientation and links to more detailed local documents as needed. Then inspect the relevant code, tests, and other evidence needed to establish current behaviour.
 
@@ -84,19 +84,27 @@ When changes are in scope, give a clear signpost before the first change stating
 
 Validate changes with evidence proportionate to their risk and the claims being made. Start with focused relevant checks and broaden only when the affected boundary warrants it.
 
-Use harness-provided search tools when available, or `rg` / `rg --files` in shell commands for repository search. Do not use direct shell `grep` / `find`, because their recursive searches can traverse git-ignored folders.
+Use harness-provided search tools when available, or `rg` / `rg --files` in shell commands for repository search. Do not use direct shell `grep` / `find`, because their recursive searches can traverse repository-ignored folders.
 
 ## Source control
 
-Every branch has one squashed commit on top of its latest parent branch. Squash at significant milestones. Branch stacks are permitted when dependent work needs separate branches, with each branch following the same rule relative to its parent.
+The [source control](source-control.md) document governs Pentagram's Jujutsu model and shared workflow. Agents must use `jj` for every direct repository operation and must pass `--git` to every `jj diff`. They must never invoke Git directly. Repository automation may use Git only through its documented interoperability boundary.
 
-When a branch is not ready for merge, its commit message is the single word `WIP`. When it is ready for merge, replace `WIP` with a message that follows the documented [commit message](doc/structure/commit-message.md) format.
+After loading required context and project state when starting distinct work or resuming after context compaction, run `jj status` and then `jj git fetch --remote origin`. `main@origin` is locally recorded remote state; naming it does not contact `origin`, and `jj rebase` does not fetch. Inspect existing project work after fetching, then start from or rebase it onto the refreshed `main@origin`.
 
-The `.tmp/` directory is git-ignored and is the durable location for all non-committed project work. Use it for provisional state, external clones, research outputs, and other artifacts that must persist across sessions without entering the branch.
+The current project's owned mutable subgraph is the authority boundary for history mutation.
 
-Committed text must describe repository-portable behaviour and workflow, not the current state of git-untracked project work, planning, or temporary artifacts. Keep that state in the appropriate non-committed project storage.
+Within it, agents are encouraged to create, describe, split, squash, rebase, reorder, abandon, and restore changes to maintain distinct, coherent changes. Use `wip:` descriptions until preparing a final commit message.
 
-Committed text must not identify the current operator by name or refer to their personal files, home-directory contents, machine-specific paths, or other session-specific details. Use role terms, repository-relative paths, and generic examples instead.
+Preparing publication includes squashing the complete branch contribution into one change, writing its final message, creating an empty `@` above it, and moving the branch bookmark to the final change.
+
+Use `jj undo` and `jj redo` to recover mistaken operations. Inspect the operation log before restoring an older state. Never rewrite immutable or unrelated changes, and remember that operation recovery cannot restore ignored files or external effects.
+
+The `.tmp/` directory is repository-ignored and is the durable location for all non-published project work. Use it for provisional state, external clones, research outputs, and other artifacts that must persist across sessions without entering a published branch.
+
+Published text must describe repository-portable behaviour and workflow, not the current state of provisional project work, planning, or temporary artifacts. Keep that state in the appropriate project storage.
+
+Published text must not identify the current operator by name or refer to their personal files, home-directory contents, machine-specific paths, or other session-specific details. Use role terms, repository-relative paths, and generic examples instead.
 
 ## Continuous integration
 
@@ -104,7 +112,7 @@ Buildkite is the merge gate for pull requests. Its pipeline identity is organiza
 
 ## External repositories
 
-When examining another repository's source, use a local clone under `.tmp/` instead of web search. Use `gh` for GitHub issue searches instead of web search.
+When examining another repository's source, use `jj git clone` to create a local clone under `.tmp/` instead of web search. Use `gh` for GitHub issue searches instead of web search.
 
 ## Boundaries
 
@@ -114,7 +122,7 @@ Read-only investigation is broadly allowed. Mutating actions must remain within 
 
 Keep documentation standalone and factual about current behaviour. Mark requirements and principles as normative. Document public contracts, subsystem boundaries, local invariants, errors, side effects, and resource behaviour at the level where they become understandable. Do not let implementation invent behaviour that documentation did not justify. Reconcile affected documentation after implementation.
 
-Do not initiate, suggest, prepare, or perform commit work unless the operator explicitly requests it. Before changing files, inspect `git status --short` when work may overlap existing changes. Never discard unrelated changes or use destructive history commands unless the operator names the exact operation and target.
+Before changing files, run `jj status` when work may overlap existing changes. Local mutations within the current project's owned mutable subgraph follow the source-control authorization above. Never discard or rewrite unrelated work. Pushing, changing another external system, or performing any other external side effect requires clear authorization for the exact target and effect.
 
 ## Handoff
 
