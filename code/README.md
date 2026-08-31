@@ -2,6 +2,8 @@
 
 This document defines repository-wide coding and testing standards for implementation work. It complements the [documentation standards](../doc/README.md): documentation establishes the meaning and contract, while these standards shape the implementation and its evidence. It does not define Pentagram language semantics or the architecture of a particular subsystem.
 
+Code also shapes the repository environment through readable source and through executable affordances, constraints, feedback, and state. [Environment engineering](../env/README.md) governs those effects in combination with documentation. Every code change must account for its environmental effects; environment-specific evidence, testing, and review scale with environmental risk and leverage.
+
 ## Implementation
 
 The Rust boot implementation is functional, data-oriented, readable, and predictable.

@@ -11,7 +11,9 @@ The author must identify their intent before designing the environment or evalua
 - the desirable environmental effects; and
 - the important undesirable environmental effects.
 
-The [theory's environmental encounter model](theory.md#environmental-encounter) explains why an effect depends on what reaches a participant in a situation. For each effect, identify:
+Before stating those effects, bound the subject as the [environmental encounter model](theory.md#environmental-encounter) defines it. Name the affected `total-environment`, its relevant state and cross-boundary dependencies, and any material conditions that remain external. The boundary follows the effects and their environmental causes, not only the artifacts being edited.
+
+The environmental encounter model also explains why an effect depends on what reaches a participant in a situation. For each effect, identify:
 
 - `participant`, ranging over the applicable humans and agents;
 - `situation`, containing the task, location, project state, and other conditions that change what the participant encounters; and

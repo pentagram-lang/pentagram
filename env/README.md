@@ -16,7 +16,7 @@ Pentagram's environment engineering is based on [ergonomics, determinism, and ef
 | **Determinism** | Make the relationships among intent, environmental causes, and observed effects explicit.         | Keep documentation and code consistent so meaning, constraints, feedback, and recovery reinforce one another. |
 | **Efficiency**  | Avoid repeated framing, competing copies, and evidence whose cost exceeds the decision it serves. | Preserve and present useful context while avoiding unnecessary human effort, agent context, and system work.  |
 
-The [documentation standards](../doc/README.md) govern documentation meaning, structure, style, and documentation quality. The [coding standards](../code/README.md) govern code and implementation tests. Environment engineering governs how documentation and code work together as an environment. Every repository change participates in that environment and must account for its environmental effects; formal environment testing and review remain proportional to behavioural risk and leverage.
+The [documentation standards](../doc/README.md) govern documentation meaning, structure, style, and documentation quality. The [coding standards](../code/README.md) govern code and implementation tests. Environment engineering governs how documentation and code work together as an environment. Every repository change participates in that environment and must account for its environmental effects; formal environment testing and review remain proportional to environmental risk and leverage.
 
 ## Theory
 
@@ -28,8 +28,8 @@ The [documentation standards](../doc/README.md) govern documentation meaning, st
 
 ## Design
 
-[Design](design/README.md) explains how to engineer documentation and code together as a powerful environment for humans and agents.
+[Design](design/README.md) turns identified effects and environmental-encounter inputs into documentation and code interventions. Its human and agent methods shape one compatible, co-beneficial environment through their distinct cognitive mechanisms.
 
 ## Quality
 
-[Quality](quality/README.md) defines environment-quality authorship and the proportional testing and review used to establish environmental effects.
+[Quality](quality/README.md) defines environment-quality authorship and the proportional evidence, testing, and review used to judge environmental effects.

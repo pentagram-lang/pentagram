@@ -20,7 +20,7 @@ Pentagram's documentation standards are based on [ergonomics, determinism, and e
 
 A design choice can make documentation easier to read but harder to maintain, or easier to edit but harder to understand. Avoid that trade-off where possible. When it remains, prioritize reader comprehension, correct action, and safety over authoring convenience.
 
-Documentation also shapes the repository environment by changing what readers notice, believe, and do. Every document must account for that effect. Formal environment testing and review scale with behavioural risk and leverage.
+Documentation also shapes the repository environment by changing what readers notice, believe, and do. [Environment engineering](../env/README.md) governs how documentation works with code to produce those combined effects. Every document must account for its environmental effects; environment-specific evidence, testing, and review scale with environmental risk and leverage.
 
 ## Meaning
 
