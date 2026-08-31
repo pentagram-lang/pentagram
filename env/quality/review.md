@@ -116,7 +116,7 @@ Start an initial review with an independent reviewer who has no inherited author
 
 The reviewer works read-only, inspects the complete assigned subject in context, and follows relevant authority, implementation, tests, diagnostics, tools, callers, and consumers as far as the assignment requires. They find supported problems rather than answer a review question, approve the environment, or infer the author's preferred conclusion.
 
-Record the reviewer, harness, exposed model and reasoning configuration, applicable human expertise, and material limitations. A reviewer can identify a plausible human-effect defect but cannot replace representative human evidence when the judgement depends on observed human effects.
+Record the reviewer, harness, exposed model and reasoning configuration, applicable human expertise, and material limitations. Review can identify human-effect defects from the governing design principles, theory, and available evidence, but it does not conduct human studies or establish an unobserved human effect.
 
 ## Require a structured report
 

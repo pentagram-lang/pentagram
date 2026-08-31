@@ -1,59 +1,73 @@
 # Agent design
 
-Within [environment design](README.md), agent design shapes the shared environment for applicable agent participants. It starts from the effects and environmental-encounter inputs identified through [intent](../intent.md) and uses [LLM probability conditioning](../theory.md#llm-probability-conditioning) to connect environmental text with model output. It also designs the tools and systems through which conceptual and actual execution produce consequences, feedback, and persistent state.
+Within [environment design](README.md), agent design turns identified effects into an environment that works for the applicable agents. When environmental text reaches model context, [LLM probability conditioning](../theory.md#llm-probability-conditioning) makes it a direct input to model output, while tools and systems determine what generated choices can actually do.
 
-Agent design does not optimize a prompt in isolation. An agent acts from the context, instruction hierarchy, tools, permissions, repository state, and system responses that its harness exposes. Design that complete encounter, then check the same environment through [human design](human.md).
+The principles below govern the design together. Each principle changes a design decision; none is a checklist of prompting tricks.
 
-## Ground the agent encounter
+## Specify the result before the process
 
-For each intended effect, establish the applicable agent `participant`, `situation`, and `encounter-noise` inputs. Include model and harness conditions when they change the effect. Follow the situation through its task, location, project state, available tools, permissions, prior interaction, and continuation state.
+Design begins with the result the agent must produce, the conditions that make it successful, and the form in which it can be used. A detailed procedure is useful only when following that procedure is part of the required effect.
 
-Inspect how the harness selects, orders, transforms, and exposes environmental information. Repository presence does not guarantee observation: retrieval can omit a document, compaction can transform prior context, and tool output can hide or distort a condition. Identify which authority, task information, examples, interfaces, and state actually reach the agent and which prior tendencies can fill a gap.
+State the result directly and define the evidence that distinguishes completion from a plausible attempt. Add audience, format, preserved behaviour, and other constraints only when they change that result. Leave the agent freedom to investigate and adjust its approach inside those conditions.
 
-Keep model- or harness-specific assumptions explicit. Agent output remains probabilistic, and behaviour can change across models, versions, effort settings, tool surfaces, and context histories.
+> **Example**
+>
+> “Repair the parser so it accepts the documented input, preserve all other documented behaviour, add a regression test, and run the focused check” defines a result. A fixed sequence of files to open and edits to make would constrain the approach without improving the contract.
 
-## Shape environmental text
+## Treat context as an interface, not a dump
 
-Use text to condition the concepts, relationships, and actions needed for the intended effect:
+Every contextual cue can change the next generated token. More context is not automatically more understanding: irrelevant material dilutes useful cues, while repeated authority creates competing versions of the task.
 
-- state the required result and supply the context that can change it;
-- put durable authority at its canonical scope and keep task-local conditions with the task;
-- make authority, conditions, permissions, boundaries, and conflict resolution explicit where ambiguity can change action;
-- state each governing instruction once and remove repetitions or examples that no longer earn their context cost;
-- explain rationale when it helps the agent generalize the relationship across situations;
-- separate instructions, variable input, examples, and expected output when their roles could otherwise be confused; and
-- use examples when they encode a real requirement, cover a consequential boundary, or repair an observed gap without overfitting incidental wording.
+Include information because it can change the result. Keep durable authority at its canonical scope, keep task-specific facts with the task, and make the role of each source unmistakable. State a governing instruction once. Use structure whenever the role of adjacent content could otherwise be confused.
 
-Prefer a small set of compatible cues over one enormous instruction or several governing copies. A canonical rule, a matching interface, a constraint, and feedback can reinforce the same frame while remaining independently useful.
+> **Example**
+>
+> The source-control document owns the publication rule; the current task owns the target bookmark. The task links the rule and supplies the target instead of pasting a shortened copy of the rule into every agent encounter.
 
-## Shape action and execution
+## Give the agent a clear action boundary
 
-Text alone cannot reliably create an effect that depends on actual execution. Shape the executable environment as well:
+An agent needs to know where autonomous action is expected and where authority must come from elsewhere. Vague caution can produce needless pauses; vague autonomy can produce destructive or external effects that the author never intended.
 
-- expose only relevant tools and give them precise names, inputs, effects, and failure behaviour;
-- make safe in-scope actions natural while requiring authority before destructive, external, privileged, costly, or scope-expanding effects;
-- align defaults, permissions, and constraints with the intended action boundary;
-- return outputs and diagnostics that let the agent distinguish success, failure, uncertainty, and the next valid action;
-- preserve authoritative progress, decisions, evidence, blockers, and recovery instructions outside temporary model context when later work depends on them;
-- make verification available before the agent claims success; and
-- match model capability, effort, context, tools, and concurrency to the task rather than maximizing them without evidence of benefit.
+Define the ordinary in-scope action the agent may complete without interruption. Name the small number of consequential boundaries that require authorization, and state what the agent should do when it reaches one. Where code can enforce an important boundary, make the executable environment agree with the textual authority.
 
-Use actual constraints for important effects when the system can enforce them. Prompted behaviour remains a prediction; actual execution can prevent an undesirable result and provide information that corrects the agent's conception.
+> **Example**
+>
+> An agent may inspect and edit the requested local files and run non-destructive checks. Publishing the result remains a separate external effect that requires authority for the named target. The boundary permits useful work without implying permission to push it.
 
-## Keep adaptations conditional
+## Make tools precise enough to reason about
 
-Prefer interventions whose causal relationship follows from the shared model: clear goals, relevant context, coherent authority, useful affordances, direct feedback, and durable state. These can survive variation better than compensating instructions aimed at one observed model habit.
+A tool definition is part of the agent's language for action. If the agent cannot tell when to use a tool, what it will affect, or how to interpret its result, tool use becomes guesswork even when the prose instruction is clear.
 
-Place a model- or harness-specific adaptation at the smallest scope that owns its conditions. Record what behaviour justified it and remove or revise it when representative evidence no longer supports it. Do not turn current provider syntax, tuning advice, or a model workaround into a repository-wide semantic rule.
+Give each exposed action a specific purpose and exact input, effect, result, and failure meaning. Make the natural call express the intended boundary. Return enough information for the agent to decide whether the action succeeded and what remains possible; a silent refusal or ambiguous success result cannot correct the agent's conception.
 
-## Preserve one environment
+> **Example**
+>
+> A publication tool takes an explicit target and reports whether it changed a remote system. When authority is absent, it returns that missing condition without performing the effect. A generic “run command” tool would hide both the boundary and the result.
 
-Apply [human design](human.md) to the complete proposed result. Agent-specific structure must not make the human path noisy, obscure the governing meaning, or create hidden authority that a contributor cannot inspect. Human-oriented prose must not leave an agent's permitted actions, state transitions, or governing boundaries ambiguous.
+## Teach the relationship the agent must generalize
 
-Choose complementary expressions that make the complete result beneficial to both humans and agents. Machine-readable structure, human-readable explanation, executable constraints, and system feedback can serve different encounters while correcting one another. When the methods conflict, return to the intended effects and causal mechanisms instead of optimizing one participant class in isolation.
+Agents can reproduce the surface of an instruction while missing the rule that should govern a new case. A useful design communicates why a condition matters and which variation must preserve it.
 
-## Leave an evaluable hypothesis
+Explain rationale when it identifies the invariant or consequence behind a rule. Use clearly separated examples when they establish a real requirement, cover a consequential boundary, or correct an observed failure. Examples should be representative enough that incidental wording does not become the apparent rule.
 
-State the intervention point, the predicted causal path, the desirable and important undesirable effects, and the applicable model, harness, `situation`, and `encounter-noise` conditions. Record material assumptions, resource trade-offs, and unknowns.
+## Ground claims in observed evidence
 
-[Environment quality](../quality/README.md) chooses proportionate evidence and judges the resulting effects. Agent design identifies what should happen and why; it does not treat plausible prompting or a successful single response as proof.
+An agent should not be able to substitute confidence, intention, or a successful intermediate action for evidence of the required result. The environment must make investigation and verification part of the route to completion.
+
+Require the agent to inspect the relevant subject before making factual claims. Provide checks that observe the actual effect, preserve their output, and make failure actionable. Progress and completion reports must say what the evidence establishes and leave uncertainty visible.
+
+> **Example**
+>
+> Writing a documentation file establishes only that the file changed. A completion claim follows inspection of the rendered meaning and the applicable documentation check; if either was skipped or failed, the report says so.
+
+## Tune from representative encounters
+
+Prompt, tool, and scaffold effectiveness depends on the task, model, harness, and context history. A workaround inferred from one response can burden every later encounter while fixing nothing general.
+
+Begin with the smallest clear environment that expresses the result and boundaries. Retain an instruction, example, tool exposure, or harness adaptation only when representative evidence shows that it improves the intended effects. Keep condition-specific repairs local and remove them when their evidence no longer holds. Treat model choice, reasoning effort, and concurrency as encounter conditions rather than choices made by agent design.
+
+## Produce an agent design hypothesis
+
+State the required result, the environmental causes the intervention changes, the expected path through context and execution, and the effects predicted under the applicable `participant`, `situation`, and `encounter-noise` conditions. Record material model and harness assumptions without generalizing beyond them.
+
+[Environment quality](../quality/README.md) uses that hypothesis to select proportionate evidence and judge the implemented result. Apply [human design](human.md) to the same proposed environment before accepting it; an agent benefit cannot excuse an important undesirable human effect.

@@ -1,57 +1,51 @@
 # Human design
 
-Within [environment design](README.md), human design shapes the shared environment for applicable human participants. It starts from the effects and environmental-encounter inputs identified through [intent](../intent.md) and uses the [human schema model](../theory.md#human-schema-activation) to connect an intervention to cognition, behaviour, and actual results.
+Within [environment design](README.md), human design turns identified effects into an environment that works for the applicable humans. Intent already supplies those effects and their applicable `participant`, `situation`, and `encounter-noise` conditions. The [human schema model](../theory.md#human-schema-activation) explains how environmental cues shape conception and action.
 
-Human design does not optimize an artifact for an abstract average reader. It designs documentation and code for humans performing particular tasks under the applicable conditions, then checks the same environment through [agent design](agent.md).
+The principles below govern the design together. Each principle changes a design decision; none is a checklist of techniques.
 
-## Ground the human encounter
+## Design the whole experience
 
-For each intended effect, establish the applicable human `participant`, `situation`, and `encounter-noise` inputs. Account for the participant's relevant prior knowledge, learned schemas, abilities, and means of access. Follow the situation through its task, location, project state, surrounding work, interruptions, and consequences.
+A human experiences a task, not an artifact. Documentation and executable systems succeed or fail as one path even when different subjects own them.
 
-Treat unsupported beliefs about humans as assumptions, not observations. Inspect existing work and evidence when they can establish what humans encounter, attempt, misunderstand, or recover from. When consequence or uncertainty warrants direct human evidence, include the range of applicable humans rather than only the most familiar or least constrained participant.
+Follow the task from the human's starting condition through to the consequential task result. Design every transition that can break orientation or change meaning. Do not accept a clear page, usable command, or sound implementation when the complete path still prevents the intended effect.
 
-Do not mistake an existing process for the desired effect. A familiar process can carry needless work or prevent some humans from succeeding. Preserve it only when the intent or evidence requires its effects.
+> **Example**
+>
+> A migration guide is not complete when it explains the transformation command. The experience also includes recognizing whether migration is needed, reviewing the result, resolving a partial failure, and confirming that the system now uses the migrated state.
 
-## Trace cognition and action
+## Do the hard work to make the system simple
 
-Start from the `observed-environment` available in the situation. Trace the proposed path through:
+Simplicity means that the human can form an adequate understanding and act without avoidable effort. It does not mean hiding necessary consequences or replacing clear explanation with a sparse interface.
 
-1. the cues and relationships the human encounters;
-2. the schemas and expectations those cues can activate;
-3. the frame needed to conceptually execute the system;
-4. the action the environment makes apparent or possible;
-5. the consequences produced through actual execution; and
-6. the feedback and persistent state available for correction or continuation.
+Move complexity into the environment when documentation or code can resolve it reliably. Make the system self-describing, build on relationships humans can already recognize, and reveal detail when it becomes useful. Remove decisions, translation, and memory work that do not belong to the human's task.
 
-Identify where the path depends on memory, divided attention, unfamiliar terminology, hidden state, an unstated relationship, or knowledge that the applicable participant may not have. Identify where `encounter-noise` can remove or distort a necessary cue. A plausible path must include recovery from consequential gaps rather than assume a complete first encounter.
+> **Example**
+>
+> A command asks the human to copy several internal identifiers from another tool. A simpler design derives the identifiers, shows the resolved target for confirmation, and retains an explicit override for the exceptional case. The system carries the routine complexity without taking away control.
 
-Trace the whole task across documentation and code. A clear instruction paired with an opaque command, an apparent affordance rejected without useful feedback, or a safe system hidden behind a misleading interface remains a failed environment.
+## Keep humans in control and make errors recoverable
 
-## Choose an intervention
+Humans must be able to understand and direct consequential action. When error remains possible, the environment must make it detectable and support recovery instead of treating perfect attention as a prerequisite.
 
-Choose the smallest combination of environmental causes with a plausible path to the intended effects. Depending on the intent, human design can:
+Make the consequence apparent before commitment. Let the human stop, correct, or reverse an action where the governed system permits it. Use constraints when an important undesirable effect should not remain possible, and make feedback explain the state that actually resulted.
 
-- make purpose, authority, relationships, available actions, current state, and consequences perceptible;
-- use stable terminology, familiar relationships, examples, and progressive depth to support an adequate frame without unnecessary reading;
-- arrange cues so the normal path of thought and action appears before exceptional detail;
-- make affordances and defaults support the desirable action while constraints prevent or contain important undesirable effects;
-- give timely, specific feedback that explains what happened and provides a route to correction;
-- preserve orientation and useful state across interruption, failure, and return;
-- make consequential actions controllable and reversible where the governed system permits it; and
-- support applicable access and adaptation needs without changing the canonical meaning.
+> **Example**
+>
+> Before deleting generated state, a command shows the exact target and whether regeneration is possible. If deletion fails partway through, it identifies what remains and provides the safe recovery action rather than asking the human to reconstruct the state.
 
-Use a technique because its causal role fits the intended effect, not because it is a generic design preference. Several compatible causes can reinforce one relationship and correct partial encounter noise. Repeated governing prose instead creates competing authority and weakens that correction.
+## Design for every applicable human
 
-## Preserve one environment
+Accessibility is a condition of successful design, not a repair for a nominal design that already excludes people. The environment must remain perceivable, operable, understandable, and robust for the range of humans and access methods covered by the intent.
 
-Apply [agent design](agent.md) to the complete proposed result. Preserve shared semantics even when humans and agents need different expressions or paths to them.
+Begin with the barriers faced by humans who would otherwise be excluded. Preserve the same governed system across different means of access, but do not force uniform presentation or interaction when a different path removes a barrier. Familiarity and consistency should reduce learning work without freezing a design that evidence shows is inadequate.
 
-Choose causes that make the complete result beneficial to both humans and agents. Explicit relationships, concise canonical guidance, deterministic interfaces, visible state, precise diagnostics, and recoverable operations can help both participant classes through different cognitive mechanisms. Keep participant-specific material at the smallest scope where it changes the effect. It must not burden other encounters, hide authority, or create a second version of the system.
+> **Example**
+>
+> A diagnostic that distinguishes warning from failure only by colour is not perceivable through every applicable path. Adding an explicit status term preserves the same meaning in visual, spoken, plain-text, and transformed output.
 
-When the methods conflict, return to the identified effects and causal mechanisms. Do not silently trade an important undesirable effect on agents for a human benefit, or the reverse.
+## Produce a human design hypothesis
 
-## Leave an evaluable hypothesis
+State the intended effect the intervention serves, the environmental cause it changes, the resulting path through the whole experience, and the effects predicted under the applicable `participant`, `situation`, and `encounter-noise` conditions. Mark unsupported beliefs about humans as assumptions.
 
-State the intervention point, the predicted causal path, the desirable and important undesirable effects, and the applicable environmental-encounter inputs. Record material assumptions, trade-offs, and unknowns.
-
-[Environment quality](../quality/README.md) chooses proportionate evidence and judges the resulting effects. Human design identifies what should happen and why; it does not declare that the intervention worked.
+[Environment quality](../quality/README.md) uses that hypothesis to select proportionate evidence and judge the implemented result. Apply [agent design](agent.md) to the same proposed environment before accepting it; a human benefit cannot excuse an important undesirable agent effect.

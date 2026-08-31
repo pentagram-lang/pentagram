@@ -41,9 +41,11 @@ Choose evidence from:
 
 Leverage increases with reach, authority, repetition, automation, persistence, and the strength of the consequences the environment can produce. These considerations guide a reasoned decision; they do not create a universal score or quota.
 
-Use the smallest combination of evidence that can establish the judgement. Relevant evidence can include direct inspection, source and terminology searches, documentation lint, implementation tests, documentation tests, representative human use, [environment tests](test.md), [environment review](review.md), and observed operation. Gather it in any useful order.
+Use the smallest combination of evidence that can establish the judgement. Relevant evidence can include direct inspection, source and terminology searches, documentation lint, implementation tests, documentation tests, existing evidence of human use, [environment tests](test.md), [environment review](review.md), and observed operation. Gather it in any useful order.
 
 Each source supports only what it observes. A lint result can establish an exact source property but not a cognitive effect. An implementation test can establish an actual constraint without proving that participants find or understand it. A review can establish a causal or coverage defect without measuring its frequency. One successful agent trial does not establish robust behaviour across contexts, and an agent trial does not establish a human effect.
+
+Environment quality does not design or conduct human studies. It can use applicable evidence of human use produced elsewhere. When a judgement depends on an unobserved human effect, preserve that uncertainty rather than turning environment testing into human research.
 
 Formal environment testing or review is not required merely because every change participates in the environment. Direct inspection and existing evidence can be sufficient when consequence, uncertainty, and leverage are limited. Use a formal method when the evidence it can add materially changes confidence in the judgement.
 

@@ -8,6 +8,8 @@ High quality documentation and code do not guarantee a good environment. Togethe
 
 `env/` contains shared environment-engineering guidance. It does not supply predetermined intents or contain project-specific designs and evidence. Documentation and code remain with their subjects. When another reader, system, or future decision must rely on an author's identified intent, the author records it with the subject.
 
+Environment engineering does not define or conduct human studies. Authors may use applicable findings produced elsewhere when identifying intent, choosing an intervention, or judging environmental quality.
+
 Pentagram's environment engineering is based on [ergonomics, determinism, and efficiency](../manifesto.md). It must embody each applicable aim in its own design and support that aim across Pentagram.
 
 | Aim             | Embody in environment engineering                                                                 | Support across Pentagram                                                                                      |

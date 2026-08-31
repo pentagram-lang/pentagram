@@ -16,7 +16,7 @@ Environment quality does not define a separate lint category. Exact mechanical r
 
 ## Test
 
-[Test](test.md) puts the environment into realistic human or agent encounters and judges observable effects under recorded conditions.
+[Test](test.md) puts the environment into realistic agent encounters, observes the resulting system execution, and judges observable effects under recorded conditions. Environment testing does not conduct human studies.
 
 ## Review
 

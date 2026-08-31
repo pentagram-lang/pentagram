@@ -1,14 +1,16 @@
 # Test
 
-[Quality](README.md) uses test to put an implemented environment into realistic encounters and observe its effects. An environment test can exercise documentation, code, interfaces, tools, permissions, state, and system responses together. The result comes from observations that support or contradict effects in cognition, behaviour, or system results—not from a participant's opinion that the environment worked.
+[Quality](README.md) uses test to put an implemented environment into realistic agent encounters and observe its effects. An environment test can exercise documentation, code, interfaces, tools, permissions, state, and system responses together. The result comes from observations that support or contradict effects in cognition, behaviour, or system results—not from an agent's opinion that the environment worked.
 
-Environment tests supply bounded evidence under recorded conditions. They consume human effort, agent context, compute, and maintenance work, and a trial can itself expose participants or systems to consequences. Design only the coverage and trials whose evidence justifies those costs.
+Environment tests supply bounded evidence under recorded conditions. They consume author effort, agent context, compute, and maintenance work, and a trial can itself expose agents or systems to consequences. Design only the coverage and trials whose evidence justifies those costs.
+
+Environment testing does not conduct human studies. It can exercise system effects relevant to humans, but it cannot establish human cognitive or behavioural effects without applicable evidence produced elsewhere.
 
 ## Design effect coverage
 
-Design test coverage across the complete identified intent. For each desirable and important undesirable effect, consider:
+Design test coverage for the effects within the identified intent that an agent trial can observe. For each such desirable and important undesirable effect, consider:
 
-- the applicable `participant`, `situation`, and `encounter-noise` inputs;
+- the applicable agent `participant`, `situation`, and `encounter-noise` inputs;
 - the consequence if the environment produces the wrong effect;
 - uncertainty about the causal hypothesis and implemented result;
 - environmental leverage and variation;
@@ -23,7 +25,7 @@ Reassess coverage when the intent, environment boundary, intervention, participa
 
 Coverage determines which effects may need test contracts. A run plan determines which trials need current evidence.
 
-Plan across the complete coverage rather than running every available test. Select a trial when its evidence can materially change the current judgement. Scale its participant range, situations, encounter noise, repetitions, and environmental variation to the consequence and uncertainty it can resolve. Stop adding trials when the available evidence is adequate.
+Plan across the complete coverage rather than running every available test. Select a trial when its evidence can materially change the current judgement. Scale its agent conditions, situations, encounter noise, repetitions, and environmental variation to the consequence and uncertainty it can resolve. Stop adding trials when the available evidence is adequate.
 
 Do not vary conditions merely to accumulate runs. Vary a model, harness, task, access method, project state, failure, interruption, or information loss when the identified effect ranges over that condition or evidence shows that it can change the outcome.
 
@@ -58,17 +60,9 @@ Preserve the returned answer and citations, tool calls and outputs, produced art
 
 One agent trial establishes only one result under its recorded conditions. Test representative variation only when the intent ranges over it and the added evidence justifies its cost. A fresh agent cannot establish effects that depend on a continuing context; reproduce or supply that context as part of the recorded environment instead.
 
-## Run a human trial
-
-Use a human trial when an intended effect applies to humans and material uncertainty remains after inspection, established standards, existing use, and other evidence. An agent trial cannot substitute for human evidence.
-
-Give applicable humans a representative task and environment. Include humans likely to encounter consequential differences in prior knowledge, abilities, access methods, language, interruption, or other identified conditions. Do not restrict the environment merely to make the path easier unless that restriction is part of the situation being tested.
-
-Observe the actions, results, errors, recovery, feedback, and state relevant to the assertions. Record the participant conditions needed to interpret the result without collecting unrelated personal information. Use safe fixtures for consequential operations, state the trial's limits, and do not generalize from a convenient participant to humans outside the recorded conditions.
-
 ## Judge and preserve the result
 
-Before judging assertions, confirm that the trial used the recorded environment and participant conditions, kept hidden evaluator information out of the encounter, respected every safety and authority condition, and produced usable observations. A material condition that was violated or cannot be established makes the affected evidence unusable or inconclusive.
+Before judging assertions, confirm that the trial used the recorded environment and agent encounter conditions, kept hidden evaluator information out of the encounter, respected every safety and authority condition, and produced usable observations. A material condition that was violated or cannot be established makes the affected evidence unusable or inconclusive.
 
 Mark every assertion `satisfied`, `failed`, or `inconclusive` and cite the observation. The trial passes when every assertion is satisfied, fails when any assertion fails, and is otherwise inconclusive. The supported claim cannot exceed the assertions and recorded conditions.
 
