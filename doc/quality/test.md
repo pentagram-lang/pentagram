@@ -96,4 +96,4 @@ The supported claim cannot exceed the assertions. A correct answer found through
 
 A failure can belong to the documentation, test contract, trial conditions, tool, or governed system. Repair the source of the failure. Do not add hints merely to force a passing result.
 
-Test observes reader behaviour. The [lint](lint.md) document checks mechanical source properties, and [review](review.md) judges meaning, expression, and design. Use [environment testing](../../env/quality/README.md#test-environmental-effects) when the question depends on the wider instruction hierarchy, tool surface, repository composition, or interaction among systems rather than one named documentation outcome.
+Test observes reader behaviour. The [lint](lint.md) document checks mechanical source properties, and [review](review.md) judges meaning, expression, and design. Use [environment testing](../../env/quality/test.md) when the question depends on the wider instruction hierarchy, tool surface, repository composition, or interaction among systems rather than one named documentation outcome.

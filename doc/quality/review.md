@@ -209,6 +209,6 @@ A review is complete only when the required assurance was provided, every findin
 
 ## Respect the wider environment and operator
 
-Every document participates in the repository environment. Use environment review when the behaviour under review comes from the wider instruction hierarchy, repository composition, tool affordances, or interaction among systems. [Environment engineering](../../env/README.md) governs that wider boundary. Documentation review remains responsible for the document's meaning, path, expression, and evidence.
+Every document participates in the repository environment. Use [environment review](../../env/quality/review.md) when the behaviour under review comes from the wider instruction hierarchy, repository composition, tool affordances, or interaction among systems. [Environment engineering](../../env/README.md) governs that wider boundary. Documentation review remains responsible for the document's meaning, path, expression, and evidence.
 
 The operator controls requested scope and decisions that require operator authority. Escalate when resolution would change that scope, cross a safety or privilege boundary, require destructive or external action, or depend on an unavailable operator decision. Resolve ordinary findings within the project.
