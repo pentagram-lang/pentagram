@@ -90,11 +90,13 @@ Use harness-provided search tools when available, or `rg` / `rg --files` in shel
 
 The [source control](source-control.md) document governs Pentagram's Jujutsu model and shared workflow. Agents must use `jj` for every direct repository operation and must pass `--git` to every `jj diff`. They must never invoke Git directly. Repository automation may use Git only through its documented interoperability boundary.
 
-After loading required context and project state when starting distinct work or resuming after context compaction, run `jj status` and then `jj git fetch --remote origin`. `main@origin` is locally recorded remote state; naming it does not contact `origin`, and `jj rebase` does not fetch. Inspect existing project work after fetching, then start from or rebase it onto the refreshed `main@origin`.
+After loading required context and project state when starting distinct work or resuming after context compaction, run `jj status` and then `jj git fetch --remote origin`. `main@origin` is locally recorded remote state; naming it does not contact `origin`, and `jj rebase` does not fetch. Inspect existing project work with `jj log` and `jj bookmark list --all` after fetching, then start from or rebase it onto the refreshed `main@origin`.
 
-The current project's owned mutable subgraph is the authority boundary for history mutation.
+The current project's owned mutable subgraph is the authority boundary for history mutation. A remote bookmark records the last pushed graph; it does not make the project's revisions immutable. A later force push remains an external effect that requires operator authority.
 
 Within it, agents are encouraged to create, describe, split, squash, rebase, reorder, abandon, and restore changes to maintain distinct, coherent changes. Use `wip:` descriptions until preparing a final commit message.
+
+Treat `jj edit` of an earlier change as a temporary history-maintenance position. After the edit and any automatic descendant rewrites, return `@` to the latest intended project tip. Run `jj status`, inspect the graph, and run `jj bookmark list --all` before continuing task work or reporting success. An understood local-and-remote divergence from an intended force push does not make the local state unstable; leaving `@` at an earlier change does.
 
 Preparing publication includes squashing the complete branch contribution into one change, writing its final message, creating an empty `@` above it, and moving the branch bookmark to the final change.
 

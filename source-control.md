@@ -63,7 +63,18 @@ jj new --message 'wip: <work boundary>'
 
 Return to an existing change with `jj edit CHANGE`. `jj prev --edit` and `jj next --edit` move to an existing relative change; their `--no-edit` forms create a new change at the selected position instead.
 
-A project owns the mutable subgraph created or continued for its work. This ownership defines the boundary within which contributors may rewrite history. Within it, rewriting is encouraged whenever the current history no longer preserves distinct changes.
+Editing an earlier change is a temporary history-maintenance position. Jujutsu rewrites its descendants as the earlier change changes, and bookmarks on those descendants follow the rewritten changes. After finishing the earlier change, return the working copy to the latest intended project tip and inspect the stable result:
+
+```sh
+jj edit TIP
+jj status
+jj log
+jj bookmark list --all
+```
+
+Do this before continuing task work, running final checks, handing off, or reporting success. An intentional rewrite may leave a local bookmark both ahead of and behind its remote counterpart until the next authorized force push; that relationship is expected when the graph and working-copy tip match the intended result.
+
+A project owns the mutable subgraph created or continued for its work. This ownership defines the boundary within which contributors may rewrite history. A remote bookmark records the last pushed version of a branch; it does not remove the project's revisions from that boundary. Within it, rewriting is encouraged whenever the current history no longer preserves distinct changes.
 
 Use `jj split` to separate concerns that entered one change, `jj squash` to combine changes that represent one concern, and `jj rebase` to correct their order or dependencies without combining them. Changes may also be created, edited, reordered, or abandoned within the owned boundary. Do not rewrite immutable or unrelated work.
 
@@ -105,5 +116,7 @@ Moving a bookmark is local. Pushing changes the remote repository and therefore 
 ```sh
 jj git push --remote origin --bookmark BOOKMARK
 ```
+
+A branch may be force-pushed when its owned history is rewritten. Each remote update still requires authority for the named bookmark and effect.
 
 For a dependent branch stack, prepare and publish each branch from parent to child. Each branch remains one squashed change relative to its parent.

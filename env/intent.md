@@ -17,7 +17,7 @@ The [theory's environmental encounter model](theory.md#environmental-encounter) 
 - `situation`, containing the task, location, project state, and other conditions that change what the participant encounters; and
 - `encounter-noise`, ranging over conditions that omit, substitute, or distort environmental information before it becomes available to the participant.
 
-Together with `total-environment` and `environment-channel`, these inputs determine the `observed-environment` from which a participant acts. They describe the conditions under which documentation and code must produce or avoid the effect. The author decides which effects and input values apply; this guide does not prescribe them.
+Together with `total-environment` and `environment-channel`, these inputs determine the `observed-environment` from which a participant acts. They describe the conditions under which documentation and code must produce or avoid the effect.
 
 ## Give design a target
 
