@@ -28,7 +28,7 @@ The [documentation standards](../doc/README.md) govern documentation meaning, st
 
 ## Design
 
-[Design](design/README.md) turns identified effects and environmental-encounter inputs into documentation and code interventions. Its human and agent methods shape one compatible, co-beneficial environment through their distinct cognitive mechanisms.
+[Design](design/README.md) turns identified effects and environmental-encounter inputs into documentation and code interventions. Its human and agent methods use their distinct cognitive mechanisms to shape one compatible environment that benefits both.
 
 ## Quality
 

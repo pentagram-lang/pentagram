@@ -23,7 +23,7 @@ Judge every applicable dimension across the complete affected environment:
 - **Causal integrity:** the implemented documentation and code provide the causes on which the hypothesis depends, without conflicting cues or hidden gaps.
 - **Execution:** conceptual execution and actual execution agree where their relationship matters, and actual results provide useful feedback and state.
 - **Compatibility:** human and agent designs preserve one meaning, authority structure, action model, and state model.
-- **Co-benefit:** the complete result creates shared benefits through causes that reinforce both participant classes, while participant-specific gains do not create an important undesirable effect for another participant.
+- **Benefit:** the complete result benefits both human and agent participants through causes that reinforce the shared environment, while participant-specific gains do not create an important undesirable effect for another participant.
 - **Error correction:** the environment remains effective under the applicable information loss, distortion, prior tendencies, mistakes, and bounded internal conflict.
 - **Resources:** participant effort, context, time, compute, storage, and maintenance cost remain justified by the effects they support.
 

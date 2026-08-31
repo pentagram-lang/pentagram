@@ -50,7 +50,7 @@ Place a model- or harness-specific adaptation at the smallest scope that owns it
 
 Apply [human design](human.md) to the complete proposed result. Agent-specific structure must not make the human path noisy, obscure the governing meaning, or create hidden authority that a contributor cannot inspect. Human-oriented prose must not leave an agent's permitted actions, state transitions, or governing boundaries ambiguous.
 
-Choose complementary expressions that make the complete result co-beneficial. Machine-readable structure, human-readable explanation, executable constraints, and system feedback can serve different encounters while correcting one another. When the methods conflict, return to the intended effects and causal mechanisms instead of optimizing one participant class in isolation.
+Choose complementary expressions that make the complete result beneficial to both humans and agents. Machine-readable structure, human-readable explanation, executable constraints, and system feedback can serve different encounters while correcting one another. When the methods conflict, return to the intended effects and causal mechanisms instead of optimizing one participant class in isolation.
 
 ## Leave an evaluable hypothesis
 

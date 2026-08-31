@@ -46,7 +46,7 @@ Use a technique because its causal role fits the intended effect, not because it
 
 Apply [agent design](agent.md) to the complete proposed result. Preserve shared semantics even when humans and agents need different expressions or paths to them.
 
-Choose causes that make the complete result co-beneficial. Explicit relationships, concise canonical guidance, deterministic interfaces, visible state, precise diagnostics, and recoverable operations can help both participant classes through different cognitive mechanisms. Keep participant-specific material at the smallest scope where it changes the effect. It must not burden other encounters, hide authority, or create a second version of the system.
+Choose causes that make the complete result beneficial to both humans and agents. Explicit relationships, concise canonical guidance, deterministic interfaces, visible state, precise diagnostics, and recoverable operations can help both participant classes through different cognitive mechanisms. Keep participant-specific material at the smallest scope where it changes the effect. It must not burden other encounters, hide authority, or create a second version of the system.
 
 When the methods conflict, return to the identified effects and causal mechanisms. Do not silently trade an important undesirable effect on agents for a human benefit, or the reverse.
 

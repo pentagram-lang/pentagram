@@ -1,6 +1,6 @@
 # Review
 
-[Quality](README.md) uses review to find environment defects that require independent judgement. A reviewer investigates the combined documentation-and-code environment and reports problems in its causal hypothesis, encounter coverage, execution, compatibility, co-benefit, error correction, or resource effects. The author evaluates each finding against governing authority and evidence.
+[Quality](README.md) uses review to find environment defects that require independent judgement. A reviewer investigates how the combined documentation-and-code environment realizes its causal hypothesis, covers encounters, executes, remains compatible, benefits both humans and agents, corrects errors, and uses resources. The author evaluates each finding against governing authority and evidence.
 
 A report supplies evidence. It does not give the reviewer authority over the intended effects or the governed systems, and it does not decide the final judgement governed by [criteria](criteria.md).
 
@@ -26,7 +26,8 @@ Select lenses that can resolve the material uncertainty. Useful lenses include:
 - causal integrity and hidden assumptions;
 - agreement between conceptual and actual execution;
 - instruction hierarchy, authority, and cross-surface conflict;
-- human and agent compatibility, co-benefit, and asymmetric failure;
+- human and agent compatibility and asymmetric failure;
+- whether the complete result benefits both participant classes;
 - feedback, persistent state, interruption, recovery, and error correction;
 - permissions, constraints, external effects, and safety boundaries;
 - effort, context, time, compute, storage, and maintenance cost; and
