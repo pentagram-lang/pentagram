@@ -18,6 +18,8 @@ Every applicable effect and requirement must be satisfied. A clear explanation c
 
 ## Require adequate evidence
 
-Evidence must address the effect or requirement and the conditions it judges. A check, agent trial, existing record of human use, or review supports only the properties, encounter conditions, and coverage it observes.
+Evidence adequacy is proportional to the risk of each effect in scope and the leverage of affected environmental surfaces across all effects. Higher risk requires stronger evidence for the scoped effect. Higher leverage requires broader evidence for the other effects the surface can change.
+
+Evidence must address the effect or requirement and the conditions it judges. A check, environment test, existing record of human use, or review supports only the properties, conditions, and coverage it observes.
 
 The environment passes when adequate evidence establishes every applicable effect and requirement. It fails when evidence establishes that any is violated. The result is inconclusive when material evidence is missing, contradictory, or too weak to decide.

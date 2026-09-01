@@ -8,6 +8,8 @@ The [documentation quality system](../../doc/quality/README.md) continues to gov
 
 Quality begins with the identified intent and the causal hypothesis from [design](../design/README.md). It ends with a judgement over the complete evidence. Criteria governs that judgement. Test and review provide formal environment-specific evidence when their value justifies their cost.
 
+Environment quality scales evidence through two distinct properties. **Environmental risk** is the risk that an effect in scope goes wrong. **Environmental leverage** is the influence the affected environmental surface has on all effects, including effects outside the immediate scope. Risk governs the strength of evidence needed for the scoped effect; leverage governs how broadly quality must look for other effects the surface can change.
+
 Environment quality does not define a separate lint category. Exact mechanical rules remain with the documentation, code, interface, or system that owns them. Their checks provide bounded evidence about environmental causes and actual execution; they do not establish the complete environmental effects by themselves.
 
 ## Criteria
@@ -16,7 +18,7 @@ Environment quality does not define a separate lint category. Exact mechanical r
 
 ## Test
 
-[Test](test.md) puts the environment into realistic agent encounters, observes the resulting system execution, and judges observable effects under recorded conditions. Environment testing does not conduct human studies.
+[Test](test.md) puts the complete environment into an agent encounter and observes understanding, action, and any applicable system result under recorded conditions.
 
 ## Review
 

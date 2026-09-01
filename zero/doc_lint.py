@@ -330,6 +330,14 @@ def _is_companion(path):
   return path.endswith('.test.md')
 
 
+def _companion_subject_candidates(path):
+  base_path = path.removesuffix('.test.md')
+  candidates = [base_path + '.md']
+  if not base_path.endswith('.md'):
+    candidates.append(base_path)
+  return tuple(candidates)
+
+
 def _direct_children(state, readme_path):
   readme = PurePosixPath(readme_path)
   parent = readme.parent
@@ -465,22 +473,37 @@ def _check_companions(state):
   for path in state.markdown_paths:
     if not _is_companion(path):
       continue
-    source_path = path.removesuffix('.test.md') + '.md'
+    candidates = _companion_subject_candidates(path)
+    source_paths = tuple(
+      candidate
+      for candidate in candidates
+      if candidate in state.inventory_set
+    )
     line = 1
-    if source_path.endswith('.test.md'):
+    if any(_is_companion(source_path) for source_path in source_paths):
       state.add(
         path,
         line,
         'MD005',
         'a test companion cannot have a test companion',
       )
-    if source_path not in state.inventory_set:
+      continue
+    if not source_paths:
       state.add(
         path,
         line,
         'MD005',
-        f"test companion subject '{source_path}' is not an inventoried "
-        'file',
+        'test companion subject is not an inventoried file; expected '
+        + ' or '.join(f"'{candidate}'" for candidate in candidates),
+      )
+      continue
+    if len(source_paths) > 1:
+      state.add(
+        path,
+        line,
+        'MD005',
+        'test companion subject is ambiguous between '
+        + ' and '.join(f"'{source_path}'" for source_path in source_paths),
       )
       continue
     document = state.documents[path]

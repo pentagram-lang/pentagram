@@ -149,6 +149,34 @@ class DocumentationLintTest(unittest.TestCase):
       )
     )
 
+  def test_accepts_test_companion_for_non_markdown_subject(self):
+    self.write('README.md', '# Root\n')
+    self.write('parser.rs', 'fn parse() {}\n')
+    self.write(
+      'parser.rs.test.md',
+      '# Tests\n\n## Parse\n\n**Task**\n\nParse it.\n\n'
+      '**Assert**\n\n- It works.\n',
+    )
+
+    self.assertEqual((), self.diagnostics())
+
+  def test_rejects_ambiguous_test_companion_subject(self):
+    self.write_root_index([('Parser', 'parser.rs.md')])
+    self.write('parser.rs', 'fn parse() {}\n')
+    self.write('parser.rs.md', '# Parser\n')
+    self.write(
+      'parser.rs.test.md',
+      '# Tests\n\n## Parse\n\n**Task**\n\nParse it.\n\n'
+      '**Assert**\n\n- It works.\n',
+    )
+
+    diagnostics = self.diagnostics()
+
+    self.assertEqual(['MD005'], self.codes())
+    self.assertIn('subject is ambiguous', diagnostics[0].message)
+    self.assertIn("'parser.rs.md'", diagnostics[0].message)
+    self.assertIn("'parser.rs'", diagnostics[0].message)
+
   def test_rejects_empty_tasks_and_assertion_lists(self):
     self.write_root_index([('Guide', 'guide.md')])
     self.write('guide.md', '# Guide\n')

@@ -40,7 +40,7 @@ Index and leaf are exclusive roles: no document should attempt to be both. When 
 
 A small surface can remain entirely in its README. Add a leaf when a subject needs independent depth, a distinct path to use, or a stable target. Length alone is not a reason to split a document, and avoiding another file is not a reason to combine unrelated jobs.
 
-A structured format can define a **companion** whose exact path binds it to an index or leaf. A companion supports its owner without becoming another authority or ordinary navigation child. The format must define discovery, structure, and validation precisely; otherwise make the content a leaf with an index entry. For example, [test: store tests beside their subject](../quality/test.md#store-tests-beside-their-subject) binds `guide.test.md` to `guide.md` when both files occupy the same directory.
+A structured format can define a **companion** whose exact path binds it to another repository file. A companion supports its owner without becoming another authority or ordinary navigation child. The format must define discovery, structure, and validation precisely; otherwise make the content a leaf with an index entry. For example, [test: store tests beside their subject](../quality/test.md#store-tests-beside-their-subject) binds `guide.test.md` to `guide.md` and `parser.rs.test.md` to `parser.rs` when each pair occupies the same directory.
 
 ## Give each document one clear job
 

@@ -29,7 +29,7 @@ Design uses the effects and their `participant`, `situation`, and `encounter-noi
 
 ## Give quality a basis
 
-Quality evaluates the effects across the identified `participant`, `situation`, and `encounter-noise` conditions. It chooses evidence proportionate to each effect's risk and leverage; intent does not prescribe a test or metric.
+Quality evaluates the effects across the identified `participant`, `situation`, and `encounter-noise` conditions. It chooses evidence proportionate to the risk of each effect and the leverage of the affected environmental surfaces; intent does not prescribe a test or metric.
 
 Quality compares the resulting environmental effects with the author's intent. If evidence shows that the intent is incomplete, conflicting, or no longer suitable, the author must identify the revised intent before continuing design or evaluation.
 

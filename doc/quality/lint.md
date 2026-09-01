@@ -30,7 +30,7 @@ When a README has direct children, each child must have exactly one H2 section t
 
 ## Test companions
 
-A file ending in `.test.md` must have its subject document beside it: `guide.test.md` requires `guide.md`. Nested companions such as `guide.test.test.md` fail.
+A file ending in `.test.md` must identify exactly one inventoried subject beside it. Removing `.test.md` gives the base path. The possible subjects are the base path and the base path with `.md` appended; a base path that already ends in `.md` cannot identify itself. `guide.test.md` therefore identifies `guide.md`, while `parser.rs.test.md` can identify `parser.rs`. Missing, ambiguous, and nested companions fail.
 
 The companion must follow the headings, labels, order, and required content defined by [test: write the test contract](test.md#write-the-test-contract). The rule checks the form, not whether the tasks or assertions are useful or correct.
 

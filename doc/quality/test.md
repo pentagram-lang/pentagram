@@ -1,8 +1,8 @@
 # Test
 
-[Quality](README.md) uses test to put documentation into use. An independent subagent receives a realistic reader task. The trial succeeds or fails through returned answers and citations, produced artifacts, and observable effects—not through the subagent's opinion of its own understanding.
+[Quality](README.md) uses test to put documentation into use, regardless of the file type that contains it. An independent subagent receives a realistic reader task. The trial succeeds or fails through returned answers and citations, produced artifacts, and observable effects—not through the subagent's opinion of its own understanding.
 
-Subagent trials directly observe reader behaviour that [lint](lint.md) and [review](review.md) can only infer. Each trial also consumes substantial time and compute and supports only a bounded claim under its recorded conditions. Documentation tests are valuable evidence, but they are not cheap coding unit tests to accumulate or run by default.
+Subagent trials directly observe reader understanding and action that [lint](lint.md) and [review](review.md) can only infer. Documentation-test assertions do not cover results that actual system execution permits or produces. Each trial also consumes substantial time and compute and supports only a bounded claim under its recorded conditions. Documentation tests are valuable evidence, but they are not cheap coding unit tests to accumulate or run by default.
 
 ## Design test coverage
 
@@ -26,9 +26,13 @@ New evidence can change both coverage and the run plan. A documentation failure 
 
 ## Store tests beside their subject
 
-Name a test companion by changing its subject document's `.md` ending to `.test.md`, and keep both files in the same directory. Tests for `guide.md` therefore belong in `guide.test.md`. Tests for `README.md` belong in `README.test.md`.
+Every test companion ends in `.test.md` and stays beside its subject. Replace a Markdown subject's `.md` ending: tests for `guide.md` belong in `guide.test.md`. Append `.test.md` to any other subject's complete filename: tests for `parser.rs` belong in `parser.rs.test.md`.
 
-The subject document is the test's default authority. Name another governing source only when an assertion depends on it. The companion stores the stable test contract; trial output belongs in project or review evidence.
+The companion path must identify exactly one inventoried subject. Removing `.test.md` from the companion gives its base path. The possible subjects are that base path and the base path with `.md` appended; a base path that already ends in `.md` cannot identify itself. A companion fails when neither or both possible subjects exist.
+
+Placement identifies the subject, not its governing authority or test kind. A documentation test follows [documentation criteria](criteria.md) to the applicable documentation requirements wherever that documentation is expressed. An environment test follows [environment criteria](../../env/quality/criteria.md) to the identified intent, design, and affected documentation and code requirements. The companion stores the stable test contract; test results belong in project or review evidence.
+
+Documentation tests and [environment tests](../../env/quality/test.md) for the same subject coexist in this companion and use the same schema. Either test kind can accompany any file. Each test's task and assertions determine which quality criteria its result can support; the subject's file type does not. Do not create a separate environment-test companion or schema.
 
 ## Write the test contract
 
@@ -56,8 +60,8 @@ Give the reader another realistic question or action.
 
 **Assert**
 
-- State each required observable result.
-- State any prohibited result.
+- State each required observable outcome.
+- State any prohibited outcome.
 ```
 
 The form has three structural rules:
@@ -66,9 +70,11 @@ The form has three structural rules:
 - Every H2 is a unique test name with a non-empty `Task` followed by a non-empty `Assert` list.
 - No other headings are permitted.
 
-The standard rules in [test: run an independent trial](#run-an-independent-trial) apply to every test. Do not repeat them in a task.
+These structural rules apply to both documentation and environment tests. The distinct causal boundary, assertion scope, and additional encounter rules belong to [environment tests](../../env/quality/test.md).
 
-Each task owns its reader situation and test-specific conditions. State only conditions that can affect the result, such as fixtures, available tools, narrow reading exclusions, or prior knowledge.
+The standard rules in [test: run an independent trial](#run-an-independent-trial) apply to every documentation test. Do not repeat them in a task.
+
+Each documentation-test task owns its reader situation and test-specific conditions. State only conditions that can affect the result, such as fixtures, available tools, narrow reading exclusions, or prior knowledge.
 
 Give the reader enough information to begin without supplying the path, model, or conclusion being tested. State assertions as visible outcomes. Do not ask for private reasoning or self-assessment. Include prohibited outcomes when their absence matters.
 
@@ -76,7 +82,7 @@ When the trial must establish that the subject documentation enabled the result,
 
 ## Run an independent trial
 
-Run the test from the repository root against the repository as it exists. Start a fresh subagent with no inherited conversation context. Give the subagent the task, but not the test companion or assertions. Tell the subagent not to read `*.test.md` or active project state and not to run `0 proj`.
+Run a documentation test from the repository root against the repository as it exists. Start a fresh subagent with no inherited conversation context. Give the subagent the task, but not the test companion or assertions. Tell the subagent not to read `*.test.md` or active project state and not to run `0 proj`.
 
 Let the subagent use the rest of the repository normally. When access to another area could materially reveal the expected result or change the intended reader situation, state the exclusion in the task. Keep exclusions narrow and state the contamination they prevent.
 
@@ -88,7 +94,7 @@ A test contract does not authorize destructive, privileged, credentialed, or ext
 
 ## Judge the result
 
-Before judging assertions, confirm that the trial used a fresh context, kept the companion and assertions hidden, and followed every task condition. A trial that violates a required condition, or whose compliance cannot be established, is unusable and must be rerun.
+Before judging documentation-test assertions, confirm that the trial used a fresh context, kept the companion and assertions hidden, and followed every task condition. A trial that violates a required condition, or whose compliance cannot be established, is unusable and must be rerun.
 
 Compare all preserved evidence with each assertion. Mark every assertion `satisfied`, `failed`, or `inconclusive`, and cite the observation. The trial passes when every assertion is satisfied, fails when any assertion fails, and is otherwise inconclusive.
 
@@ -96,4 +102,4 @@ The supported claim cannot exceed the assertions. A correct answer found through
 
 A failure can belong to the documentation, test contract, trial conditions, tool, or governed system. Repair the source of the failure. Do not add hints merely to force a passing result.
 
-Test observes reader behaviour. The [lint](lint.md) document checks mechanical source properties, and [review](review.md) judges meaning, expression, and design. Use [environment testing](../../env/quality/test.md) when the question depends on the wider instruction hierarchy, tool surface, repository composition, or interaction among systems rather than one named documentation outcome.
+Test observes reader understanding and action attributable to documentation; it never asserts a result of actual system execution. The [lint](lint.md) document checks mechanical source properties, and [review](review.md) judges meaning, expression, and design. Use [environment tests](../../env/quality/test.md) when an agent encounter with the complete environment must establish understanding or action and may also establish a system result.

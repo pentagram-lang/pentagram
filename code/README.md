@@ -32,6 +32,8 @@ mod module_test;
 
 Shadow tests are a narrative of behaviour, not placeholders. Tests contain no comments; use descriptive names and local helpers instead.
 
+Implementation tests assert only results of actual execution. They do not assert participant understanding or action. Use [documentation tests](../doc/quality/test.md) for reader understanding or action attributable to documentation. Use [environment tests](../env/quality/test.md) when an agent encounter with the complete environment must establish understanding or action and may also establish a system result.
+
 Test functions and helpers do not return `Result`. Extract successful results with `expect` or `unwrap`, extract expected failures with `expect_err`, and assert the error's complete content. Do not use `is_ok`, `is_err`, or manual matches merely to probe a result.
 
 Use high-fidelity assertions on complete outcomes. Prefer `pretty_assertions` for equality checks. Do not assert only a length or one field when the complete result can be compared.
