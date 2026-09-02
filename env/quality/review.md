@@ -14,11 +14,11 @@ Choose one kind. If the result alone can establish the effects and relationships
 
 ## Scale and bound the review
 
-Start from the identified effects, the affected `total-environment`, and its relevant state. Record the material consequence of a missed defect, uncertainty about the causal hypothesis and effects, and environmental leverage. Use that basis to choose the subject boundary, investigation depth, supporting evidence, checks, lenses, and re-review conditions. It does not produce a numerical score.
+Start from the identified effects, the affected `total-environment`, and its relevant state. Record the environmental risk of each effect in scope and the leverage of each affected environmental surface across all effects. Use risk to set the strength of evidence needed for the scoped effects and leverage to set the breadth needed to inspect other effects the surfaces can change. Use that basis to choose the subject boundary, investigation depth, supporting evidence, checks, lenses, and re-review conditions. It does not produce a numerical score.
 
 Name the exact environment, effect, change, relationship, or claim the reviewer is responsible for. Include every documentation, code, interface, tool, response, and state boundary needed to judge that subject. State real exclusions, but do not suggest likely defects or a desired conclusion.
 
-Select lenses that can resolve the material uncertainty. Useful lenses include:
+Select lenses that address the environmental risk and leverage. Useful lenses include:
 
 - intended and important undesirable effects;
 - `participant`, `situation`, and `encounter-noise` coverage;
@@ -55,7 +55,7 @@ The packet is the complete assignment. Include:
 - the causal hypothesis and material assumptions under review;
 - the comparison base and diff path for a change review;
 - the stable-subject rule and response to a changed boundary;
-- the consequence, uncertainty, leverage, and required assurance;
+- the environmental risk of each effect, the leverage of each affected surface across all effects, and the required assurance;
 - the required lenses;
 - [criteria](criteria.md) as the quality authority;
 - additional governing authority and evidence supplied as inputs;
@@ -84,7 +84,9 @@ Causal hypothesis: <intervention points, causal path, and material assumptions>
 Scope: <exact responsibility and real exclusions>
 Comparison: <base and diff path for change review, or not applicable>
 Subject stability: <read-only reviewer, unchanged boundary, and response to change>
-Consequence, uncertainty, and leverage: <basis for the review>
+Environmental risk: <risk of each effect in scope going wrong>
+Environmental leverage: <affected surfaces and their influence across all
+effects>
 Required assurance: <scope, investigation, evidence, checks, and re-review>
 Lenses: <assigned environment lenses>
 Quality authority: env/quality/criteria.md
@@ -107,7 +109,7 @@ without expanding the search. Do not answer a review question, infer a desired
 conclusion, or treat preference as a defect.
 
 Return the supplied report form. Give causal evidence for every finding. Record
-subject coverage, quality coverage, and material gaps in evidence or certainty.
+subject coverage, quality coverage, and material evidence gaps.
 ```
 
 ## Run the review independently
@@ -132,6 +134,8 @@ Use this report form:
 - Intended and important undesirable effects:
 - Participant, situation, and encounter-noise coverage:
 - Comparison base and diff:
+- Environmental risk:
+- Environmental leverage:
 - Lenses and required assurance:
 - Assurance provided:
 - Quality authority:
@@ -155,17 +159,18 @@ Use this report form:
 - Requirement or authority:
 - Causal evidence:
 - Observed or predicted environmental effect:
-- Consequence:
+- Environmental risk:
+- Affected environmental surface and leverage:
 - Repair boundary:
-- Uncertainty:
+- Evidence limits:
 
 ## Re-review status
 
 - Target finding: resolved | remains | inconclusive — evidence
 
-## Remaining uncertainty
+## Remaining evidence gaps
 
-- Uncertainty and evidence needed to resolve it
+- Evidence gap and evidence needed to resolve it
 ```
 
 Give one numbered subsection to each finding. Mark incidental findings without expanding review coverage. When no defect is established, write `No findings established.` under Findings. That result is not approval. An initial review uses `Not applicable.` for Re-review status.
@@ -184,14 +189,14 @@ Preserve this evaluation with the report:
 - Review status: complete | incomplete — reason
 - Environment-quality judgement: pass | fail | inconclusive — evidence
 - Finding dispositions:
-- Remaining uncertainty and required follow-up:
+- Remaining evidence gaps and required follow-up:
 ```
 
 Repair accepted findings at their source. Change intent when the intended effects are defective, design when the hypothesis or intervention is defective, documentation or code when their expression or execution is defective, and tests or tools when the evidence mechanism is defective.
 
 Directly inspect each repair and every affected boundary. Run applicable checks and [environment tests](test.md). Choose current or change re-review by the same distinction as the initial review. Continue with the original reviewer when their investigative context helps test the repair; use a fresh reviewer when the boundary changed or another independent judgement matters.
 
-Give the reviewer one complete re-review packet containing the original text and evidence for every target. Re-review the complete current content and state of every affected boundary. Track each finding to a supported resolution, explicit decision, preserved uncertainty, or authorized exclusion; do not close it merely to complete the report.
+Give the reviewer one complete re-review packet containing the original text and evidence for every target. Re-review the complete current content and state of every affected boundary. Track each finding to a supported resolution, explicit decision, preserved evidence gap, or authorized exclusion; do not close it merely to complete the report.
 
 ## Combine documentation and environment review
 
