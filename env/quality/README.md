@@ -6,7 +6,7 @@ Every repository change has environment-quality authorship. The author identifie
 
 The [documentation quality system](../../doc/quality/README.md) continues to govern documentation, and the [coding standards](../../code/README.md) continue to govern implementation and ordinary tests. Environment quality owns the combined environmental effects that neither artifact boundary establishes alone.
 
-Quality begins with the identified intent and the causal hypothesis from [design](../design/README.md). It ends with a judgement over the complete evidence. Criteria governs that judgement. Test and review provide formal environment-specific evidence when their value justifies their cost.
+Quality begins with the identified intent and the causal hypothesis from [design](../design/README.md). It ends with a judgement over the complete evidence. Criteria governs that judgement. Test and review provide formal environment-specific evidence only when the material evidence they can add justifies their full resource cost: authoring and maintenance effort, participant context, compute, and system work.
 
 Environment quality scales evidence through two distinct properties. **Environmental risk** belongs to an effect in scope: it is the possibility and seriousness of that effect going wrong because the environment fails to produce or preserve a desirable environmental effect or produces an important undesirable environmental effect. Assess it qualitatively from the credible ways the effect can diverge from intent across its applicable inputs and how seriously those divergences matter. Risk governs the strength of evidence needed for that effect.
 

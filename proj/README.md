@@ -1,4 +1,4 @@
-# Project Workflow
+# Project workflow
 
 ## Purpose
 
@@ -300,6 +300,15 @@ Commands validate the selected project even when an update carries no field chan
 Starting a task records its start time. Completing, blocking, reopening, or otherwise changing task status records the state transition and appends to its running log. Task-log reads are bounded by default and can be limited or filtered by a Unix timestamp. Tags remain free-form metadata; they do not replace authoritative status, stage, blocker, or decision records.
 
 A task with an open blocker cannot be started or moved to active status. A handoff current task must represent live work in active, verifying, or blocked status; completed, cancelled, and merely planned tasks remain discoverable through task reads but cannot be presented as the current execution point.
+
+The active goal, current stage, and current task in a handoff must describe one coherent control state:
+
+- **Make a task current.** A task can omit a stage. When it has one, the stage must be active before the task becomes active. A task linked to a goal can become current only while that goal is current and active. A goal-less task can become current only when no goal is current. Making the task current also makes its stage current, or clears the current stage when the task has none.
+- **Retain current work when a goal blocks.** Blocking a current goal preserves its current task as the recovery point. The task's goal must remain current and may be active or blocked; moving the task to active or newly selecting any task requires the goal to be active. Preservation does not authorize work past the blocker: the blocker record states what can proceed independently.
+- **Keep the task and stage live.** A current task with a stage requires that stage to be active, verifying, or blocked. An active current task requires an active stage. The stage cannot become pending, achieved, or superseded while the task remains current.
+- **Activate a stage.** When a goal is current, the stage must belong to it. When a task is current, the stage must also be that task's stage. A stage can become active without a goal only when no goal is current.
+- **Activate or end a goal.** Any current stage must belong to a goal before that goal becomes active, and any current task must belong to it. A new goal cannot become active while another task is current. A current goal cannot be achieved or superseded until its current task ends.
+- **Update or read the state.** A direct state update must preserve the same relationships. A handoff read rejects state that violates them instead of presenting incompatible records as one current authority. A terminal stage may remain current when no task is current.
 
 When a current task is completed or becomes planned after all blockers resolve, the project clears that handoff pointer rather than retaining stale work as current.
 

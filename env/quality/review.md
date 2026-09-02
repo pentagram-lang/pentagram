@@ -16,6 +16,8 @@ Choose one kind. If the result alone can establish the effects and relationships
 
 Start from the identified effects, the affected `total-environment`, and its relevant state. For each effect in scope, identify the credible material ways it can diverge from intent and use that environmental risk to set evidentiary strength. For each affected environmental surface, trace plausible causal paths to every effect it can materially change and use that environmental leverage to set evidentiary breadth. Stop expanding the boundary when no further material effect can change through such a path. Use this basis to choose investigation depth, supporting evidence, checks, lenses, and re-review conditions. It does not produce a numerical score.
 
+Independent review consumes authoring and maintenance effort, reviewer context, compute, and system work. Before preparing an assignment, weigh the material evidence review can add against the evidence already available and those resource costs. Several reviews, one review, or no review can each be appropriate; choose the smallest set that can supply adequate evidence and reassess it when the environment or evidence changes.
+
 Name the exact environment, effect, change, relationship, or claim the reviewer is responsible for. Include every documentation, code, interface, tool, response, and state boundary needed to judge that subject. State real exclusions, but do not suggest likely defects or a desired conclusion.
 
 Select lenses that address the environmental risk and leverage. Useful lenses include:

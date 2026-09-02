@@ -18,7 +18,9 @@ Every applicable effect and requirement must be satisfied. A clear explanation c
 
 ## Require adequate evidence
 
-Evidence adequacy is proportional to the risk of each effect in scope and the leverage of affected environmental surfaces across all effects. Identify the credible material ways each scoped effect can diverge from intent; more credible or more serious failure modes require stronger evidence for that effect. Follow each affected surface through every plausible causal path by which it can materially change another effect; broader causal reach requires broader evidence. Stop expanding the boundary when no further material effect can change through such a path.
+Evidence adequacy is proportional to the risk of each effect in scope and the leverage of affected environmental surfaces across all effects. Identify the credible material ways each scoped effect can diverge from intent and how seriously those divergences matter; more credible or more serious failure modes require stronger evidence for that effect. Positive evidence does not itself assess risk: state the material divergence and seriousness even when existing evidence later makes the effect well supported. Group effects only when the same divergence, seriousness, and evidentiary strength apply. Follow each affected surface through every plausible causal path by which it can materially change another effect; broader causal reach requires broader evidence. Stop expanding the boundary when no further material effect can change through such a path.
+
+Formal environment testing and review are not default evidence. Include one only when the material evidence it can add, relative to the evidence already available, justifies its authoring, maintenance, context, compute, and system cost. Choose the smallest set that can make the complete evidence adequate, and stop when further work cannot materially change the judgement.
 
 Evidence must address the effect or requirement and the conditions it judges. A check, environment test, existing record of human use, or review supports only the properties, conditions, and coverage it observes.
 

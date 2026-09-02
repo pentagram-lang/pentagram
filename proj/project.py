@@ -514,6 +514,174 @@ def _ensure_goal_stage(connection, goal_id, stage_id, relationship):
     )
 
 
+def _active_goal(connection):
+  return connection.execute(
+    """
+    SELECT ps.active_goal_id AS id, g.status
+    FROM project_state ps
+    LEFT JOIN goal g ON g.id = ps.active_goal_id
+    WHERE ps.id = 1
+    """
+  ).fetchone()
+
+
+def _ensure_task_goal_is_current(
+  connection, goal_id, requiring_active=False
+):
+  active_goal = _active_goal(connection)
+  active_goal_id = active_goal['id']
+  if active_goal_id != goal_id:
+    if active_goal_id is None:
+      raise ProjectError(
+        f'Task goal {goal_id} is not the active goal'
+        if goal_id is not None
+        else 'A current task cannot have an inactive goal'
+      )
+    if goal_id is None:
+      raise ProjectError(
+        f'A current task must link to active goal {active_goal_id}'
+      )
+    raise ProjectError(
+      f'Task goal {goal_id} does not match active goal {active_goal_id}'
+    )
+  if active_goal_id is not None and active_goal['status'] not in (
+    'active',
+    'blocked',
+  ):
+    raise ProjectError(
+      f'Current goal {active_goal_id} is {active_goal["status"]}'
+    )
+  if requiring_active and active_goal_id is not None:
+    if active_goal['status'] != 'active':
+      raise ProjectError(
+        f'A task can become current only while goal {active_goal_id} is '
+        f'{active_goal["status"]}'
+      )
+
+
+def _ensure_task_stage_is_active(connection, stage_id):
+  if stage_id is None:
+    return
+  stage = connection.execute(
+    'SELECT status FROM stage WHERE id = ?', (stage_id,)
+  ).fetchone()
+  if stage['status'] != 'active':
+    raise ProjectError(
+      f'Cannot start a task while stage {stage_id} is {stage["status"]}'
+    )
+
+
+def _ensure_current_task_stage(
+  connection, task_status, stage_id, stage_status=UNSET
+):
+  if stage_id is None:
+    return
+  if stage_status is UNSET:
+    stage_status = connection.execute(
+      'SELECT status FROM stage WHERE id = ?', (stage_id,)
+    ).fetchone()['status']
+  if stage_status not in ('active', 'verifying', 'blocked'):
+    raise ProjectError(
+      f'A current task requires a live stage; stage {stage_id} is '
+      f'{stage_status}'
+    )
+  if task_status == 'active' and stage_status != 'active':
+    raise ProjectError(
+      f'An active current task requires an active stage; stage '
+      f'{stage_id} is {stage_status}'
+    )
+
+
+def _set_current_task(connection, task_id, stage_id, goal_id):
+  _ensure_task_goal_is_current(connection, goal_id)
+  _ensure_goal_stage(connection, goal_id, stage_id, 'Current task')
+  task_status = connection.execute(
+    'SELECT status FROM task WHERE id = ?', (task_id,)
+  ).fetchone()['status']
+  _ensure_current_task_stage(connection, task_status, stage_id)
+  connection.execute(
+    """
+    UPDATE project_state
+    SET current_task_id = ?, current_stage_id = ?
+    WHERE id = 1
+    """,
+    (task_id, stage_id),
+  )
+
+
+def _ensure_goal_can_be_current(connection, goal_id):
+  state = connection.execute(
+    'SELECT current_stage_id, current_task_id '
+    'FROM project_state WHERE id = 1'
+  ).fetchone()
+  _ensure_goal_stage(
+    connection, goal_id, state['current_stage_id'], 'Current'
+  )
+  if state['current_task_id'] is None:
+    return
+  task = connection.execute(
+    'SELECT status, goal_id, stage_id FROM task WHERE id = ?',
+    (state['current_task_id'],),
+  ).fetchone()
+  _ensure_current_task_stage(connection, task['status'], task['stage_id'])
+  if task['goal_id'] != goal_id:
+    raise ProjectError(
+      'The current task does not belong to the goal being activated'
+    )
+  if task['stage_id'] != state['current_stage_id']:
+    raise ProjectError(
+      'The current task stage does not match the current stage'
+    )
+
+
+def _ensure_stage_can_be_current(connection, stage_id):
+  state = connection.execute(
+    'SELECT active_goal_id, current_task_id '
+    'FROM project_state WHERE id = 1'
+  ).fetchone()
+  _ensure_goal_stage(
+    connection, state['active_goal_id'], stage_id, 'Current'
+  )
+  if state['current_task_id'] is None:
+    return
+  task = connection.execute(
+    'SELECT stage_id FROM task WHERE id = ?',
+    (state['current_task_id'],),
+  ).fetchone()
+  if task['stage_id'] != stage_id:
+    raise ProjectError(
+      'The stage being activated does not match the current task stage'
+    )
+
+
+def _ensure_stage_transition_preserves_current_task(
+  connection, stage_id, stage_status
+):
+  current_task_id = connection.execute(
+    'SELECT current_task_id FROM project_state WHERE id = 1'
+  ).fetchone()['current_task_id']
+  if current_task_id is None:
+    return
+  task = connection.execute(
+    'SELECT status, stage_id FROM task WHERE id = ?',
+    (current_task_id,),
+  ).fetchone()
+  if task['stage_id'] == stage_id:
+    _ensure_current_task_stage(
+      connection, task['status'], stage_id, stage_status
+    )
+
+
+def _ensure_no_current_task(connection, transition):
+  current_task_id = connection.execute(
+    'SELECT current_task_id FROM project_state WHERE id = 1'
+  ).fetchone()['current_task_id']
+  if current_task_id is not None:
+    raise ProjectError(
+      f'{transition} requires the current task to end first'
+    )
+
+
 def create_goal(root, name, text, stages):
   validate_goal_text(text)
   stage_references = (
@@ -555,6 +723,7 @@ def create_goal(root, name, text, stages):
         'INSERT INTO goal_stage (goal_id, stage_id) VALUES (?, ?)',
         ((goal_id, stage_id) for stage_id in stage_ids),
       )
+      _ensure_goal_can_be_current(connection, goal_id)
       connection.execute(
         'UPDATE project_state SET active_goal_id = ? WHERE id = 1',
         (goal_id,),
@@ -718,6 +887,7 @@ def achieve_goal(root, name, reference=None):
           'Achieving a goal requires at least one goal-linked '
           'evidence entry'
         )
+      _ensure_no_current_task(connection, 'Achieving a goal')
       timestamp = current_time()
       connection.execute(
         """
@@ -751,6 +921,7 @@ def supersede_goal(root, name, reference=None, reason=''):
           f'goal {goal_id} '
           f'is {goal["status"]}'
         )
+      _ensure_no_current_task(connection, 'Superseding a goal')
       timestamp = current_time()
       connection.execute(
         """
@@ -796,6 +967,7 @@ def reopen_goal(root, name, reference=None):
       ).fetchone()['active_goal_id']
       if active is not None and active != goal_id:
         raise ProjectError('Project already has another active goal')
+      _ensure_goal_can_be_current(connection, goal_id)
       timestamp = current_time()
       connection.execute(
         """
@@ -1026,20 +1198,66 @@ def _apply_state_update(connection, values):
   if values['next_action'] is not UNSET:
     assignments.append('next_action = ?')
     parameters.append(values['next_action'])
-  if values['current_stage'] is not UNSET:
-    assignments.append('current_stage_id = ?')
-    parameters.append(_resolve_stage(connection, values['current_stage']))
+  stage_id = (
+    _resolve_stage(connection, values['current_stage'])
+    if values['current_stage'] is not UNSET
+    else UNSET
+  )
   if values['current_task'] is not UNSET:
     task_id = _resolve_task(connection, values['current_task'])
+    current_task_id = connection.execute(
+      'SELECT current_task_id FROM project_state WHERE id = 1'
+    ).fetchone()['current_task_id']
     task = connection.execute(
-      'SELECT status FROM task WHERE id = ?', (task_id,)
+      'SELECT status, stage_id, goal_id FROM task WHERE id = ?',
+      (task_id,),
     ).fetchone()
     if task['status'] not in ('active', 'verifying', 'blocked'):
       raise ProjectError(
         'A handoff current task must be active, verifying, or blocked'
       )
+    _ensure_current_task_stage(
+      connection, task['status'], task['stage_id']
+    )
+    if stage_id is not UNSET and stage_id != task['stage_id']:
+      raise ProjectError(
+        'A handoff current stage must match the current task stage'
+      )
+    _ensure_task_goal_is_current(
+      connection,
+      task['goal_id'],
+      requiring_active=current_task_id != task_id,
+    )
+    _ensure_goal_stage(
+      connection, task['goal_id'], task['stage_id'], 'Current task'
+    )
     assignments.append('current_task_id = ?')
     parameters.append(task_id)
+    assignments.append('current_stage_id = ?')
+    parameters.append(task['stage_id'])
+  elif stage_id is not UNSET:
+    state = connection.execute(
+      'SELECT active_goal_id, current_task_id '
+      'FROM project_state WHERE id = 1'
+    ).fetchone()
+    if state['current_task_id'] is not None:
+      task = connection.execute(
+        'SELECT status, stage_id, goal_id FROM task WHERE id = ?',
+        (state['current_task_id'],),
+      ).fetchone()
+      _ensure_current_task_stage(
+        connection, task['status'], task['stage_id']
+      )
+      if task['stage_id'] != stage_id:
+        raise ProjectError(
+          'A handoff current stage must match the current task stage'
+        )
+      _ensure_task_goal_is_current(connection, task['goal_id'])
+    _ensure_goal_stage(
+      connection, state['active_goal_id'], stage_id, 'Current'
+    )
+    assignments.append('current_stage_id = ?')
+    parameters.append(stage_id)
   if not assignments:
     return False
   connection.execute(
@@ -1150,6 +1368,10 @@ def update_stage(root, project_name, reference, **values):
       'SELECT status, exit_evidence FROM stage WHERE id = ?',
       (stage_id,),
     ).fetchone()
+    if 'status' in values:
+      _ensure_stage_transition_preserves_current_task(
+        connection, stage_id, values['status']
+      )
     if values.get('status') == 'active':
       dependency = connection.execute(
         """
@@ -1167,6 +1389,7 @@ def update_stage(root, project_name, reference, **values):
         raise ProjectError(
           f'Stage dependency is not achieved: {dependency["name"]}'
         )
+      _ensure_stage_can_be_current(connection, stage_id)
     if values.get('status') == 'achieved':
       exit_evidence = values.get('exit_evidence', stage['exit_evidence'])
       evidence = connection.execute(
@@ -1430,18 +1653,27 @@ def update_task(root, name, reference, **values):
     if not values:
       return
     task = connection.execute(
-      'SELECT stage_id, goal_id FROM task WHERE id = ?', (task_id,)
+      'SELECT status, stage_id, goal_id FROM task WHERE id = ?',
+      (task_id,),
     ).fetchone()
     target_stage = values.get('stage_id', task['stage_id'])
     target_goal = values.get('goal_id', task['goal_id'])
     _ensure_goal_stage(connection, target_goal, target_stage, 'Task')
+    current_task_id = connection.execute(
+      'SELECT current_task_id FROM project_state WHERE id = 1'
+    ).fetchone()['current_task_id']
     with connection:
       assignments = ', '.join(f'{field} = ?' for field in values)
       parameters = list(values.values())
       status = values.get('status')
       timestamp = current_time()
       if status == 'active':
-        _ensure_task_can_start(connection, task_id)
+        _ensure_task_can_start(
+          connection,
+          task_id,
+          stage_id=target_stage,
+          goal_id=target_goal,
+        )
         assignments += (
           ', started_at = COALESCE(started_at, ?), completed_at = NULL'
         )
@@ -1457,12 +1689,13 @@ def update_task(root, name, reference, **values):
         f'UPDATE task SET {assignments} WHERE id = ?', parameters
       )
       if status == 'active':
-        connection.execute(
-          'UPDATE project_state SET current_task_id = ? WHERE id = 1',
-          (task_id,),
-        )
+        _set_current_task(connection, task_id, target_stage, target_goal)
       elif status in ('planned', 'completed', 'cancelled'):
         _clear_current_task(connection, task_id)
+      elif current_task_id == task_id and (
+        'stage_id' in values or 'goal_id' in values
+      ):
+        _set_current_task(connection, task_id, target_stage, target_goal)
       if status is not None:
         connection.execute(
           'INSERT INTO task_log '
@@ -1498,7 +1731,7 @@ def start_task(root, name, reference):
   try:
     with connection:
       task_id = _resolve_task(connection, reference)
-      _ensure_task_can_start(connection, task_id)
+      task = _ensure_task_can_start(connection, task_id)
       timestamp = current_time()
       connection.execute(
         """
@@ -1514,18 +1747,20 @@ def start_task(root, name, reference):
         '(task_id, occurred_at, kind, message) VALUES (?, ?, ?, ?)',
         (task_id, timestamp, 'started', 'Task started'),
       )
-      connection.execute(
-        'UPDATE project_state SET current_task_id = ? WHERE id = 1',
-        (task_id,),
+      _set_current_task(
+        connection, task_id, task['stage_id'], task['goal_id']
       )
       _touch(connection)
   finally:
     connection.close()
 
 
-def _ensure_task_can_start(connection, task_id):
+def _ensure_task_can_start(
+  connection, task_id, stage_id=UNSET, goal_id=UNSET
+):
   task = connection.execute(
-    'SELECT status FROM task WHERE id = ?', (task_id,)
+    'SELECT status, stage_id, goal_id FROM task WHERE id = ?',
+    (task_id,),
   ).fetchone()
   if task['status'] in ('completed', 'cancelled', 'blocked'):
     raise ProjectError(f'Cannot start task in status {task["status"]}')
@@ -1534,6 +1769,18 @@ def _ensure_task_can_start(connection, task_id):
     (task_id,),
   ).fetchone():
     raise ProjectError('Cannot start a task with open blockers')
+  target_stage = task['stage_id'] if stage_id is UNSET else stage_id
+  target_goal = task['goal_id'] if goal_id is UNSET else goal_id
+  _ensure_goal_stage(connection, target_goal, target_stage, 'Task')
+  _ensure_task_goal_is_current(
+    connection, target_goal, requiring_active=True
+  )
+  _ensure_task_stage_is_active(connection, target_stage)
+  return {
+    **dict(task),
+    'stage_id': target_stage,
+    'goal_id': target_goal,
+  }
 
 
 def _clear_current_task(connection, task_id):
@@ -1922,6 +2169,7 @@ def resolve_blocker(root, name, reference, resolution):
           and goal['status'] == 'blocked'
           and (active_goal is None or active_goal == blocker['goal_id'])
         ):
+          _ensure_goal_can_be_current(connection, blocker['goal_id'])
           connection.execute(
             """
             UPDATE goal
@@ -2002,6 +2250,46 @@ def read_evidence(root, name, limit=20):
     connection.close()
 
 
+def _validate_handoff_state(connection, state):
+  active_goal_id = state['active_goal_id']
+  current_stage_id = state['current_stage_id']
+  current_task_id = state['current_task_id']
+  if active_goal_id is not None:
+    active_goal = _active_goal(connection)
+    if active_goal['status'] not in ('active', 'blocked'):
+      raise ProjectError(
+        f'Handoff current goal is {active_goal["status"]}'
+      )
+  if active_goal_id is not None and current_stage_id is not None:
+    _ensure_goal_stage(
+      connection, active_goal_id, current_stage_id, 'Current'
+    )
+  if current_task_id is None:
+    return
+  task = connection.execute(
+    'SELECT status, goal_id, stage_id FROM task WHERE id = ?',
+    (current_task_id,),
+  ).fetchone()
+  if task is None:
+    raise ProjectError('Handoff current task does not exist')
+  if task['status'] not in ('active', 'verifying', 'blocked'):
+    raise ProjectError(
+      'Handoff current task must be active, verifying, or blocked'
+    )
+  _ensure_current_task_stage(connection, task['status'], task['stage_id'])
+  if task['goal_id'] != active_goal_id:
+    raise ProjectError(
+      'Handoff current task goal does not match the active goal'
+    )
+  if task['stage_id'] != current_stage_id:
+    raise ProjectError(
+      'Handoff current task stage does not match the current stage'
+    )
+  _ensure_goal_stage(
+    connection, task['goal_id'], task['stage_id'], 'Current task'
+  )
+
+
 def read_handoff(root, name):
   connection = open_project(root, name)
   try:
@@ -2011,6 +2299,7 @@ def read_handoff(root, name):
     state = _row_dict(
       connection.execute('SELECT * FROM project_state').fetchone()
     )
+    _validate_handoff_state(connection, state)
     goal = (
       _read_goal_record(connection, state['active_goal_id'])
       if state['active_goal_id'] is not None

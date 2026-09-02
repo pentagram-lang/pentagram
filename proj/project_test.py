@@ -162,6 +162,201 @@ class ProjectControlPlaneTest(unittest.TestCase):
     self.assertIsNotNone(completed['task']['completed_at'])
     self.assertEqual(completed['logs'][-1]['kind'], 'status')
 
+  def test_task_start_requires_an_active_stage_and_makes_it_current(self):
+    self.create_project()
+    first_stage = add_stage(self.root, 'demo', 'first', 'First stage')
+    second_stage = add_stage(self.root, 'demo', 'second', 'Second stage')
+    task_id = add_task(
+      self.root, 'demo', 'Second-stage task', stage=second_stage
+    )
+
+    with self.assertRaisesRegex(ProjectError, 'stage .* is pending'):
+      start_task(self.root, 'demo', task_id)
+    with self.assertRaisesRegex(ProjectError, 'stage .* is pending'):
+      update_task(self.root, 'demo', task_id, status='active')
+
+    update_stage(self.root, 'demo', second_stage, status='active')
+    update_stage(self.root, 'demo', first_stage, status='active')
+    start_task(self.root, 'demo', task_id)
+
+    handoff = read_handoff(self.root, 'demo')
+    self.assertEqual(handoff['task']['id'], task_id)
+    self.assertEqual(handoff['stage']['id'], second_stage)
+
+  def test_stage_activation_requires_the_active_goal_relationship(self):
+    self.create_project()
+    first_stage = add_stage(self.root, 'demo', 'first', 'First stage')
+    second_stage = add_stage(self.root, 'demo', 'second', 'Second stage')
+    update_stage(self.root, 'demo', first_stage, status='active')
+    goal_id = create_goal(
+      self.root, 'demo', 'Complete the first stage', (first_stage,)
+    )
+
+    with self.assertRaisesRegex(ProjectError, 'not linked to goal'):
+      update_stage(self.root, 'demo', second_stage, status='active')
+
+    handoff = read_handoff(self.root, 'demo')
+    self.assertEqual(handoff['stage']['id'], first_stage)
+    self.assertEqual(handoff['goal']['goal']['id'], goal_id)
+
+  def test_stage_activation_preserves_the_current_task_stage(self):
+    self.create_project()
+    first_stage = add_stage(self.root, 'demo', 'first', 'First stage')
+    second_stage = add_stage(self.root, 'demo', 'second', 'Second stage')
+    update_stage(self.root, 'demo', second_stage, status='active')
+    update_stage(self.root, 'demo', first_stage, status='active')
+    goal_id = create_goal(
+      self.root,
+      'demo',
+      'Complete both stages',
+      (first_stage, second_stage),
+    )
+    task_id = add_task(
+      self.root,
+      'demo',
+      'First-stage task',
+      stage=first_stage,
+      goal=goal_id,
+    )
+    start_task(self.root, 'demo', task_id)
+
+    with self.assertRaisesRegex(ProjectError, 'current task stage'):
+      update_stage(self.root, 'demo', second_stage, status='active')
+
+    handoff = read_handoff(self.root, 'demo')
+    self.assertEqual(handoff['stage']['id'], first_stage)
+    self.assertEqual(handoff['task']['id'], task_id)
+
+  def test_stage_status_preserves_the_current_task_lifecycle(self):
+    self.create_project()
+    stage_id = add_stage(
+      self.root,
+      'demo',
+      'build',
+      'Build the result',
+      exit_evidence='The result is established',
+    )
+    update_stage(self.root, 'demo', stage_id, status='active')
+    task_id = add_task(self.root, 'demo', 'Build task', stage=stage_id)
+    start_task(self.root, 'demo', task_id)
+    add_evidence(
+      self.root,
+      'demo',
+      'The stage result is established',
+      stage=stage_id,
+      task=task_id,
+    )
+
+    invalid_statuses = {
+      'pending': 'current task requires a live stage',
+      'verifying': 'active current task requires an active stage',
+      'blocked': 'active current task requires an active stage',
+      'achieved': 'current task requires a live stage',
+      'superseded': 'current task requires a live stage',
+    }
+    for status, error in invalid_statuses.items():
+      with self.subTest(status=status):
+        with self.assertRaisesRegex(ProjectError, error):
+          update_stage(self.root, 'demo', stage_id, status=status)
+
+    update_task(self.root, 'demo', task_id, status='verifying')
+    update_stage(self.root, 'demo', stage_id, status='verifying')
+    handoff = read_handoff(self.root, 'demo')
+    self.assertEqual(handoff['task']['status'], 'verifying')
+    self.assertEqual(handoff['stage']['status'], 'verifying')
+
+  def test_current_task_reassignment_requires_a_live_active_stage(self):
+    self.create_project()
+    active_stage = add_stage(self.root, 'demo', 'active', 'Active stage')
+    pending_stage = add_stage(
+      self.root, 'demo', 'pending', 'Pending stage'
+    )
+    terminal_stage = add_stage(
+      self.root, 'demo', 'terminal', 'Terminal stage'
+    )
+    update_stage(self.root, 'demo', terminal_stage, status='active')
+    update_stage(self.root, 'demo', terminal_stage, status='superseded')
+    update_stage(self.root, 'demo', active_stage, status='active')
+    task_id = add_task(
+      self.root, 'demo', 'Active task', stage=active_stage
+    )
+    start_task(self.root, 'demo', task_id)
+
+    for stage_id in (pending_stage, terminal_stage):
+      with self.subTest(stage_id=stage_id):
+        with self.assertRaisesRegex(
+          ProjectError, 'current task requires a live stage'
+        ):
+          update_task(self.root, 'demo', task_id, stage_id=stage_id)
+
+    handoff = read_handoff(self.root, 'demo')
+    self.assertEqual(handoff['task']['stage_id'], active_stage)
+    self.assertEqual(handoff['stage']['id'], active_stage)
+
+  def test_task_start_requires_the_active_goal(self):
+    self.create_project()
+    stage_id = add_stage(self.root, 'demo', 'build', 'Build the result')
+    update_stage(self.root, 'demo', stage_id, status='active')
+    first_goal = create_goal(
+      self.root, 'demo', 'Build the first result', (stage_id,)
+    )
+    old_task = add_task(
+      self.root,
+      'demo',
+      'Old goal task',
+      stage=stage_id,
+      goal=first_goal,
+    )
+    supersede_goal(self.root, 'demo', first_goal)
+    second_goal = create_goal(
+      self.root, 'demo', 'Build the second result', (stage_id,)
+    )
+    current_task = add_task(
+      self.root,
+      'demo',
+      'Current goal task',
+      stage=stage_id,
+      goal=second_goal,
+    )
+    goal_less_task = add_task(
+      self.root, 'demo', 'Goal-less task', stage=stage_id
+    )
+
+    with self.assertRaisesRegex(
+      ProjectError, 'does not match active goal'
+    ):
+      start_task(self.root, 'demo', old_task)
+    with self.assertRaisesRegex(ProjectError, 'must link to active goal'):
+      start_task(self.root, 'demo', goal_less_task)
+    start_task(self.root, 'demo', current_task)
+
+    handoff = read_handoff(self.root, 'demo')
+    self.assertEqual(handoff['goal']['goal']['id'], second_goal)
+    self.assertEqual(handoff['task']['id'], current_task)
+
+  def test_task_activation_uses_updated_goal_and_stage_relationships(self):
+    self.create_project()
+    stage_id = add_stage(self.root, 'demo', 'build', 'Build the result')
+    update_stage(self.root, 'demo', stage_id, status='active')
+    goal_id = create_goal(
+      self.root, 'demo', 'Build the result', (stage_id,)
+    )
+    task_id = add_task(self.root, 'demo', 'Unassigned task')
+
+    update_task(
+      self.root,
+      'demo',
+      task_id,
+      stage_id=stage_id,
+      goal_id=goal_id,
+      status='active',
+    )
+
+    handoff = read_handoff(self.root, 'demo')
+    self.assertEqual(handoff['state']['active_goal_id'], goal_id)
+    self.assertEqual(handoff['state']['current_stage_id'], stage_id)
+    self.assertEqual(handoff['state']['current_task_id'], task_id)
+
   def test_blocking_completed_task_clears_completion_time(self):
     self.create_project()
     task_id = add_task(self.root, 'demo', 'Regress completion state')
@@ -264,6 +459,107 @@ class ProjectControlPlaneTest(unittest.TestCase):
     with self.assertRaises(ProjectError):
       update_state(self.root, 'demo', current_task=task_id)
 
+  def test_state_update_requires_the_current_task_stage(self):
+    self.create_project()
+    first_stage = add_stage(self.root, 'demo', 'first', 'First stage')
+    second_stage = add_stage(self.root, 'demo', 'second', 'Second stage')
+    update_stage(self.root, 'demo', first_stage, status='active')
+    update_stage(self.root, 'demo', second_stage, status='active')
+    task_id = add_task(
+      self.root, 'demo', 'Second-stage task', stage=second_stage
+    )
+    start_task(self.root, 'demo', task_id)
+
+    with self.assertRaisesRegex(ProjectError, 'must match'):
+      update_state(
+        self.root,
+        'demo',
+        current_stage=first_stage,
+        current_task=task_id,
+      )
+    with self.assertRaisesRegex(ProjectError, 'must match'):
+      update_state(self.root, 'demo', current_stage=first_stage)
+
+  def test_handoff_rejects_inconsistent_stale_relationships(self):
+    path = self.create_project()
+    first_stage = add_stage(self.root, 'demo', 'first', 'First stage')
+    second_stage = add_stage(self.root, 'demo', 'second', 'Second stage')
+    update_stage(self.root, 'demo', first_stage, status='active')
+    update_stage(self.root, 'demo', second_stage, status='active')
+    goal_id = create_goal(
+      self.root,
+      'demo',
+      'Complete the second stage',
+      (first_stage, second_stage),
+    )
+    task_id = add_task(
+      self.root,
+      'demo',
+      'Second-stage task',
+      stage=second_stage,
+      goal=goal_id,
+    )
+    start_task(self.root, 'demo', task_id)
+
+    with sqlite3.connect(path) as connection:
+      connection.execute(
+        'UPDATE project_state SET current_stage_id = ? WHERE id = 1',
+        (first_stage,),
+      )
+
+    with self.assertRaisesRegex(ProjectError, 'stage does not match'):
+      read_handoff(self.root, 'demo')
+
+  def test_handoff_rejects_a_stale_terminal_current_stage(self):
+    path = self.create_project()
+    stage_id = add_stage(self.root, 'demo', 'build', 'Build the result')
+    update_stage(self.root, 'demo', stage_id, status='active')
+    task_id = add_task(self.root, 'demo', 'Build task', stage=stage_id)
+    start_task(self.root, 'demo', task_id)
+
+    with sqlite3.connect(path) as connection:
+      connection.execute(
+        "UPDATE stage SET status = 'achieved' WHERE id = ?",
+        (stage_id,),
+      )
+
+    with self.assertRaisesRegex(ProjectError, 'requires a live stage'):
+      read_handoff(self.root, 'demo')
+
+  def test_handoff_accepts_a_terminal_current_stage_without_a_task(self):
+    self.create_project()
+    stage_id = add_stage(
+      self.root,
+      'demo',
+      'build',
+      'Build the result',
+      exit_evidence='The result is established',
+    )
+    update_stage(self.root, 'demo', stage_id, status='active')
+    add_evidence(
+      self.root, 'demo', 'The result is established', stage=stage_id
+    )
+    update_stage(self.root, 'demo', stage_id, status='achieved')
+
+    handoff = read_handoff(self.root, 'demo')
+    self.assertEqual(handoff['stage']['status'], 'achieved')
+    self.assertIsNone(handoff['task'])
+
+  def test_handoff_rejects_a_stale_terminal_current_goal(self):
+    path = self.create_project()
+    stage_id = add_stage(self.root, 'demo', 'build', 'Build the result')
+    goal_id = create_goal(
+      self.root, 'demo', 'Build the result', (stage_id,)
+    )
+
+    with sqlite3.connect(path) as connection:
+      connection.execute(
+        "UPDATE goal SET status = 'achieved' WHERE id = ?", (goal_id,)
+      )
+
+    with self.assertRaisesRegex(ProjectError, 'current goal is achieved'):
+      read_handoff(self.root, 'demo')
+
   def test_decision_and_evidence_reads_reject_unbounded_limits(self):
     self.create_project()
     add_decision(self.root, 'demo', 'Record a decision')
@@ -279,6 +575,7 @@ class ProjectControlPlaneTest(unittest.TestCase):
     stage_id = add_stage(
       self.root, 'demo', 'validate', 'Validate behaviour'
     )
+    update_stage(self.root, 'demo', stage_id, status='active')
     task_id = add_task(self.root, 'demo', 'Run validation', stage=stage_id)
     blocker_id = block_task(
       self.root,
@@ -473,8 +770,8 @@ class ProjectControlPlaneTest(unittest.TestCase):
       '--task',
       '1',
     )
-    invoke('stage', 'achieve', 'lifecycle', 'build')
     invoke('task', 'complete', 'lifecycle', '1')
+    invoke('stage', 'achieve', 'lifecycle', 'build')
     invoke(
       'update',
       'lifecycle',
@@ -609,6 +906,64 @@ class ProjectControlPlaneTest(unittest.TestCase):
         goal=goal_id,
       )
 
+  def test_goal_activation_and_completion_preserve_current_state(self):
+    self.create_project()
+    first_stage = add_stage(self.root, 'demo', 'first', 'First result')
+    second_stage = add_stage(self.root, 'demo', 'second', 'Second result')
+    update_stage(self.root, 'demo', first_stage, status='active')
+
+    with self.assertRaisesRegex(ProjectError, 'not linked to goal'):
+      create_goal(
+        self.root,
+        'demo',
+        'Advance the second result',
+        (second_stage,),
+      )
+
+    goal_id = create_goal(
+      self.root, 'demo', 'Advance the first result', (first_stage,)
+    )
+    task_id = add_task(
+      self.root,
+      'demo',
+      'Current goal task',
+      stage=first_stage,
+      goal=goal_id,
+    )
+    start_task(self.root, 'demo', task_id)
+    add_evidence(
+      self.root,
+      'demo',
+      'The goal result is established',
+      stage=first_stage,
+      task=task_id,
+      goal=goal_id,
+    )
+
+    with self.assertRaisesRegex(ProjectError, 'current task to end'):
+      achieve_goal(self.root, 'demo', goal_id)
+    with self.assertRaisesRegex(ProjectError, 'current task to end'):
+      supersede_goal(self.root, 'demo', goal_id)
+
+    complete_task(self.root, 'demo', task_id)
+    achieve_goal(self.root, 'demo', goal_id)
+    self.assertIsNone(read_handoff(self.root, 'demo')['goal'])
+
+  def test_new_goal_rejects_an_unrelated_current_task(self):
+    self.create_project()
+    stage_id = add_stage(self.root, 'demo', 'build', 'Build the result')
+    update_stage(self.root, 'demo', stage_id, status='active')
+    task_id = add_task(self.root, 'demo', 'Existing task', stage=stage_id)
+    start_task(self.root, 'demo', task_id)
+
+    with self.assertRaisesRegex(ProjectError, 'does not belong'):
+      create_goal(self.root, 'demo', 'Build the result', (stage_id,))
+
+    self.assertIsNone(read_handoff(self.root, 'demo')['goal'])
+    self.assertEqual(
+      read_handoff(self.root, 'demo')['task']['id'], task_id
+    )
+
   def test_goal_completion_requires_evidence_and_clears_active_pointer(
     self,
   ):
@@ -659,6 +1014,70 @@ class ProjectControlPlaneTest(unittest.TestCase):
     )
     self.assertEqual(
       read_handoff(self.root, 'demo')['state']['active_goal_id'], goal_id
+    )
+
+  def test_blocked_goal_retains_current_work_for_recovery(self):
+    self.create_project()
+    stage_id = add_stage(self.root, 'demo', 'build', 'Build the result')
+    update_stage(self.root, 'demo', stage_id, status='active')
+    goal_id = create_goal(
+      self.root, 'demo', 'Build the result', (stage_id,)
+    )
+    retained_task = add_task(
+      self.root,
+      'demo',
+      'Retained live task',
+      stage=stage_id,
+      goal=goal_id,
+    )
+    start_task(self.root, 'demo', retained_task)
+    block_goal(self.root, 'demo', goal_id, 'Exceptional boundary')
+
+    update_state(self.root, 'demo', current_task=retained_task)
+    handoff = read_handoff(self.root, 'demo')
+    self.assertEqual(handoff['goal']['goal']['status'], 'blocked')
+    self.assertEqual(handoff['task']['id'], retained_task)
+    self.assertEqual(handoff['task']['status'], 'active')
+    self.assertIn(
+      f'Active goal: {goal_id} (blocked)', format_handoff(handoff)
+    )
+
+  def test_blocked_goal_rejects_new_current_work(self):
+    self.create_project()
+    stage_id = add_stage(self.root, 'demo', 'build', 'Build the result')
+    update_stage(self.root, 'demo', stage_id, status='active')
+    goal_id = create_goal(
+      self.root, 'demo', 'Build the result', (stage_id,)
+    )
+    candidate_task = add_task(
+      self.root,
+      'demo',
+      'Candidate task',
+      stage=stage_id,
+      goal=goal_id,
+    )
+    retained_task = add_task(
+      self.root,
+      'demo',
+      'Retained task',
+      stage=stage_id,
+      goal=goal_id,
+    )
+    start_task(self.root, 'demo', candidate_task)
+    start_task(self.root, 'demo', retained_task)
+    block_goal(self.root, 'demo', goal_id, 'Exceptional boundary')
+
+    with self.assertRaisesRegex(ProjectError, 'become current only'):
+      update_state(self.root, 'demo', current_task=candidate_task)
+
+    block_task(
+      self.root, 'demo', candidate_task, 'The candidate is also blocked'
+    )
+    with self.assertRaisesRegex(ProjectError, 'become current only'):
+      update_state(self.root, 'demo', current_task=candidate_task)
+
+    self.assertEqual(
+      read_handoff(self.root, 'demo')['task']['id'], retained_task
     )
 
   def test_goal_supersession_is_distinct_from_achievement(self):

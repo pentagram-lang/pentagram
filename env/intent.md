@@ -25,7 +25,9 @@ The environmental encounter model also explains why an effect depends on what re
 
 Together with `total-environment` and `environment-channel`, these inputs determine the `observed-environment` from which a participant acts. They describe the conditions under which documentation and code must produce, preserve, or avoid the effect.
 
-When an effect depends on correcting a material frame distortion, identify the distortion and the `participant`, `situation`, or `encounter-noise` condition through which it enters the encounter. State the adequate frame or protected result that the environment must restore or preserve.
+Classify each condition by its causal role. Prior human experience and model tendencies belong to `participant`; task, location, and access conditions belong to `situation`; and only omission, substitution, or distortion in environmental information belongs to `encounter-noise`. An instruction, tool behaviour, response, or persistent fact created or preserved by documentation or code remains in the `total-environment`, even when it supplies incorrect information. Do not repeat it as an external encounter condition.
+
+When an effect depends on correcting a material frame distortion, identify the distortion and how it enters the observed environment. Keep a documentation or code cause in the `total-environment` and name its path through `environment-channel`. Classify an external cause as `participant`, `situation`, or `encounter-noise` according to its causal role. State the adequate frame or protected result that the environment must restore or preserve.
 
 ## Give design a target
 
