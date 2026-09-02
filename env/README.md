@@ -4,7 +4,7 @@
 
 Documentation states what Pentagram means and shapes how readers understand it. Code is both environmental text and the expression of executable systems. Those systems enforce constraints, expose affordances, return feedback, and preserve state. Environment engineering deliberately designs how documentation and code produce these effects together.
 
-High quality documentation and code do not guarantee a good environment. Together, they can still produce undesirable environmental effects or fail to support desirable ones, allowing prior human experience, model training, or other conditions to determine the result. For each subject they work on, authors identify how they intend the environment to work—which environmental effects are desirable and undesirable—and apply environment engineering to shape documentation and code towards that intent.
+High-quality documentation and code do not guarantee a good environment. Together, they can still produce important undesirable environmental effects or fail to support desirable environmental effects, allowing prior human experience, model training, or other conditions to determine the result. Within the authority governing each subject they work on, authors identify how they intend the environment to work—which desirable environmental effects the environment should produce or preserve and which important undesirable environmental effects it should avoid—and apply environment engineering to shape documentation and code towards that intent.
 
 `env/` contains shared environment-engineering guidance. It does not supply predetermined intents or contain project-specific designs and evidence. Documentation and code remain with their subjects. When another reader, system, or future decision must rely on an author's identified intent, the author records it with the subject.
 
@@ -22,11 +22,11 @@ The [documentation standards](../doc/README.md) govern documentation meaning, st
 
 ## Theory
 
-[Theory](theory.md) explains how text and systems shape LLM probabilities and human schemas, how compatible cues establish durable frames, and how the combined environment remains robust against error.
+[Theory](theory.md) presents Pentagram's adopted model of how text and systems can condition LLM probabilities, activate human schemas, support durable frame reconstruction, and correct frame distortion. Its mechanisms support causal hypotheses; evidence determines their effects in a particular encounter.
 
 ## Intent
 
-[Intent](intent.md) guides authors in identifying how they intend the environment to work for the subject, including which environmental effects are desirable and undesirable. The identified intent directs design and gives quality a basis for evaluation. The guide does not prescribe those effects or require every intent to be recorded in repository text.
+[Intent](intent.md) guides authors in identifying how they intend the environment to work for the subject, including the desirable environmental effects and important undesirable environmental effects. The identified intent directs design and gives quality a basis for evaluation. The guide does not prescribe those effects or require every intent to be recorded in repository text.
 
 ## Design
 

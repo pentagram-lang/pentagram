@@ -18,7 +18,9 @@ Test coverage identifies the intended effects that need evidence from an agent e
 
 Environment tests consume authoring and maintenance effort, agent context, compute, and system work. These tests are not cheap executable unit tests to accumulate or run by default.
 
-For each effect, weigh its environmental risk and the affected environmental surface's leverage across all effects, the evidence already available, and what an encounter could establish against the resources required to create, maintain, and run the test. Higher risk can justify stronger evidence for the scoped effect; higher leverage can justify broader coverage of other effects the surface can change. Expand coverage only where an encounter can add material evidence. The right coverage can be several tests, one test, or none; choose the smallest set that provides adequate evidence across the applicable encounter conditions.
+For each effect, identify the credible material ways it can diverge from intent and use that risk to choose evidentiary strength. Trace plausible causal paths from each affected environmental surface to the effects it can materially change and use that leverage to choose evidentiary breadth. Stop expanding the boundary when no further material effect can change through such a path.
+
+Weigh the evidence an encounter could add against the evidence already available and the resources required to create, maintain, and run the test. Expand test coverage only where an encounter can add material evidence. The right coverage can be several tests, one test, or none; choose the smallest set that provides adequate evidence across the applicable encounter conditions.
 
 Use a documentation test when every assertion concerns reader understanding or action attributable to documentation. Use an implementation test when every assertion concerns results of actual execution and does not depend on participant understanding or action. Use an environment test when an agent encounter with the affected `total-environment` must establish understanding or action. Add a result assertion only when actual execution is part of the intended environmental effect.
 
@@ -34,13 +36,15 @@ New evidence can change both coverage and the run plan. Reassess coverage first,
 
 ## Write the encounter and assertions
 
-In `Task`, give the agent a realistic situation and include every condition that can change the observed environment. State fixtures, available tools, permissions, relevant state, prior interaction, or narrow access exclusions only when the encounter depends on them.
+In `Task`, give the agent a realistic situation and include every condition that can change the observed environment. State fixtures, available tools, permissions, relevant state, prior interaction, or narrow access exclusions only when the encounter depends on them. Keep state created or preserved by documentation and code in the `total-environment`; a `situation` can select or refer to that state but must not duplicate it as an independent input.
 
-Every assertion must describe an intended environmental effect:
+Classify an assertion by the proposition it makes, not by the output, tool call, artifact, or other observation that supplies its evidence. Every assertion must describe an intended environmental effect:
 
 - **Understanding** is evidenced by observable answer content, explanation, or decision.
-- **Action** is evidenced by observable output, tool use, artifact, or omission of a prohibited action.
-- **Result** is evidenced by an observable consequence that actual system execution permits or produces.
+- **Action** concerns participant conduct or choice. Observable output, tool use, an artifact, or omission of a prohibited action can supply its evidence.
+- **Result** concerns an observable system consequence that actual execution permits or produces.
+
+One observation can support separate action and result assertions, but it does not collapse their boundaries. An agent invoking a tool is an action; the tool rejecting an unsafe request, returning a value, or changing persistent state is a result.
 
 An environment test can use understanding or action as its only assertions. Include a result only when it is part of the intended effect under test. Do not request private reasoning or accept self-assessment as evidence of understanding.
 

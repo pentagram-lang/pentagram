@@ -24,9 +24,9 @@ Move complexity into the environment when documentation or code can resolve it r
 >
 > A command asks the human to copy several internal identifiers from another tool. A simpler design derives the identifiers, shows the resolved target for confirmation, and retains an explicit override for the exceptional case. The system carries the routine complexity without taking away control.
 
-## Keep humans in control and make errors recoverable
+## Keep humans in control and support recovery
 
-Humans must be able to understand and direct consequential action. When error remains possible, the environment must make it detectable and support recovery instead of treating perfect attention as a prerequisite.
+Humans must be able to understand and direct consequential action. When a participant mistake or system failure remains possible, the environment must make it detectable and support recovery instead of treating perfect attention as a prerequisite.
 
 Make the consequence apparent before commitment. Let the human stop, correct, or reverse an action where the governed system permits it. Use constraints when an important undesirable effect should not remain possible, and make feedback explain the state that actually resulted.
 
@@ -46,6 +46,6 @@ Begin with the barriers faced by humans who would otherwise be excluded. Preserv
 
 ## Produce a human design hypothesis
 
-State the intended effect the intervention serves, the environmental cause it changes, the resulting path through the whole experience, and the effects predicted under the applicable `participant`, `situation`, and `encounter-noise` conditions. Mark unsupported beliefs about humans as assumptions.
+State the intended effect the intervention serves, the environmental cause it changes, the resulting path through the whole experience, and the effects predicted under the applicable `participant`, `situation`, and `encounter-noise` conditions. When the effect depends on correcting a frame distortion, state the material distortion and how the path corrects it. Mark unsupported beliefs about humans as assumptions.
 
-[Environment quality](../quality/README.md) uses that hypothesis to select proportionate evidence and judge the implemented result. Apply [agent design](agent.md) to the same proposed environment before accepting it; a human benefit cannot excuse an important undesirable agent effect.
+[Environment quality](../quality/README.md) uses that hypothesis to select proportionate evidence and judge the implemented result. Apply [agent design](agent.md) to the same proposed environment before accepting it; a human benefit cannot excuse an important undesirable environmental effect on agents.

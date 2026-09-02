@@ -4,21 +4,21 @@ Within [quality](README.md), environment quality is one judgement over the affec
 
 ## Use the governing inputs
 
-Use intent for the desirable and important undesirable effects and their applicable `participant`, `situation`, and `encounter-noise` conditions. Use the [environmental encounter model](../theory.md#environmental-encounter) to identify the affected `total-environment`. Use the design hypothesis for the environmental causes and predicted path to each effect.
+Use intent for the desirable environmental effects and important undesirable environmental effects and their applicable `participant`, `situation`, and `encounter-noise` conditions. Use the [environmental encounter model](../theory.md#environmental-encounter) to identify the affected `total-environment`. Use the design hypothesis for the environmental causes and predicted path to each effect.
 
 Apply the requirements owned by the affected documentation, code, interfaces, and systems. Environment quality judges their combined effects; it does not replace their local authority.
 
 ## Require the whole environment
 
-The complete environment must produce every desirable effect and avoid every important undesirable effect across the applicable encounter conditions. Documentation and code together must realize the causal hypothesis. Conceptual and actual execution must agree where their relationship affects the result.
+The complete environment must produce or preserve every desirable environmental effect and avoid every important undesirable environmental effect across the applicable encounter conditions. Documentation and code together must realize the causal hypothesis. Conceptual and actual execution must agree where their relationship affects the result.
 
-Human and agent paths may differ, but they must preserve the same governing meaning and remain compatible. The complete environment must benefit both participant classes, correct the identified errors, and justify its resource use.
+Human and agent paths may differ, but they must preserve the same governing meaning and remain compatible. The complete environment must produce or preserve at least one desirable environmental effect for each participant class and correct every material frame distortion identified by intent and design.
 
-Every applicable effect and requirement must be satisfied. A clear explanation cannot compensate for an unsafe action surface. A benefit for one participant class cannot compensate for an important undesirable effect on the other.
+Every applicable effect and requirement must be satisfied. A clear explanation cannot compensate for an unsafe action surface. A benefit for one participant class cannot compensate for an important undesirable environmental effect on the other.
 
 ## Require adequate evidence
 
-Evidence adequacy is proportional to the risk of each effect in scope and the leverage of affected environmental surfaces across all effects. Higher risk requires stronger evidence for the scoped effect. Higher leverage requires broader evidence for the other effects the surface can change.
+Evidence adequacy is proportional to the risk of each effect in scope and the leverage of affected environmental surfaces across all effects. Identify the credible material ways each scoped effect can diverge from intent; more credible or more serious failure modes require stronger evidence for that effect. Follow each affected surface through every plausible causal path by which it can materially change another effect; broader causal reach requires broader evidence. Stop expanding the boundary when no further material effect can change through such a path.
 
 Evidence must address the effect or requirement and the conditions it judges. A check, environment test, existing record of human use, or review supports only the properties, conditions, and coverage it observes.
 

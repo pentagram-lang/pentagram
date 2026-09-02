@@ -16,7 +16,7 @@ State the result directly and define the evidence that distinguishes completion 
 
 ## Treat context as an interface, not a dump
 
-Every contextual cue can change the next generated token. More context is not automatically more understanding: irrelevant material dilutes useful cues, while repeated authority creates competing versions of the task.
+Every contextual cue can change the next generated token. More context is not automatically more understanding: irrelevant material can dilute useful cues, while repeated authority can create competing versions of the task.
 
 Include information because it can change the result. Keep durable authority at its canonical scope, keep task-specific facts with the task, and make the role of each source unmistakable. State a governing instruction once. Use structure whenever the role of adjacent content could otherwise be confused.
 
@@ -68,6 +68,6 @@ Begin with the smallest clear environment that expresses the result and boundari
 
 ## Produce an agent design hypothesis
 
-State the required result, the environmental causes the intervention changes, the expected path through context and execution, and the effects predicted under the applicable `participant`, `situation`, and `encounter-noise` conditions. Record material model and harness assumptions without generalizing beyond them.
+State the required result, the environmental causes the intervention changes, the expected path through context and execution, and the effects predicted under the applicable `participant`, `situation`, and `encounter-noise` conditions. When the effect depends on correcting a frame distortion, state the material distortion and how the path corrects it. Record material model and harness assumptions without generalizing beyond them.
 
-[Environment quality](../quality/README.md) uses that hypothesis to select proportionate evidence and judge the implemented result. Apply [human design](human.md) to the same proposed environment before accepting it; an agent benefit cannot excuse an important undesirable human effect.
+[Environment quality](../quality/README.md) uses that hypothesis to select proportionate evidence and judge the implemented result. Apply [human design](human.md) to the same proposed environment before accepting it; an agent benefit cannot excuse an important undesirable environmental effect on humans.

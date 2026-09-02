@@ -1,6 +1,6 @@
 # Review
 
-[Quality](README.md) uses review to find environment defects that require independent judgement. A reviewer investigates how the combined documentation-and-code environment realizes its causal hypothesis, covers encounters, executes, remains compatible, benefits both humans and agents, corrects errors, and uses resources. The author evaluates each finding against governing authority and evidence.
+[Quality](README.md) uses review to find environment defects that require independent judgement. A reviewer investigates the assigned causal relationship across documentation, code, participants, and execution. Review can expose failures of compatibility, benefit, correction of frame distortion, recovery, and resource use that narrower evidence misses. The author evaluates each finding against governing authority and evidence.
 
 A report supplies evidence. It does not give the reviewer authority over the intended effects or the governed systems, and it does not decide the final judgement governed by [criteria](criteria.md).
 
@@ -14,13 +14,13 @@ Choose one kind. If the result alone can establish the effects and relationships
 
 ## Scale and bound the review
 
-Start from the identified effects, the affected `total-environment`, and its relevant state. Record the environmental risk of each effect in scope and the leverage of each affected environmental surface across all effects. Use risk to set the strength of evidence needed for the scoped effects and leverage to set the breadth needed to inspect other effects the surfaces can change. Use that basis to choose the subject boundary, investigation depth, supporting evidence, checks, lenses, and re-review conditions. It does not produce a numerical score.
+Start from the identified effects, the affected `total-environment`, and its relevant state. For each effect in scope, identify the credible material ways it can diverge from intent and use that environmental risk to set evidentiary strength. For each affected environmental surface, trace plausible causal paths to every effect it can materially change and use that environmental leverage to set evidentiary breadth. Stop expanding the boundary when no further material effect can change through such a path. Use this basis to choose investigation depth, supporting evidence, checks, lenses, and re-review conditions. It does not produce a numerical score.
 
 Name the exact environment, effect, change, relationship, or claim the reviewer is responsible for. Include every documentation, code, interface, tool, response, and state boundary needed to judge that subject. State real exclusions, but do not suggest likely defects or a desired conclusion.
 
 Select lenses that address the environmental risk and leverage. Useful lenses include:
 
-- intended and important undesirable effects;
+- desirable environmental effects and important undesirable environmental effects;
 - `participant`, `situation`, and `encounter-noise` coverage;
 - environmental-channel selection, ordering, transformation, and exposure;
 - causal integrity and hidden assumptions;
@@ -28,7 +28,7 @@ Select lenses that address the environmental risk and leverage. Useful lenses in
 - instruction hierarchy, authority, and cross-surface conflict;
 - human and agent compatibility and asymmetric failure;
 - whether the complete result benefits both participant classes;
-- feedback, persistent state, interruption, recovery, and error correction;
+- feedback, persistent state, interruption, recovery, and correction of frame distortion;
 - permissions, constraints, external effects, and safety boundaries;
 - effort, context, time, compute, storage, and maintenance cost; and
 - model, harness, dependency, and version drift.
@@ -50,9 +50,10 @@ The packet is the complete assignment. Include:
 - the review phase and kind;
 - the subject, scope, and real exclusions;
 - the affected `total-environment`, relevant state, and dependencies;
-- the desirable and important undesirable effects;
+- the desirable environmental effects and important undesirable environmental effects;
 - the applicable `participant`, `situation`, and `encounter-noise` inputs;
 - the causal hypothesis and material assumptions under review;
+- any material frame distortions the causal hypothesis must correct;
 - the comparison base and diff path for a change review;
 - the stable-subject rule and response to a changed boundary;
 - the environmental risk of each effect, the leverage of each affected surface across all effects, and the required assurance;
@@ -64,6 +65,8 @@ The packet is the complete assignment. Include:
 - the report form.
 
 The criteria delegate to identified intent, theory, design, documentation, coding, and local subject requirements. The reviewer follows that delegation and independently establishes the applicable authority and evidence from durable repository sources. Supplied intent identifies the effects to judge; it must not be phrased as a desired review conclusion.
+
+Record state created or preserved by documentation and code as part of the `total-environment`. A `situation` can select or refer to that state; do not repeat it as an independent encounter input.
 
 Prepare the complete packet before starting. Do not substitute inherited conversation context for the packet. A re-review packet also includes the original text and evidence for every target finding.
 
@@ -78,9 +81,13 @@ Review phase: <initial or re-review>
 Review kind: <current or change>
 Subject: <environment, effect, change, relationship, or claim>
 Environment boundary and state: <total-environment, state, and dependencies>
-Intended effects: <desirable and important undesirable effects>
-Encounter inputs: <participant, situation, and encounter-noise conditions>
+Effects: <desirable environmental effects and important undesirable
+environmental effects>
+Encounter inputs: <participant, situation selections and conditions, and
+encounter-noise conditions>
 Causal hypothesis: <intervention points, causal path, and material assumptions>
+Frame distortions to correct: <material distortions and encounter conditions,
+or none>
 Scope: <exact responsibility and real exclusions>
 Comparison: <base and diff path for change review, or not applicable>
 Subject stability: <read-only reviewer, unchanged boundary, and response to change>
@@ -130,9 +137,13 @@ Use this report form:
 ## Coverage
 
 - Review phase and kind:
+- Reviewer and applicable expertise:
+- Harness, exposed model, and reasoning configuration:
 - Subject, environment boundary, and state:
-- Intended and important undesirable effects:
+- Desirable environmental effects and important undesirable environmental effects:
 - Participant, situation, and encounter-noise coverage:
+- Causal hypothesis assessed:
+- Material frame distortions and correction coverage:
 - Comparison base and diff:
 - Environmental risk:
 - Environmental leverage:
@@ -154,7 +165,7 @@ Use this report form:
 - Location or boundary:
 - Scope status: in scope | incidental out of scope
 - Lens status: within lens | incidental outside lens
-- Intended or important undesirable effect:
+- Desirable or important undesirable environmental effect:
 - Defect:
 - Requirement or authority:
 - Causal evidence:
