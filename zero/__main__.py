@@ -171,7 +171,7 @@ def fix(ctx):
 
 @lib.command_with_aliases(fix, name='fmt', aliases=['f'])
 def fmt_fix():
-  """Run cargo fmt and ruff format."""
+  """Run Cargo, Ruff, dprint, and nixfmt formatters."""
   do_fix_fmt()
 
 
@@ -216,7 +216,7 @@ def check(ctx, skip_commit):
 
 @lib.command_with_aliases(check, name='fmt', aliases=['f'])
 def fmt_check():
-  """Run cargo fmt --check and ruff format --check."""
+  """Run Cargo, Ruff, dprint, and nixfmt format checks."""
   do_check_fmt()
 
 

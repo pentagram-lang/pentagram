@@ -67,56 +67,39 @@ Do not identify the current operator, refer to personal files, or record provisi
 
 Name external systems when they materially affect the contribution, but keep the local consequence understandable without access to transient external state. Record unresolved uncertainty only when the uncertainty remains part of the committed result.
 
-## Suggested agentic process
+## Prepare the message
 
-The format above is normative. The following preparation process is suggested; the [publication workflow](../../source-control.md#publish-a-branch) and [Pentagram agent system](../../sys.md) remain authoritative.
+The format and preparation process are normative. The [publication workflow](../../source-control.md#publish-a-branch) owns squashing, message application, and final validation. The [Pentagram agent system](../../sys.md) governs agent authority and isolation.
 
-Before preparing a final message, squash every intermediate change owned by the branch into one change on top of its parent. Because the message is the durable technical narrative of that complete contribution, preparing it requires an accurate account of the whole squashed diff. The process separates fact-finding from narrative synthesis to reduce omissions, unsupported claims, and distorted emphasis. Independent subagents examine distinct logical parts of the diff. The coordinating contributor verifies their reports, resolves discrepancies, and writes and audits the subject and body from the established facts.
+Every final message requires a factual audit by at least one fresh independent subagent. After the contribution is merged, its commit and message are immutable repository history; correcting either requires later history rather than changing that record in place. The audit therefore establishes the message from the facts of the finalized change rather than from the authoring conversation. The coordinating contributor remains responsible for verifying the evidence and writing an accurate message.
 
-### Audit the contribution
+Scale the audit without omitting it. One subagent can inspect the complete diff for a small, coherent contribution. Use separate logical clusters and additional subagents when the contribution's consequence, complexity, size, unfamiliarity, conflicting evidence, or unresolved uncertainty makes independent investigation materially useful. The assignments must collectively account for every changed line. Proportionality governs the breadth and depth of investigation, the number of subagents, the detail of their reports, and the need for further independent passes; it does not remove the first independent audit.
 
-1. Identify the exact parent and squashed change, then inspect their complete diff and statistics. Account for every changed file.
-2. Group the changed files into logical clusters rather than by file type or editing order. Each cluster is one subagent's distinct review scope.
-3. Write each cluster's diff to a separate file under `.tmp/` with `jj diff --git --from PARENT --to CHANGE -- FILESETS > .tmp/...`. Together, the files must cover the complete branch diff. Put only the diff in each file.
-4. Keep each diff file unchanged while its review is active. Regenerate the affected file after a material revision and before re-review.
+### Establish the audit boundary
 
-### Review with independent subagents
+1. Squash the branch contribution into one change on top of its parent as the publication workflow requires.
+2. Identify the exact `PARENT` and finalized `CHANGE`. Inspect the complete Git diff and statistics from `jj diff --git --stat --from PARENT --to CHANGE`, and account for every changed file.
+3. Give one subagent the complete diff or divide it into coherent logical clusters. Write each assigned diff under `.tmp/` with `jj diff --git --from PARENT --to CHANGE -- FILESETS`, omitting `FILESETS` only for the complete diff. Record the exact revisions in the assignment. Inspect each file before assignment and keep it unchanged while the audit is active. The assignments must collectively cover the complete change.
 
-Start every review subagent without inherited conversation context. Tell the subagent not to read active project state or run `0 proj`. Harnesses provide different isolation mechanisms; the required result is a new task context with no parent conversation or project conclusions. State task-specific context explicitly in the subagent task rather than relying on the parent conversation.
+### Run the independent audit
 
-1. Give each subagent the repository-relative path to its distinct `.tmp/` diff file and ask for an exhaustive, factual account of that logical cluster. Do not include a desired conclusion or draft commit message.
-2. Treat the diff as the boundary of review ownership, not the boundary of investigation. Inspect the changed repository files in context, and follow relevant local documentation, definitions, callers, consumers, tests, and tools far enough to understand the change and its consequences.
-3. Require the subagents collectively to examine every changed line against the relevant governing documentation, implementation, tests, and other evidence. They establish what changed, why it changed, and what behaviour now results.
-4. Keep the reviews independent until their reports are complete. Parallel execution can reduce delay, but independence matters more than concurrency.
+Start each subagent without inherited authoring conversation or project conclusions. Tell the subagent not to read active project state or run `0 proj`. Give it the diff path, resulting repository context, exact responsibility, and required report without supplying a desired conclusion or draft message.
 
-Each subagent report must make these parts explicit:
+The assigned diff bounds responsibility, not investigation. The subagent follows governing documentation, implementation, tests, callers, consumers, and tools far enough to establish:
 
-- **Coverage:** identify the diff file and every changed file reviewed, confirm whether every changed line was examined, and name anything the subagent could not assess.
-- **Change account:** explain each logical change, including important additions, removals, and resulting behaviour. Describe the mechanism when the mechanism is needed to understand the result.
-- **Rationale and authority:** identify the intent, constraint, governing documentation, or other evidence that justifies each material change. Distinguish explicit evidence from inference and facts that could not be established.
-- **System relationships:** explain affected boundaries, interfaces, data flow, and dependencies, including relationships that another diff cluster must account for.
-- **Evidence:** identify the implementation, documentation, tests, checks, or other evidence that supports each material claim. Name missing, contradictory, or inconclusive evidence.
-- **Consequences:** record non-obvious findings, compatibility and resource effects, benefits, deficiencies, risks, and follow-on implications.
-- **Review findings:** for each problem, give its repository-relative location, supporting evidence, consequence, severity, and suggested resolution when known. State explicitly when no problem was found.
-- **Uncertainty:** record unresolved questions and the additional evidence needed to answer them. State explicitly when none remains.
+- the changed lines and resulting behaviour;
+- the intent, rationale, authority, and evidence for each material change;
+- affected boundaries, relationships, compatibility, and resource behaviour;
+- consequential findings or problems; and
+- unresolved uncertainty and the evidence needed to resolve it.
 
-The coordinating contributor verifies and synthesizes the reports. Resolve discrepancies and disagreements explicitly, revise the contribution where needed, and repeat affected reviews after material changes. No changed behaviour should remain unexplained. A report with no findings is evidence of review, not proof that the cluster is correct.
-
-Re-review may continue with the same subagent or start a new isolated subagent. Harnesses provide different continuation mechanisms. Regenerate the diff file for that logical cluster and give the reviewer its path rather than asking the reviewer to reconstruct changes from conversation. A continuing subagent may retain its own review context, but it must not receive the parent conversation, active project state, or other reviewers' reports before completing its independent re-review, and it must not run `0 proj`.
+The report records its diff coverage and identifies anything it could not establish. A report with no finding is evidence of investigation, not proof that the contribution is correct.
 
 ### Write from established facts
 
-1. Read every subagent report and directly inspect the complete diff and relevant repository sources wherever needed to verify claims, understand relationships between clusters, and resolve uncertainty. Reports guide synthesis; they do not replace direct inspection.
-2. Identify the contribution's principal effect and overall outcome.
-3. Draft the [subject line](#subject-line) from that outcome rather than from the last edit or largest file category.
-4. Build the [narrative body](#narrative-body) from the decision-relevant intent, architecture, findings, and impact established by the audit.
-5. Remove repetition, transient context, raw file inventories, and claims the evidence does not support.
+1. Verify the reports against their cited sources and diff regions. Resolve discrepancies, repair problems, and keep unsupported or conflicting claims out of the message. If the audited parent-to-change diff changes, return to [establish the audit boundary](#establish-the-audit-boundary), reconcile complete coverage, and repeat the independent work for every affected region. Resume synthesis only after current reports collectively cover every line of the current diff and their material claims have been verified.
+2. Identify the contribution's principal effect. Draft the [subject line](#subject-line) from that outcome and build the [narrative body](#narrative-body) from the decision-relevant intent, architecture, findings, and impact established by the audit.
+3. Audit every message claim against the finalized diff and its evidence. Read it as a contributor without the authoring context, remove transient or repeated material, and check grammar, wrapping, completeness, portability, and agreement with the final change. If this work changes the contribution, repeat the recovery loop in step 1 before continuing.
+4. Validate the message under [quality](../quality/README.md), then apply it to the exact final change through the revision-targeted publication action.
 
-### Audit the message
-
-1. Compare every factual claim with the diff, governing documentation, and relevant evidence.
-2. Reinspect the complete diff and confirm that the narrative accounts for every decision-relevant concern.
-3. Read the message from the perspective of a contributor who has the repository but not the authoring session.
-4. Check the subject grammar and length, body wrapping, narrative completeness, repository portability, and agreement with the final diff.
-5. Validate the complete message under [quality](../quality/README.md).
-6. Apply the audited message to the exact final change with the revision-targeted action in the [publication workflow](../../source-control.md#publish-a-branch).
+Affected re-review can continue with the same subagent when its investigative context remains useful. Use another fresh subagent when the changed boundary or evidence calls for another independent judgement. Proportionality limits the repeated work to the affected regions and relationships; the coverage condition still applies to the complete current diff.

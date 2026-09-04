@@ -1,4 +1,4 @@
-# Command Plane
+# Command plane
 
 The command plane provides the repository's operational commands for formatting, checks, tests, agent launch, the boot shell, watch mode, and project-control access.
 
@@ -24,7 +24,7 @@ The Claude launchers run the same kind of filesystem-only persistent-state prefl
 
 These standalone skill and memory-file checks are limited to the operator's home paths. Project and repository `.claude`/`.agents` paths, ancestor `CLAUDE.md` files, managed or system paths, and other repository policy surfaces are outside these launcher preflights.
 
-The standalone `0 check doc` command runs the Markdown checks in the [lint document](../doc/quality/lint.md) and reports its own timing. The standalone `0 check commit` command validates the exported Git `HEAD` message's line lengths and reports its own timing. The complete `0 check` cycle runs both steps when commit validation is enabled, together with the command-plane tests and a repository policy scan over Git-tracked files and untracked files that are not excluded by Git's standard ignore rules.
+The standalone `0 check doc` command runs the heading, link, index, and test-companion checks in the [lint document](../doc/quality/lint.md) and reports its own timing. `0 check fmt` runs every repository formatter check, including dprint for Markdown. The standalone `0 check commit` command validates the exported Git `HEAD` message's line lengths and reports its own timing. The complete `0 check` cycle composes these bounded checks and, when commit validation is enabled, history validation. It also runs the command-plane tests and a repository policy scan over Git-tracked files and untracked files that are not excluded by Git's standard ignore rules.
 
 These Git reads are automated interoperability mechanisms under the [source-control document](../source-control.md); contributors still use Jujutsu directly. Run `jj status` before a check so Jujutsu has snapshotted and exported the current working copy. During final validation, the source-control publication sequence places an empty `@` above the bookmarked final change so Git `HEAD` names the commit being checked.
 

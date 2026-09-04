@@ -1,12 +1,12 @@
 # Lint
 
-[Quality](README.md) uses lint for mechanical rules that can be decided reliably from repository state. `0 check doc` runs the documentation rules independently and reports its own timing. `0 check commit` runs commit-message line-length validation independently and reports its own timing. The complete `0 check` cycle includes both steps when commit validation is enabled. Lint does not judge meaning, readability, or usefulness.
+[Quality](README.md) uses lint for mechanical rules that can be decided reliably from repository state. The checks remain separate so each successful result identifies what it observed. `0 check doc` runs the heading, link, index, and test-companion rules below. `0 check fmt` runs every repository formatter check, including dprint for Markdown. `0 check commit` runs commit-message line-length validation. The complete `0 check` cycle includes all three when commit validation is enabled. Lint does not judge meaning, readability, or usefulness.
 
 ## Markdown formatting
 
-Markdown must match the formatter configured in [`dprint.json`](../../dprint.json). Prose uses soft wrapping rather than manual line breaks.
+Markdown must match the formatter configured in [`dprint.json`](../../dprint.json). Prose uses soft wrapping rather than manual line breaks. Run `0 check fmt` to validate this rule independently, or use the complete `0 check` cycle.
 
-The Markdown rules below read current files through the colocated Git inventory. This is an automated interoperability mechanism allowed by the [source-control model](../../source-control.md#working-copy), not a contributor command surface. Run `jj status` before the check so Jujutsu has snapshotted and exported the current working copy. The inventory includes tracked files and non-ignored untracked files that exist in the working tree. Deleted and ignored files are absent.
+The documentation-lint rules below read current files through the colocated Git inventory. This is an automated interoperability mechanism allowed by the [source-control model](../../source-control.md#working-copy), not a contributor command surface. Run `jj status` before `0 check doc` so Jujutsu has snapshotted and exported the current working copy. The inventory includes tracked files and non-ignored untracked files that exist in the working tree. Deleted and ignored files are absent.
 
 ## Heading identifiers
 

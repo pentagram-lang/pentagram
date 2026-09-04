@@ -7,6 +7,16 @@ from zero.__main__ import cli
 
 
 class CommandPlaneTest(unittest.TestCase):
+  def test_format_help_names_every_repository_formatter(self):
+    fix_result = CliRunner().invoke(cli, ['fix', 'fmt', '--help'])
+    check_result = CliRunner().invoke(cli, ['check', 'fmt', '--help'])
+
+    self.assertEqual(0, fix_result.exit_code)
+    self.assertEqual(0, check_result.exit_code)
+    for name in ('Cargo', 'Ruff', 'dprint', 'nixfmt'):
+      self.assertIn(name, fix_result.output)
+      self.assertIn(name, check_result.output)
+
   def test_doc_check_runs_independent_timed_step(self):
     with patch('zero.__main__.doc_lint.check_documentation') as check:
       result = CliRunner().invoke(cli, ['check', 'doc'])
