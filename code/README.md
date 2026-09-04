@@ -1,4 +1,4 @@
-# Coding Standards
+# Coding standards
 
 This document defines repository-wide coding and testing standards for implementation work. It complements the [documentation standards](../doc/README.md): documentation establishes the meaning and contract, while these standards shape the implementation and its evidence. It does not define Pentagram language semantics or the architecture of a particular subsystem.
 

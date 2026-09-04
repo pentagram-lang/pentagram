@@ -12,9 +12,10 @@ import tomllib
 AGENT_CONFIGURATIONS = {
   'codex-luna-yolo': ('codex', 'gpt-5.6-luna'),
   'codex-sol-yolo': ('codex', 'gpt-5.6-sol'),
+  'codex-astra-yolo': ('codex', 'gpt-6-astra'),
   'claude-sonnet-yolo': ('claude', 'sonnet'),
   'claude-fable-yolo': ('claude', 'fable'),
-  'agy-flash-yolo': ('agy', None),
+  'agy-flash-yolo': ('agy', 'gemini-3.8-flash-high'),
 }
 
 AGY_TOOLSET_ENV = 'PENTAGRAM_AGY_TOOLSET'
@@ -1058,7 +1059,7 @@ def _check_agy_tools(project_root):
   return AGY_AGENT_TOOLS
 
 
-def launch_agy(project_root, system_file, arguments):
+def launch_agy(project_root, system_file, arguments, model=None):
   _check_agy_ambient_state(project_root)
   system_content = system_file.read_text()
   agent_tools = _check_agy_tools(project_root)
@@ -1088,9 +1089,15 @@ def launch_agy(project_root, system_file, arguments):
       runtime_dir,
       '--agent',
       'pentagram',
-      '--dangerously-skip-permissions',
-      *arguments,
     ]
+    if model is not None:
+      agy_command.extend(['--model', model])
+    agy_command.extend(
+      [
+        '--dangerously-skip-permissions',
+        *arguments,
+      ]
+    )
     result = subprocess.run(agy_command, cwd=project_root, env=os.environ)
 
   raise click.exceptions.Exit(result.returncode)
@@ -1136,7 +1143,7 @@ def launch(agent_name, arguments):
       ]
     )
   else:
-    launch_agy(project_root, system_file, arguments)
+    launch_agy(project_root, system_file, arguments, model)
 
   os.chdir(project_root)
   os.execvpe(command[0], command + list(arguments), os.environ)

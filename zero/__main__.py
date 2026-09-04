@@ -171,7 +171,7 @@ def fix(ctx):
 
 @lib.command_with_aliases(fix, name='fmt', aliases=['f'])
 def fmt_fix():
-  """Run cargo fmt and ruff format."""
+  """Run Cargo, Ruff, dprint, and nixfmt formatters."""
   do_fix_fmt()
 
 
@@ -216,7 +216,7 @@ def check(ctx, skip_commit):
 
 @lib.command_with_aliases(check, name='fmt', aliases=['f'])
 def fmt_check():
-  """Run cargo fmt --check and ruff format --check."""
+  """Run Cargo, Ruff, dprint, and nixfmt format checks."""
   do_check_fmt()
 
 
@@ -322,6 +322,18 @@ def codex_luna_agent(args):
 def codex_sol_agent(args):
   """Launch Codex Sol with the Pentagram system prompt."""
   agent_runner.launch('codex-sol-yolo', args)
+
+
+@lib.command_with_aliases(
+  agent,
+  name='codex-astra-yolo',
+  aliases=['astra', 'castra'],
+  context_settings=dict(ignore_unknown_options=True, help_option_names=[]),
+)
+@click.argument('args', nargs=-1, type=click.UNPROCESSED)
+def codex_astra_agent(args):
+  """Launch Codex Astra with the Pentagram system prompt."""
+  agent_runner.launch('codex-astra-yolo', args)
 
 
 @lib.command_with_aliases(

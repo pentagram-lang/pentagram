@@ -8,6 +8,7 @@ from unittest.mock import patch
 import click
 
 from zero.agent import (
+  AGENT_CONFIGURATIONS,
   AGY_AGENT_TOOLS,
   CLAUDE_MCP_SERVERS,
   _check_agy_ambient_state,
@@ -267,6 +268,68 @@ class CodexPreflightTest(unittest.TestCase):
 
     preflight.assert_called_once()
     execvpe.assert_called_once()
+
+  def test_astra_uses_gpt_6_astra(self):
+    self.assertEqual(
+      ('codex', 'gpt-6-astra'),
+      AGENT_CONFIGURATIONS['codex-astra-yolo'],
+    )
+
+  def test_astra_forwards_gpt_6_astra(self):
+    with patch('zero.agent._check_codex_ambient_state'):
+      with patch('zero.agent.shutil.which', return_value='/usr/bin/codex'):
+        with patch('zero.agent.os.execvpe') as execvpe:
+          launch('codex-astra-yolo', ())
+
+    self.assertEqual(
+      ['codex', '--model', 'gpt-6-astra'],
+      execvpe.call_args.args[1][0:3],
+    )
+
+
+class FlashLauncherTest(unittest.TestCase):
+  def test_flash_uses_gemini_3_8_flash_high(self):
+    self.assertEqual(
+      ('agy', 'gemini-3.8-flash-high'),
+      AGENT_CONFIGURATIONS['agy-flash-yolo'],
+    )
+
+  def test_launch_forwards_flash_model(self):
+    with patch('zero.agent.launch_agy') as launch_agy:
+      with patch('zero.agent.shutil.which', return_value='/usr/bin/agy'):
+        with patch('zero.agent.os.execvpe'):
+          launch('agy-flash-yolo', ('--print', 'check'))
+
+    launch_agy.assert_called_once()
+    self.assertEqual('gemini-3.8-flash-high', launch_agy.call_args.args[3])
+
+  def test_launch_agy_adds_requested_model(self):
+    captured = {}
+
+    def run(command, **kwargs):
+      captured['command'] = command
+
+      class Result:
+        returncode = 0
+
+      return Result()
+
+    with patch('zero.agent._check_agy_ambient_state'):
+      with patch(
+        'zero.agent._check_agy_tools', return_value=AGY_AGENT_TOOLS
+      ):
+        with patch('zero.agent.subprocess.run', side_effect=run):
+          with self.assertRaises(click.exceptions.Exit):
+            launch_agy(
+              Path('.'),
+              Path('sys.md'),
+              (),
+              'gemini-3.8-flash-high',
+            )
+
+    self.assertEqual(
+      ['--model', 'gemini-3.8-flash-high'], captured['command'][6:8]
+    )
 
 
 class ClaudePreflightTest(unittest.TestCase):

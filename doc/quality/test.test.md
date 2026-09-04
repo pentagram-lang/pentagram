@@ -100,3 +100,26 @@ Draft a one-test companion for `doc/quality/criteria.md`. The test should establ
 - The trial applies every condition stated in the task.
 - The draft does not add a mandatory `Authority` field.
 - The answer cites the test contract and explains how it governs the companion and trial.
+
+## Choose the test kind
+
+**Task**
+
+A contributor needs evidence for three cases:
+
+1. A parser function returns the documented syntax tree for a fixed input. The evidence does not depend on what a reader understands or does.
+2. A reader uses a recovery guide to identify the safe action. The contributor needs to establish that the documentation enabled the reader's understanding and choice, not that a recovery system executed.
+3. An agent works with the complete repository documentation and recovery command. The intended environmental effect includes choosing the safe command and the command preserving the recorded state.
+
+For each case, choose a documentation test, environment test, or implementation test. State which assertion classes it permits and where any documentation or environment test companion can live. Explain the governing basis and keep the agent's action distinct from the system's result.
+
+**Assert**
+
+- The parser case uses an implementation test and asserts only the result of actual execution.
+- The recovery-guide case uses a documentation test and asserts understanding or action attributable to documentation, never a system result.
+- The complete-repository case uses an environment test with an agent encounter and includes an action assertion for choosing or invoking the safe command.
+- The complete-repository case can include a result assertion because preserving the recorded state is part of the intended environmental effect.
+- The answer distinguishes the agent's choice or invocation from the command's effect on state.
+- Documentation and environment tests use the same `Tests`, `Task`, and `Assert` companion schema beside any subject file.
+- The subject's file type, the observed output, and the companion path do not determine the test kind.
+- The answer identifies the documentation-test, environment-test, and coding-test contracts and explains how they govern the choices.
