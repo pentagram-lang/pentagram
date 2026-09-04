@@ -35,3 +35,5 @@ Using Git's inventory prevents `.ignore` and `.rgignore` from hiding prohibited 
 ## Command boundary
 
 The command plane owns operational orchestration and delegates domain behaviour to the subsystem that owns it. It does not duplicate the project database schema or lifecycle rules; `proj/project.py` remains the source of truth for those rules.
+
+The [project workflow](../proj/README.md#0-proj-command-surface) documents the complete `0 proj` command surface and its domain semantics.

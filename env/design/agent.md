@@ -22,7 +22,7 @@ Include information because it can change the result. Keep durable authority at 
 
 > **Example**
 >
-> The source-control document owns the publication rule; the current task owns the target bookmark. The task links the rule and supplies the target instead of pasting a shortened copy of the rule into every agent encounter.
+> The source-control document owns the publication rule; the active task owns the target bookmark. The task links the rule and supplies the target instead of pasting a shortened copy of the rule into every agent encounter.
 
 ## Give the agent a clear action boundary
 

@@ -41,6 +41,8 @@ The [manifesto](manifesto.md) explains these aims and is always required reading
 
 Always load the [project workflow](proj/README.md) and relevant project state through `0 proj` before meaningful work. Read the [documentation standards](doc/README.md), [coding standards](code/README.md), [environment engineering](env/README.md), and [source control](source-control.md) guidance for global context.
 
+Perform all meaningful project work within the scope of a properly documented active task. Before activating the task, ensure that its record identifies the bounded work, purpose, scope, exclusions, required result, and completion evidence. Its structured stage relationship and applicable goal relationship must also be correct; the goal relationship may be empty. Before that boundary exists, perform only the project-control work needed to establish or recover it, including the applicable project charter, stages and dependencies, goal, task, blockers, and handoff state. This exception does not authorize substantive investigation, design, implementation, testing, or review outside an active task.
+
 Local documentation is the primary surface for all work. Start from the nearest `README.md` when reading or authoring documentation; it provides key orientation and links to more detailed local documents as needed. Then inspect the relevant code, tests, and other evidence needed to establish current behaviour.
 
 The [language tour](tour/README.md) is the aspirational reference for Pentagram syntax and semantics and is required reading before writing or analysing Pentagram code.
@@ -68,7 +70,7 @@ When changes are in scope, give a clear signpost before the first change stating
 
 ## Tools
 
-`0` and `zero` are Nix-installed aliases on `PATH` for the command plane in `zero/`. From a checkout, either finds the local `zero/__main__.py`, enters its repository root, and runs the local package. The complete command reference is in [zero/README.md](zero/README.md).
+`0` and `zero` are Nix-installed aliases on `PATH` for the command plane in `zero/`. From a checkout, either finds the local `zero/__main__.py`, enters its repository root, and runs the local package. The [command-plane reference](zero/README.md) explains the shared launcher and check surface; the project workflow owns the `0 proj` command reference.
 
 - `0 fix` formats and applies standard lint fixes.
 - `0 check --skip-commit` runs checks without commit-message or history validation.
@@ -77,12 +79,14 @@ When changes are in scope, give a clear signpost before the first change stating
 - `0 check test` runs end-to-end language tests.
 - `0 check doc` runs documentation lint.
 - `0 check commit` runs commit-message line-length validation.
-- `0 proj list` identifies active projects.
-- `0 proj create NAME` creates a project.
-- `0 proj handoff NAME` reads the compact session handoff: project status and objective, active goal, current stage and task, summary, next action, open blockers, and recent decisions, evidence, and task logs.
+- `0 proj list` identifies unarchived projects.
+- `0 proj create NAME --objective TEXT` creates a project.
+- `0 proj handoff NAME` reads the compact session handoff: project status and objective; active and blocked work; summary and next action; open blocker targets and requirements; and bounded relevant decisions, evidence, and task logs with follow-up commands.
 - `0 run` runs the boot shell.
 
 Validate changes with evidence proportionate to their risk and the claims being made. Start with focused relevant checks and broaden only when the affected boundary warrants it.
+
+When an applicable repository method requires a fresh or independent subagent, start that subagent as ordinary work within the active task. No separate operator authorization is required for the delegation. Give the subagent only the assignment and context permitted by the method. Delegation does not expand the task, either agent's authority, or permission for any consequential effect.
 
 Use harness-provided search tools when available, or `rg` / `rg --files` in shell commands for repository search. Do not use direct shell `grep` / `find`, because their recursive searches can traverse repository-ignored folders.
 
@@ -128,6 +132,6 @@ Before changing files, run `jj status` when work may overlap existing changes. L
 
 ## Handoff
 
-When work stops, leave the project state truthful and resumable: update its current task, summary, next action, evidence, blockers, and unresolved uncertainty to match what actually exists.
+When work stops, leave the project state truthful and resumable: update its active task, summary, next action, evidence, blockers, and unresolved uncertainty to match what actually exists.
 
 Report the changed files, evidence collected, validation status, and remaining uncertainty. Do not claim a stronger result than the evidence supports.
