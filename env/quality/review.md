@@ -1,8 +1,15 @@
 # Review
 
-[Quality](README.md) uses review to find environment defects that require independent judgement. A reviewer investigates the assigned causal relationship across documentation, code, participants, and execution. Review can expose failures of compatibility, benefit, correction of frame distortion, recovery, and resource use that narrower evidence misses. The author evaluates each finding against governing authority and evidence.
+[Quality](README.md) uses review to find environment defects that require independent judgement. A reviewer investigates the assigned causal relationship across documentation, code, participants, and execution. Review can expose failures of compatibility, benefit, correction of frame distortion, recovery, and resource use that narrower evidence misses. The contributor evaluating the report is the **reviewee**; they retain authority over finding dispositions and any ensuing work.
 
-A report supplies evidence. It does not give the reviewer authority over the intended effects or the governed systems, and it does not decide the final judgement governed by [criteria](criteria.md).
+A report supplies evidence, not fixes, approval, or authority over the intended effects or governed systems. The process is:
+
+1. Assign a bounded review.
+2. The reviewer reports supported findings without suggesting fixes.
+3. The reviewee evaluates the findings on the project basis and ignores any fix suggestions.
+4. The project decides whether and how to pursue work.
+
+This separation must be easy for humans and agents to understand and follow. Accepting a finding does not authorize a repair or decide the final judgement governed by [criteria](criteria.md).
 
 ## Choose current or change review
 
@@ -39,7 +46,7 @@ Do not ask a reviewer to review everything. Subject coverage records which assig
 
 ## Keep the subject stable
 
-Review the repository and systems as they exist. The reviewer works read-only, and the author avoids changing the reviewed boundary until the report returns.
+Review the repository and systems as they exist. The reviewer works read-only, and the reviewee avoids changing the reviewed boundary until the report returns.
 
 If reviewed material or state changes before evaluation, identify which coverage and findings the change affects and rerun that work against the current environment. Prepare a new packet when the assignment itself changes.
 
@@ -47,24 +54,7 @@ For a change review, write the complete assigned diff under `.tmp/` with `jj dif
 
 ## Prepare one review packet
 
-The packet is the complete assignment. Include:
-
-- the review phase and kind;
-- the subject, scope, and real exclusions;
-- the affected `total-environment`, relevant state, and dependencies;
-- the desirable environmental effects and important undesirable environmental effects;
-- the applicable `participant`, `situation`, and `encounter-noise` inputs;
-- the causal hypothesis and material assumptions under review;
-- any material frame distortions the causal hypothesis must correct;
-- the comparison base and diff path for a change review;
-- the stable-subject rule and response to a changed boundary;
-- the environmental risk of each effect, the leverage of each affected surface across all effects, and the required assurance;
-- the required lenses;
-- [criteria](criteria.md) as the quality authority;
-- additional governing authority and evidence supplied as inputs;
-- safety, authority, access, and resource constraints;
-- the reviewer instruction; and
-- the report form.
+The packet below is the complete assignment. Fill every placeholder and include the report form. Review scope defines the reviewer's responsibility; the project basis governs any ensuing work.
 
 The criteria delegate to identified intent, theory, design, documentation, coding, and local subject requirements. The reviewer follows that delegation and independently establishes the applicable authority and evidence from durable repository sources. Supplied intent identifies the effects to judge; it must not be phrased as a desired review conclusion.
 
@@ -117,6 +107,12 @@ lenses. Do not actively seek problems outside them. Mark incidental findings
 without expanding the search. Do not answer a review question, infer a desired
 conclusion, or treat preference as a defect.
 
+Report only findings grounded in evidence you inspected. Do not suggest fixes,
+rewrites, or repair plans. State the observed defect separately from inferred
+consequences. Give the causal basis and limits of predictions; never present an
+unobserved participant effect as an observed failure. Missing evidence is a limit
+to report, not permission to invent a defect or assign remedial work.
+
 Return the supplied report form. Give causal evidence for every finding. Record
 subject coverage, quality coverage, and material evidence gaps.
 ```
@@ -125,7 +121,7 @@ subject coverage, quality coverage, and material evidence gaps.
 
 Start an initial review with an independent reviewer who has no inherited authoring conversation or prior conclusions. Give them the complete packet and access to the environment needed for investigation. Do not expose active project state unless it is part of the assigned environment or supplies named evidence.
 
-The reviewer works read-only, inspects the complete assigned subject in context, and follows relevant authority, implementation, tests, diagnostics, tools, callers, and consumers as far as the assignment requires. They find supported problems rather than answer a review question, approve the environment, or infer the author's preferred conclusion.
+The reviewer works read-only, inspects the complete assigned subject in context, and follows relevant authority, implementation, tests, diagnostics, tools, callers, and consumers as far as the assignment requires. They find supported problems rather than answer a review question, approve the environment, or infer the reviewee's preferred conclusion.
 
 Record the reviewer, harness, exposed model and reasoning configuration, applicable human expertise, and material limitations. Review can identify human-effect defects from the governing design principles, theory, and available evidence, but it does not conduct human studies or establish an unobserved human effect.
 
@@ -174,7 +170,6 @@ Use this report form:
 - Observed or predicted environmental effect:
 - Environmental risk:
 - Affected environmental surface and leverage:
-- Repair boundary:
 - Evidence limits:
 
 ## Re-review status
@@ -190,7 +185,13 @@ Give one numbered subsection to each finding. Mark incidental findings without e
 
 ## Evaluate, repair, and re-review
 
-The author checks that the report supplied the required assurance, inspects every cited source, and evaluates each finding against its authority and evidence. Record each finding as accepted, rejected, or unresolved with reasons. Separate review completion from the final environment-quality judgement.
+The reviewee checks that the report supplied the required assurance and inspects every cited source. If the reviewed boundary changed, rerun the affected review work before evaluating it.
+
+Evaluate findings using the [project basis](../../proj/README.md#project-authority): the charter, active task, applicable goal, decisions, governing requirements, and evidence. The reviewee may reject any finding, including an in-scope or incidental out-of-scope finding, without reviewer approval. Record each as accepted, rejected, or unresolved, with the basis for that decision. An out-of-scope observation does not automatically become work or a backlog item.
+
+Ignore every fix suggestion in the report, even when it accompanies a supported finding. Evaluate the finding separately and choose any remediation independently from the project basis. Reviewer confidence, a proposed solution, and a re-review verdict supply no project authority.
+
+Acceptance acknowledges a finding; it does not authorize a fix, expand the active task, or require immediate work. The project decides whether work is warranted and establishes the appropriate task boundary before pursuing it. Rejection does not erase observed facts or establish a quality pass. Keep finding disposition, review completion, and the quality judgement distinct.
 
 Preserve this evaluation with the report:
 
@@ -201,15 +202,19 @@ Preserve this evaluation with the report:
 - Assurance: sufficient | insufficient — evidence
 - Review status: complete | incomplete — reason
 - Environment-quality judgement: pass | fail | inconclusive — evidence
-- Finding dispositions:
-- Remaining evidence gaps and required follow-up:
+- Finding dispositions and project basis:
+- Remaining evidence gaps and project-chosen work:
 ```
 
-Repair accepted findings at their source. Change intent when the intended effects are defective, design when the hypothesis or intervention is defective, documentation or code when their expression or execution is defective, and tests or tools when the evidence mechanism is defective.
+A review is complete when the required assurance was supplied, every finding has a disposition, and remaining evidence gaps are recorded. Apply [criteria](criteria.md) to all available evidence for the environment-quality judgement; completing the review does not establish a pass.
+
+When the project chooses and authorizes repair work, determine the repair independently from the project basis. Address the actual source of the defect: intent, design, documentation, code, tests, or tools.
 
 Directly inspect each repair and every affected boundary. Run applicable checks and [environment tests](test.md). Choose current or change re-review by the same distinction as the initial review. Continue with the original reviewer when their investigative context helps test the repair; use a fresh reviewer when the boundary changed or another independent judgement matters.
 
-Give the reviewer one complete re-review packet containing the original text and evidence for every target. Re-review the complete current content and state of every affected boundary. Track each finding to a supported resolution, explicit decision, preserved evidence gap, or authorized exclusion; do not close it merely to complete the report.
+Give the reviewer one complete re-review packet containing the original text and evidence for every target. Re-review the complete current content and state of every affected boundary.
+
+Evaluate the re-review report using the same project-grounded procedure above. A `remains` or `inconclusive` verdict does not block evidence-based closure; a `resolved` verdict does not establish it. Track each finding to a supported resolution, explicit decision, preserved evidence gap, or authorized exclusion; do not close it merely to complete the report.
 
 ## Combine documentation and environment review
 

@@ -1,8 +1,15 @@
 # Review
 
-[Quality](README.md) uses review to find documentation defects that require judgement. An independent reviewer investigates and reports problems. The contributor evaluates each finding against governing authority and cited evidence.
+[Quality](README.md) uses review to find documentation defects that require judgement. An independent reviewer investigates and reports problems. The contributor evaluating the report is the **reviewee**; they retain authority over finding dispositions and any ensuing work.
 
-Review can expose false meaning, broken models, missing boundaries, and prose that is accurate but difficult to read. A report supplies evidence; it does not give the reviewer authority over the documented system or decide the final quality judgement.
+Review can expose false meaning, broken models, missing boundaries, and prose that is accurate but difficult to read. A report supplies evidence, not fixes, approval, or authority over the documented system. The process is:
+
+1. Assign a bounded review.
+2. The reviewer reports supported findings without suggesting fixes.
+3. The reviewee evaluates the findings on the project basis and ignores any fix suggestions.
+4. The project decides whether and how to pursue work.
+
+This separation must be easy for humans and agents to understand and follow. Accepting a finding does not authorize a repair.
 
 ## Choose current or change review
 
@@ -20,31 +27,19 @@ Name the exact document, surface, change, or claim the reviewer is responsible f
 
 ## Keep the subject stable
 
-Review the repository as it exists. The reviewer works read-only, and the contributor avoids changing the reviewed boundary until the report returns.
+Review the repository as it exists. The reviewer works read-only, and the reviewee avoids changing the reviewed boundary until the report returns.
 
-A current reviewer reads the complete subject and follows relevant repository context normally. If reviewed material changes before the contributor evaluates the report, identify which coverage and findings the change affects and rerun that review work against the current repository. Prepare a new packet when the assignment itself changes.
+A current reviewer reads the complete subject and follows relevant repository context normally. If reviewed material changes before the reviewee evaluates the report, identify which coverage and findings the change affects and rerun that review work against the current repository. Prepare a new packet when the assignment itself changes.
 
 For a change review, write the complete assigned diff under `.tmp/` with `jj diff --git` and explicit base and result revisions. Inspect the diff before giving its path and the resulting repository context to the reviewer. Regenerate the diff and rerun affected review work after a material revision.
 
 ## Prepare one review packet
 
-The packet is the complete assignment given to the reviewer. Include:
+The packet below is the complete assignment. Fill every placeholder and include the report form. Review scope defines the reviewer's responsibility; the project basis governs any ensuing work.
 
-- the review phase and kind;
-- the subject, scope, and real exclusions;
-- the comparison base and diff path for a change review;
-- the stable-subject rule and affected-work response to a change;
-- the consequence-and-uncertainty basis and required assurance;
-- the required lenses;
-- the [documentation criteria](criteria.md) as the quality authority;
-- any additional authority the reviewer must accept as an input;
-- real safety, authority, and access constraints;
-- the reviewer instruction; and
-- the report form.
+The [documentation criteria](criteria.md) delegate to applicable meaning, structure, style, and local requirements. The reviewer follows that delegation and independently establishes the subject's intent, other governing authority, and evidence from durable repository sources. Do not preselect those requirements or use a supplied authority list to restrict investigation.
 
-The **documentation criteria** delegate to applicable meaning, structure, style, and local requirements. The reviewer follows that delegation and independently establishes the subject's intent, other governing authority, and evidence from durable repository sources. Do not preselect those requirements or use a supplied authority list to restrict investigation.
-
-Prepare the complete packet before starting the review. Copy the reviewer instruction and report form without removing required fields. If the assignment changes, update the packet and rerun the affected review work. Do not substitute inherited conversation context for the packet.
+Prepare the complete packet before starting the review. If the assignment changes, update the packet and rerun the affected review work. Do not substitute inherited conversation context for the packet.
 
 ## Apply the default lenses
 
@@ -84,7 +79,7 @@ Review kind: <current or change>
 Subject: <document, surface, change, or claim>
 Scope: <exact responsibility and exclusions>
 Comparison: <base and diff path for change review, or not applicable>
-Subject stability: <repository as it exists, read-only reviewer, contributor
+Subject stability: <repository as it exists, read-only reviewer, reviewee
 avoids changes to the reviewed boundary until the report, and response to
 reviewed material changing before evaluation>
 Consequence and uncertainty: <material effects of a missed defect and unknowns>
@@ -109,6 +104,11 @@ Find every material problem you can establish within the assigned scope and
 lenses. Do not actively seek problems outside them. Mark incidental findings
 without expanding the search. Do not answer an assigned question, infer a desired
 conclusion, or treat preference as a defect.
+
+Report only findings grounded in evidence you inspected. Do not suggest fixes,
+rewrites, or repair plans. State the observed defect separately from inferred
+consequences; give the basis and limits of each inference. Missing evidence is
+a limit to report, not permission to invent a defect or assign remedial work.
 
 Return the supplied report form. Give evidence for every finding. Record subject
 coverage, quality coverage, and material gaps in evidence or certainty.
@@ -157,7 +157,6 @@ The reviewer uses this form:
 - Requirement or authority:
 - Evidence:
 - Consequence:
-- Repair boundary:
 - Uncertainty:
 
 ## Re-review status
@@ -171,7 +170,7 @@ The reviewer uses this form:
 
 Quote only enough text to locate a problem. Use one numbered subsection per finding. Mark every boundary an incidental finding crossed; do not count that area as reviewed coverage.
 
-Supplied authority names governing sources the contributor provided as inputs. Authority established during review names the governing sources the reviewer discovered and applied. Files and surfaces inspected records contextual investigation; it does not replace either authority field.
+Supplied authority names governing sources the reviewee provided as inputs. Authority established during review names the governing sources the reviewer discovered and applied. Files and surfaces inspected records contextual investigation; it does not replace either authority field.
 
 When no defect is established, write `No findings established.` under Findings. That result is not approval. An initial review uses `Not applicable.` for Re-review status. A re-review records each target as `resolved`, `remains`, or `inconclusive`. Use `Not applicable.` for Remaining uncertainty when none remains.
 
@@ -179,11 +178,15 @@ Keep the packet and report under `.tmp/` until evaluation and re-review are comp
 
 ## Evaluate the report
 
-The contributor reads the report and inspects the cited sources. If the reviewed boundary changed before evaluation, identify the affected coverage and findings and rerun that work against the current repository. Check that the investigation supplied the required assurance. A review with insufficient assurance is incomplete even when every finding can be evaluated.
+The reviewee reads the report and inspects the cited sources. If the reviewed boundary changed before evaluation, identify the affected coverage and findings and rerun that work against the current repository. Check that the investigation supplied the required assurance. A review with insufficient assurance is incomplete even when every finding can be evaluated.
 
-Judge each finding by its authority and evidence. Record every finding as accepted, rejected, or unresolved, with reasons. Group findings that share one cause. Separate findings that only look similar. Reviewer confidence does not repair missing support.
+Evaluate findings using the [project basis](../../proj/README.md#project-authority): the charter, active task, applicable goal, decisions, governing requirements, and evidence. The reviewee may reject any finding, including an in-scope or incidental out-of-scope finding, without reviewer approval. Record each as accepted, rejected, or unresolved, with the basis for that decision. An out-of-scope observation does not automatically become work or a backlog item.
 
-Preserve this contributor-owned evaluation with the report:
+Ignore every fix suggestion in the report, even when it accompanies a supported finding. Evaluate the finding separately and choose any remediation independently from the project basis. Reviewer confidence, a proposed solution, and a re-review verdict supply no project authority.
+
+Acceptance acknowledges a finding; it does not authorize a fix, expand the active task, or require immediate work. The project decides whether work is warranted and establishes the appropriate task boundary before pursuing it. Rejection does not erase observed facts or establish a quality pass. Keep finding disposition, review completion, and the quality judgement distinct.
+
+Preserve this reviewee-owned evaluation with the report:
 
 ```md
 # Review evaluation
@@ -192,23 +195,23 @@ Preserve this contributor-owned evaluation with the report:
 - Assurance: sufficient | insufficient — evidence
 - Review status: complete | incomplete — reason
 - Quality judgement: pass | fail | inconclusive — evidence
-- Finding dispositions:
-- Remaining uncertainty and required follow-up:
+- Finding dispositions and project basis:
+- Remaining uncertainty and project-chosen work:
 ```
 
 A review is complete only when the required assurance was provided, every finding has a disposition, and remaining uncertainty is recorded. Apply the [documentation criteria](criteria.md) to all available evidence for the quality judgement. A report with no findings does not by itself establish a pass.
 
 ## Repair and re-review
 
-1. Repair each accepted finding at its source. Change documentation when its meaning, expression, or path fails. Change implementation, tests, tools, or the governed design when they violate sound documented authority.
+When the project chooses and authorizes repair work:
+
+1. Determine the repair independently from the project basis. Address the actual source of the defect, whether documentation, implementation, tests, tools, or the governed design.
 2. Directly inspect the repair and every affected source or diff. Name the boundaries the repair could have changed. Run applicable [lint](lint.md) and [test](test.md).
 3. Choose current re-review when the revised system alone can establish whether the findings are resolved and the affected boundaries remain sound. Choose change re-review when that decision requires comparison with the original state, and generate a fresh complete diff.
 4. Choose the reviewer. Continue with the original subagent when established investigative context helps test the repair. Start a fresh subagent when the boundary changed or another independent judgement matters. Do not pass the parent conversation or unrelated review conclusions.
 5. Give the reviewer a complete re-review packet containing the original text and evidence for every target finding. Re-review the complete current content of every affected boundary.
-6. Track each finding to a repair, explicit decision, preserved uncertainty, or authorized exclusion. Do not close findings merely to make the report complete.
+6. Evaluate the re-review report using the same [report evaluation](#evaluate-the-report). A `remains` or `inconclusive` verdict does not block evidence-based closure; a `resolved` verdict does not establish it. Track each finding to a repair, explicit decision, preserved uncertainty, or authorized exclusion. Do not close findings merely to make the report complete.
 
-## Respect the wider environment and operator
+## Respect the wider environment
 
 Every document participates in the repository environment. Use [environment review](../../env/quality/review.md) when the behaviour under review comes from the wider instruction hierarchy, repository composition, tool affordances, or interaction among systems. [Environment engineering](../../env/README.md) governs that wider boundary. Documentation review remains responsible for the document's meaning, path, expression, and evidence.
-
-The operator controls requested scope and decisions that require operator authority. Escalate when resolution would change that scope, cross a safety or privilege boundary, require destructive or external action, or depend on an unavailable operator decision. Resolve ordinary findings within the project.
