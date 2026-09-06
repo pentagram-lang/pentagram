@@ -4,77 +4,73 @@
 
 **Task**
 
-Work read-only. A contributor needs an independent documentation review of `doc/meaning/equations.md` as it currently exists. The review should find problems that could stop readers from learning and applying the equation system. No defect is assumed. Prepare the complete review packet and explain how the contributor should run the review and evaluate its report.
+Work read-only. A contributor needs an independent documentation review of `doc/meaning/equations.md` as it currently exists. The review should find problems that could stop readers from learning and applying the equation system. No defect is assumed. Prepare the complete assignment and explain how to hand it off to the reviewer.
 
 Prepare the review; do not perform it.
 
 **Assert**
 
-- The preparation chooses current review because the resulting documentation can answer the review.
-- The review uses the repository as it exists and does not create a change diff.
-- The contributor avoids changing the reviewed boundary until the report returns.
-- If reviewed material changes before evaluation, the contributor identifies the affected coverage and findings and reruns that work.
-- The preparation does not replace the stable-subject rule with an immutable snapshot, content-identity inventory, mutation-protection scheme, or verification protocol.
-- Consequence and uncertainty determine the review scope, investigation depth, supporting evidence, checks, and re-review conditions.
-- The packet contains the phase, kind, subject, scope, real exclusions, stable-subject rule, consequence and uncertainty, required assurance, lenses, the **documentation criteria**, any additional supplied authority, real constraints, reviewer instruction, and report form.
-- The **documentation criteria** are the quality authority, and the reviewer follows their delegation to applicable requirements.
-- Poor readability is a default lens, but the packet does not claim that the subject has such a defect.
-- Needless reading work is assessed separately from poor readability.
-- Additional lenses follow from the consequence and uncertainty rather than a request to review everything.
-- The reviewer is directed to find problems, not answer a review question or approve the document.
-- The assigned scope bounds responsibility without blocking contextual investigation or marked incidental findings.
-- The initial review uses a fresh subagent with no inherited authoring conversation or prior review conclusions.
-- The contributor records the reviewer, harness, exposed model and reasoning configuration, and material limitations.
-- The report uses the required Coverage, Findings, Re-review status, and Remaining uncertainty sections.
-- Each finding records its defect class, evidence, governing authority, consequence, and uncertainty without requesting a repair.
-- The contributor inspects cited sources, evaluates every finding, checks assurance, and distinguishes review completion from the final quality judgement.
-- The reviewer instruction prohibits fix suggestions, and the evaluation ignores any suggestions that appear.
-- Finding acceptance and pursuit of repairs remain separate, project-grounded decisions.
-- The answer cites the review contract and explains how it governs the prepared review.
+- The preparation uses current review because the resulting documentation can answer the review; it creates no base or diff.
+- The assignment identifies the governing protocol, complete subject and scope, real exclusions, and consequence/uncertainty-based investigation, evidence, checks, and lenses.
+- The assignment references the protocol for the standing procedure and report form instead of requiring their complete text to be copied or inapplicable fields filled in.
+- Documentation criteria govern the quality assessment through their delegation to applicable requirements; supplied sources do not restrict discovery of other applicable authority.
+- Poor readability and needless reading work are assessed separately without presuming either defect; additional lenses follow from consequence and uncertainty.
+- Scope bounds responsibility without preventing relevant contextual reading or material incidental reporting, or expanding the search into unrelated subjects.
+- The handoff uses a fresh independent reviewer without authoring conversation or prior conclusions and supplies the complete assignment and accessible protocol for required reading.
+- The contributor keeps the reviewed boundary unchanged until the report returns and reruns affected work if it changes before evaluation, without a separate snapshot or mutation-control scheme.
+- The report has an identified provisional destination and uses the referenced evidence-first format rather than introducing another record schema or approval request.
+- The answer cites the review contract and explains how it governs the assignment and handoff.
 
 ## Re-review a repair
 
 **Task**
 
-Work read-only. The reviewee accepted this finding from an initial documentation review of `doc/quality/review.md`, and the project authorized the repair:
+Work read-only. A fictional active task authorizes correcting the standalone **finding form** guide and validating the result. The guide is supplied below as a fixture, not a repository file to locate. The reviewee accepted this finding and independently chose a repair within that task:
 
-> F1: The standard report form did not record a finding's defect class. Without that field, later evaluation could not reliably distinguish poor readability, needless reading work, both, or another defect class.
+> F1: The guide requires a claim for each finding but never requires evidence for it. A report can therefore satisfy the guide while giving no basis for its claims.
 
-The original report form is preserved as evidence: within each finding, `Lens status` was followed by `Defect`; no `Defect class` field appeared between them. The contributor added the missing field.
+The original form contained only `Location` and `Defect`. The guide is a standalone form; its complete revised content is supplied as a fixture:
 
-Prepare the complete re-review packet for that repair and explain every step the contributor must complete before closing F1. Do not perform the re-review.
+```md
+- Location:
+- Defect:
+- Requirement and evidence:
+- Consequence and uncertainty:
+```
+
+Prepare the next review assignment, explain the choice of reviewer, and explain how the contributor should proceed through closure. Do not perform the review or edit the guide.
 
 **Assert**
 
-- The contributor directly inspects the repair and every affected source or diff.
-- The contributor names the boundaries the repair could have changed and runs applicable lint and test.
-- The preparation chooses current re-review when the current result alone can establish resolution and affected-boundary quality.
-- The contributor explicitly chooses whether to reuse the original subagent's investigative context or start a fresh subagent without the parent conversation.
-- The reviewer receives one complete re-review packet.
-- The packet includes F1's original text and evidence as a re-review target.
-- The assignment covers the complete current content of every affected boundary, not only the added field.
-- The reviewer records F1 as `resolved`, `remains`, or `inconclusive` with evidence.
-- The contributor requires evidence that the repair resolves F1 and does not close F1 merely to complete the report.
-- The answer cites the review contract and explains how it governs the re-review.
-- The reviewee retains project-grounded authority to reject re-review conclusions; closure depends on independently evaluated evidence, not on obtaining a reviewer’s `resolved` verdict.
+- Re-review is the default after the chosen repair, not an optional extra that may be silently omitted.
+- Ordinary repair and validation remain in the existing authorized task; no new task is required merely because F1 was accepted.
+- The contributor directly inspects the repair and affected boundaries and runs proportionate checks and selected trials.
+- The preparation uses current review when current evidence can establish the repair, without an unnecessary comparison diff.
+- The preparation identifies when retained reviewer context is useful and when a fresh independent context is needed.
+- The assignment includes the original F1 text and evidence, the revised fixture, and the complete affected boundary rather than only the new field.
+- The assigned subject does not prohibit relevant contextual reading or material incidental reporting; incidental observations do not expand the search or reviewed coverage.
+- The reviewer reports current evidence keyed to F1, including relevant uncertainty, rather than assigning a resolution verdict.
+- The reviewee independently decides whether the evidence establishes resolution; no reviewer status or permission grants or blocks closure.
+- A repair claim, a completed review, or the absence of new findings is not sufficient evidence of resolution or a quality pass.
+- Any further repair is independently chosen on the project basis, with re-review remaining the default.
+- The answer cites the review contract and explains its authority and evidence basis.
 
 ## Reject an incomplete change-review assignment
 
 **Task**
 
-Work read-only. A contributor asks a fresh subagent to determine what a proposed change to `doc/quality/review.md` introduced. The contributor supplies the file and lenses, but no complete review packet, comparison base, diff, or report form. Should the subagent perform the review? Explain what must happen next under Pentagram's review contract.
+Work read-only. A contributor asks a fresh subagent to determine what a proposed change to `doc/quality/review.md` introduced. The contributor supplies the file and lenses, but no governing review protocol, comparison base, or diff. Should the subagent perform the review? Explain what must happen next under Pentagram's review contract and how a later material revision would affect the review.
 
 **Assert**
 
-- The answer refuses to begin with the incomplete assignment.
-- The preparation uses change review because the decision requires comparison with a base.
-- The contributor writes the complete assigned diff under `.tmp/`, inspects it, and gives the reviewer its path, comparison base, and resulting repository context.
-- The preparation does not replace the stable-subject rule with an immutable snapshot, content-identity inventory, mutation-protection scheme, or verification protocol.
-- The contributor prepares one complete packet before restarting the review.
-- The packet supplies the phase, kind, subject, scope, real exclusions, comparison, stable-subject rule, consequence and uncertainty, required assurance, lenses, the **documentation criteria**, any additional authority, real constraints, reviewer instruction, and report form.
-- The initial reviewer starts in a fresh context without authoring conversation or prior conclusions.
-- If the proposed change is materially revised, the contributor regenerates the diff and reruns the affected review work.
-- The answer cites the review contract and explains why the assignment must be rejected.
+- The answer does not begin the inadequately bounded review.
+- Comparison is required because the decision concerns what the change introduced.
+- The contributor generates and inspects a complete `jj diff --git` with explicit base/result revisions, stores it under `.tmp/`, and supplies its path and resulting context.
+- The assignment identifies an accessible governing protocol, complete subject/scope, review basis, and necessary inputs or constraints before review starts.
+- Referencing the protocol does not require copying its entire instructions or report form.
+- The initial reviewer has no inherited authoring conversation or prior conclusions.
+- A material revision requires a regenerated diff and rerun of affected work, not a separate snapshot or mutation-control scheme.
+- The answer cites the review contract and explains why the missing information matters.
 
 ## Distinguish two reading defects
 
@@ -123,7 +119,7 @@ Give a brief evaluation of each finding and state what work may begin. Identify 
 
 - F1 is accepted on the recovery contract and verified observation, independently of the proposed fix.
 - The reviewer’s F1 fix suggestion is ignored; the answer does not authorize changing implementation to remove authorization enforcement.
-- F2 is rejected for this project boundary without denying the spelling error or requiring a fix or backlog item.
+- F2 receives a project-grounded disposition that preserves the verified spelling error without requiring a fix, backlog item, or scope expansion. Accepting the observation does not commit the project to work.
 - F3 is rejected as unsupported or left unresolved for lack of evidence despite reviewer confidence; the answer does not claim that external transmission occurred or that its impossibility was proved.
 - No edits begin under the evaluation-only task. Any subsequent work requires a project-grounded decision and an appropriate task boundary.
 - The reviewee does not require reviewer permission to reject findings or decide whether to pursue work.

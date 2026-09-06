@@ -1,223 +1,52 @@
 # Review
 
-[Quality](README.md) uses review to find environment defects that require independent judgement. A reviewer investigates the assigned causal relationship across documentation, code, participants, and execution. Review can expose failures of compatibility, benefit, correction of frame distortion, recovery, and resource use that narrower evidence misses. The contributor evaluating the report is the **reviewee**; they retain authority over finding dispositions and any ensuing work.
+[Quality](README.md) uses independent review to find defects in how documentation and code work together as an environment. The reviewer investigates the assigned causal relationship; the reviewee evaluates the evidence and owns project decisions.
 
-A report supplies evidence, not fixes, approval, or authority over the intended effects or governed systems. The process is:
+Use the [shared review procedure and record formats](../../doc/quality/review.md): **assign → review → evaluate → repair → re-review**. This document supplies the environmental subject, criteria, and evidence requirements. Documentation-only lenses do not automatically apply to environment review.
 
-1. Assign a bounded review.
-2. The reviewer reports supported findings without suggesting fixes.
-3. The reviewee evaluates the findings on the project basis and ignores any fix suggestions.
-4. The project decides whether and how to pursue work.
+Re-review remains the default after repairs. Ordinary repairs stay in the current authorized task. Sharing the procedure does not give a reviewer authority to prescribe repairs, expand scope, or decide closure.
 
-This separation must be easy for humans and agents to understand and follow. Accepting a finding does not authorize a repair or decide the final judgement governed by [criteria](criteria.md).
+## Bound the environmental review
 
-## Choose current or change review
+Start from the identified intent, the affected `total-environment`, its state, and its dependencies. Include every documentation, code, interface, tool, response, and state boundary needed to judge the effects in scope.
 
-Use current review when the implemented result can answer the review. The origin of a defect is irrelevant.
+Use [environment criteria](criteria.md) as the quality authority. Follow its delegation to intent, theory, design, and the requirements of the affected documentation, code, and systems. Supplied intent names effects to assess, not a desired review conclusion; supplied authority does not restrict contextual investigation.
 
-Use change review when the reviewer must compare a specific base with the resulting environment. The assigned diff alone is not the subject: the reviewer examines it in the context of the complete affected environment.
+For each effect, identify credible ways it could diverge from intent and how serious that would be. This **environmental risk** determines evidentiary strength. Trace the effects each affected surface can materially change. This **environmental leverage** determines evidentiary breadth, including relevant effects beyond the immediate change. Stop expanding the boundary when no further material effect can change through the causal path.
 
-Choose one kind. If the result alone can establish the effects and relationships under review, use current review. If the decision depends on what the change introduced, removed, or preserved, use change review.
+Choose investigation depth, evidence, checks, and lenses from that basis, not from a numerical score or a universal checklist. Relevant lenses can include causal integrity, human and agent compatibility, instruction hierarchy, execution agreement, feedback and recovery, permissions, resource cost, and model or harness drift.
 
-## Scale and bound the review
+Before assigning review, weigh the material evidence it can add against authoring and maintenance effort, reviewer context, compute, and system work. Use the smallest adequate set of reviews; no formal review is required when it cannot add material evidence. This initial selection does not remove the default re-review path for repairs chosen during a review.
 
-Start from the identified effects, the affected `total-environment`, and its relevant state. For each effect in scope, identify the credible material ways it can diverge from intent and use that environmental risk to set evidentiary strength. For each affected environmental surface, trace plausible causal paths to every effect it can materially change and use that environmental leverage to set evidentiary breadth. Stop expanding the boundary when no further material effect can change through such a path. Use this basis to choose investigation depth, supporting evidence, checks, lenses, and re-review conditions. It does not produce a numerical score.
+## Supply the environmental inputs
 
-Independent review consumes authoring and maintenance effort, reviewer context, compute, and system work. Before preparing an assignment, weigh the material evidence review can add against the evidence already available and those resource costs. Several reviews, one review, or no review can each be appropriate; choose the smallest set that can supply adequate evidence and reassess it when the environment or evidence changes.
+Use the shared assignment form with this guide as its protocol. In Subject and scope, identify the environmental boundary. In Review basis, state the risk, leverage, and evidence needed. Supply these inputs directly or through specific accessible references:
 
-Name the exact environment, effect, change, relationship, or claim the reviewer is responsible for. Include every documentation, code, interface, tool, response, and state boundary needed to judge that subject. State real exclusions, but do not suggest likely defects or a desired conclusion.
+- Intended desirable effects and important undesirable effects.
+- Applicable human and agent participants, situations, and encounter noise. State explicitly when no encounter noise is in scope.
+- The causal hypothesis, material assumptions, and frame distortions it must correct.
+- Relevant environmental state, dependencies, and existing evidence.
 
-Select lenses that address the environmental risk and leverage. Useful lenses include:
+Keep state created or preserved by documentation and code in the `total-environment`. Reports, including incorrect claims and unwanted advice, are environmental state—not encounter noise. A situation may select or refer to that state; do not duplicate it as an independent input.
 
-- desirable environmental effects and important undesirable environmental effects;
-- `participant`, `situation`, and `encounter-noise` coverage;
-- environmental-channel selection, ordering, transformation, and exposure;
-- causal integrity and hidden assumptions;
-- agreement between conceptual and actual execution;
-- instruction hierarchy, authority, and cross-surface conflict;
-- human and agent compatibility and asymmetric failure;
-- whether the complete result benefits both participant classes;
-- feedback, persistent state, interruption, recovery, and correction of frame distortion;
-- permissions, constraints, external effects, and safety boundaries;
-- effort, context, time, compute, storage, and maintenance cost; and
-- model, harness, dependency, and version drift.
+Active project state is excluded unless the assignment names it as part of the environment or as evidence. Only that named state may be inspected; `0 proj` may be used only when needed to retrieve it. Do not expose authoring conversation or prior review conclusions to an initial reviewer.
 
-Do not ask a reviewer to review everything. Subject coverage records which assigned environmental boundaries were inspected. Quality coverage records which effects, conditions, requirements, and lenses were assessed. Record both and identify every material area left unassessed.
+The shared current/change distinction applies: supply a comparison base and complete inspected diff only when the judgement depends on the change. A diff never replaces the complete affected environment.
 
-## Keep the subject stable
+## Report environmental evidence
 
-Review the repository and systems as they exist. The reviewer works read-only, and the reviewee avoids changing the reviewed boundary until the report returns.
+Use the shared report without repeating the assignment's intent, inputs, risk, or leverage. Record what was actually assessed and any material limits or deviations from that assignment.
 
-If reviewed material or state changes before evaluation, identify which coverage and findings the change affects and rerun that work against the current environment. Prepare a new packet when the assignment itself changes.
+Coverage must identify both the environmental surfaces inspected and the effects, participant conditions, requirements, and lenses assessed. Explain the causal relationships evaluated, the observations and checks used, and any material evidence gaps. Record applicable human expertise, if any, with the reviewer information; do not imply expertise that was not supplied.
 
-For a change review, write the complete assigned diff under `.tmp/` with `jj diff --git` and explicit base and result revisions. Inspect it before giving its path and the resulting repository context to the reviewer. Regenerate the diff and rerun affected review work after a material revision.
+Each finding must identify the affected effect and boundary, the observed defect, its governing requirement and causal evidence, and its consequence and uncertainty. Explain the affected surface's causal reach and the seriousness of the consequence where they matter. These belong in the shared finding fields, not in another report schema.
 
-## Prepare one review packet
+Separate observed defects from predictions. Give the causal basis and limits of a prediction; never present an unobserved human, agent, or execution effect as an observed failure. Review may assess human-effect risks from design principles, theory, and available evidence, but does not conduct human studies. Missing evidence is a gap to record, not permission to invent an effect or assign remedial work.
 
-The packet below is the complete assignment. Fill every placeholder and include the report form. Review scope defines the reviewer's responsibility; the project basis governs any ensuing work.
-
-The criteria delegate to identified intent, theory, design, documentation, coding, and local subject requirements. The reviewer follows that delegation and independently establishes the applicable authority and evidence from durable repository sources. Supplied intent identifies the effects to judge; it must not be phrased as a desired review conclusion.
-
-Record state created or preserved by documentation and code as part of the `total-environment`. A `situation` can select or refer to that state; do not repeat it as an independent encounter input.
-
-Prepare the complete packet before starting. Do not substitute inherited conversation context for the packet. A re-review packet also includes the original text and evidence for every target finding.
-
-## Prompt the reviewer
-
-Include this instruction in the packet and replace every placeholder:
-
-```text
-Find environment problems in the assigned scope.
-
-Review phase: <initial or re-review>
-Review kind: <current or change>
-Subject: <environment, effect, change, relationship, or claim>
-Environment boundary and state: <total-environment, state, and dependencies>
-Effects: <desirable environmental effects and important undesirable
-environmental effects>
-Encounter inputs: <participant, situation selections and conditions, and
-encounter-noise conditions>
-Causal hypothesis: <intervention points, causal path, and material assumptions>
-Frame distortions to correct: <material distortions and encounter conditions,
-or none>
-Scope: <exact responsibility and real exclusions>
-Comparison: <base and diff path for change review, or not applicable>
-Subject stability: <read-only reviewer, unchanged boundary, and response to change>
-Environmental risk: <risk of each effect in scope going wrong>
-Environmental leverage: <affected surfaces and their influence across all
-effects>
-Required assurance: <scope, investigation, evidence, checks, and re-review>
-Lenses: <assigned environment lenses>
-Quality authority: env/quality/criteria.md
-Additional authority and evidence: <supplied inputs, or none>
-Re-review targets: <original findings and evidence, or not applicable>
-Constraints: <safety, authority, access, and resource constraints, or none>
-
-Work read-only. Do not read active project state unless the assignment includes
-it as environmental state or named evidence. Do not run `0 proj` otherwise.
-
-Inspect the complete assigned environment in repository and system context.
-Apply env/quality/criteria.md and follow its delegation to the identified intent,
-theory, design, documentation, coding, and local subject requirements. Follow
-relevant authority, implementation, tests, diagnostics, tools, callers,
-consumers, responses, and state as far as needed.
-
-Find every material problem you can establish within the assigned scope and
-lenses. Do not actively seek problems outside them. Mark incidental findings
-without expanding the search. Do not answer a review question, infer a desired
-conclusion, or treat preference as a defect.
-
-Report only findings grounded in evidence you inspected. Do not suggest fixes,
-rewrites, or repair plans. State the observed defect separately from inferred
-consequences. Give the causal basis and limits of predictions; never present an
-unobserved participant effect as an observed failure. Missing evidence is a limit
-to report, not permission to invent a defect or assign remedial work.
-
-Return the supplied report form. Give causal evidence for every finding. Record
-subject coverage, quality coverage, and material evidence gaps.
-```
-
-## Run the review independently
-
-Start an initial review with an independent reviewer who has no inherited authoring conversation or prior conclusions. Give them the complete packet and access to the environment needed for investigation. Do not expose active project state unless it is part of the assigned environment or supplies named evidence.
-
-The reviewer works read-only, inspects the complete assigned subject in context, and follows relevant authority, implementation, tests, diagnostics, tools, callers, and consumers as far as the assignment requires. They find supported problems rather than answer a review question, approve the environment, or infer the reviewee's preferred conclusion.
-
-Record the reviewer, harness, exposed model and reasoning configuration, applicable human expertise, and material limitations. Review can identify human-effect defects from the governing design principles, theory, and available evidence, but it does not conduct human studies or establish an unobserved human effect.
-
-## Require a structured report
-
-Use this report form:
-
-```md
-# Environment review report
-
-## Coverage
-
-- Review phase and kind:
-- Reviewer and applicable expertise:
-- Harness, exposed model, and reasoning configuration:
-- Subject, environment boundary, and state:
-- Desirable environmental effects and important undesirable environmental effects:
-- Participant, situation, and encounter-noise coverage:
-- Causal hypothesis assessed:
-- Material frame distortions and correction coverage:
-- Comparison base and diff:
-- Environmental risk:
-- Environmental leverage:
-- Lenses and required assurance:
-- Assurance provided:
-- Quality authority:
-- Additional authority and evidence supplied:
-- Authority and evidence established during review:
-- Documentation, code, systems, and states inspected:
-- Subject coverage:
-- Quality coverage:
-- Checks run:
-- Context, evidence, and conditions not assessed:
-
-## Findings
-
-### F1: Concise defect name
-
-- Location or boundary:
-- Scope status: in scope | incidental out of scope
-- Lens status: within lens | incidental outside lens
-- Desirable or important undesirable environmental effect:
-- Defect:
-- Requirement or authority:
-- Causal evidence:
-- Observed or predicted environmental effect:
-- Environmental risk:
-- Affected environmental surface and leverage:
-- Evidence limits:
-
-## Re-review status
-
-- Target finding: resolved | remains | inconclusive — evidence
-
-## Remaining evidence gaps
-
-- Evidence gap and evidence needed to resolve it
-```
-
-Give one numbered subsection to each finding. Mark incidental findings without expanding review coverage. When no defect is established, write `No findings established.` under Findings. That result is not approval. An initial review uses `Not applicable.` for Re-review status.
-
-## Evaluate, repair, and re-review
-
-The reviewee checks that the report supplied the required assurance and inspects every cited source. If the reviewed boundary changed, rerun the affected review work before evaluating it.
-
-Evaluate findings using the [project basis](../../proj/README.md#project-authority): the charter, active task, applicable goal, decisions, governing requirements, and evidence. The reviewee may reject any finding, including an in-scope or incidental out-of-scope finding, without reviewer approval. Record each as accepted, rejected, or unresolved, with the basis for that decision. An out-of-scope observation does not automatically become work or a backlog item.
-
-Ignore every fix suggestion in the report, even when it accompanies a supported finding. Evaluate the finding separately and choose any remediation independently from the project basis. Reviewer confidence, a proposed solution, and a re-review verdict supply no project authority.
-
-Acceptance acknowledges a finding; it does not authorize a fix, expand the active task, or require immediate work. The project decides whether work is warranted and establishes the appropriate task boundary before pursuing it. Rejection does not erase observed facts or establish a quality pass. Keep finding disposition, review completion, and the quality judgement distinct.
-
-Preserve this evaluation with the report:
-
-```md
-# Environment review evaluation
-
-- Report:
-- Assurance: sufficient | insufficient — evidence
-- Review status: complete | incomplete — reason
-- Environment-quality judgement: pass | fail | inconclusive — evidence
-- Finding dispositions and project basis:
-- Remaining evidence gaps and project-chosen work:
-```
-
-A review is complete when the required assurance was supplied, every finding has a disposition, and remaining evidence gaps are recorded. Apply [criteria](criteria.md) to all available evidence for the environment-quality judgement; completing the review does not establish a pass.
-
-When the project chooses and authorizes repair work, determine the repair independently from the project basis. Address the actual source of the defect: intent, design, documentation, code, tests, or tools.
-
-Directly inspect each repair and every affected boundary. Run applicable checks and [environment tests](test.md). Choose current or change re-review by the same distinction as the initial review. Continue with the original reviewer when their investigative context helps test the repair; use a fresh reviewer when the boundary changed or another independent judgement matters.
-
-Give the reviewer one complete re-review packet containing the original text and evidence for every target. Re-review the complete current content and state of every affected boundary.
-
-Evaluate the re-review report using the same project-grounded procedure above. A `remains` or `inconclusive` verdict does not block evidence-based closure; a `resolved` verdict does not establish it. Track each finding to a supported resolution, explicit decision, preserved evidence gap, or authorized exclusion; do not close it merely to complete the report.
+For re-review, report current evidence against each original finding, not a resolution verdict. The reviewee applies the shared evaluation, ignores any fix suggestions, and decides dispositions and work on the project basis. Apply environment criteria to the final environment-quality judgement. Use [environment tests](test.md) when trials can add material evidence; a completed review or a documentation-quality pass does not establish environment quality.
 
 ## Combine documentation and environment review
 
-[Documentation review](../../doc/quality/review.md) remains responsible for documented meaning, structure, style, and documentation evidence. Environment review is responsible for the broader causal relationship among documentation, code, participants, channels, execution, feedback, and state.
+Use one assignment and one report when the same investigation can adequately cover both subjects. Name both protocols, their subjects, and their criteria; give each boundary the lenses and evidence it needs. In particular, assess poor readability and needless reading work separately for documentation.
 
-One assignment can cover both only when it names both subjects, supplies both criteria as quality authorities, gives each boundary adequate lenses and evidence, and reports their coverage and judgements separately. A documentation review does not silently establish environment quality, and an environment review does not silently establish documentation quality.
+Share reviewer metadata and other administration. Within Coverage, distinguish documentation assessment from environment assessment. A finding that crosses both can be recorded once with both requirements and evidence identified. Keep the final documentation and environment quality judgements separate in the reviewee's evaluation. Neither assessment silently establishes the other.

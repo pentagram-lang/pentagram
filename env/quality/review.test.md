@@ -26,8 +26,30 @@ Give a brief evaluation and decide what may happen next under the project basis.
 - The F1 fix suggestion is ignored; neither sending data nor changing the project’s intent to permit sending is authorized.
 - The answer may identify a supported risk that the instruction could lead a reader to send data, but labels that consequence as a prediction with evidence limits.
 - F2 is rejected as unsupported or left unresolved for lack of evidence of the claimed human or execution effect; the answer does not deny the underlying instruction conflict.
-- F3 is rejected for this project boundary without denying the broken link or creating an automatic repair or backlog obligation.
+- F3 receives a project-grounded disposition that preserves the verified broken link without creating an automatic repair, backlog obligation, or scope expansion. Accepting the observation does not commit the project to work.
 - The reviewee grounds each disposition in the supplied project basis and evidence, without requiring reviewer approval.
 - The reviewee performs no edits or external actions under the evaluation-only task. Any remediation is a separate project decision with an appropriate task boundary.
 - The answer keeps review completion and finding disposition distinct from a pass on the environment’s quality.
 - The answer cites the environment review contract and explains the basis for its decisions.
+
+## Prepare a combined review
+
+**Task**
+
+Work read-only. A contributor needs both documentation and environment assessment of `doc/quality/review.md` and `env/quality/review.md` as they currently exist. Their concern is whether humans and agents can understand and correctly use the review methods, including evaluating reports that contain unsupported claims or unwanted repair advice. No defect is assumed.
+
+Prepare the review assignment and explain what records the reviewer and reviewee should produce. Identify the governing guidance and explain the basis for the arrangement. Do not perform the review.
+
+**Assert**
+
+- The preparation uses one combined assignment and one report, not two duplicated administrative records.
+- Both protocols, subjects, and criteria are identified; sharing procedure does not substitute documentation criteria for environment criteria.
+- The assignment includes or specifically references the intended effects, participant conditions, environmental state, causal hypothesis, risk, leverage, and evidence needed.
+- Reports and their claims or advice remain environmental state, not independent encounter noise.
+- Poor readability and needless reading work remain separate documentation lenses rather than automatic substitutes for environmental assessment.
+- The reviewer reads the referenced guides, works independently and read-only, and does not receive active project state or prior conclusions without the applicable explicit boundary.
+- Reviewer metadata and other shared administration are recorded once; the report does not recopy the assignment.
+- Documentation and environment coverage remain separately identifiable, and a shared finding can identify both requirements and evidence without being duplicated.
+- Findings are grounded in inspected evidence, distinguish observed defects from predicted effects, and contain no fix suggestions or closure verdicts.
+- The reviewee ignores any fix suggestions, owns dispositions and remediation, and records separate documentation and environment quality judgements.
+- The answer cites the environment and shared review guidance and explains their distinct roles.
