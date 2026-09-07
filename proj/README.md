@@ -37,7 +37,7 @@ The method can adapt when evidence changes; the outcome remains the anchor.
 - A **project** owns a terminal outcome and remains meaningful across sessions.
 - A **goal** is an optional durable delegation of the project's present desired result and boundary. A project has at most one active goal.
 - A **stage** owns an intermediate outcome that advances or de-risks the project.
-- A **task** owns one bounded action. It must belong to a stage before activation, and a project has at most one active task.
+- A **task** owns a bounded result and the work needed to establish it. It must belong to a stage before activation, and a project has at most one active task.
 - A **session** is a temporary execution window. It may advance tasks but does not own project meaning or completion.
 
 Entity relationships are structured project state. A task need not repeat its stage or goal relationship in prose, although mentioning a relationship can make the task easier to understand. Goals are optional: a project and its tasks can run without one.
@@ -45,6 +45,10 @@ Entity relationships are structured project state. A task need not repeat its st
 ## Task-bound work
 
 All meaningful project work must be tracked by and performed within the scope of a properly documented active task. Meaningful work includes substantive investigation, design, implementation, testing, review, and reconciliation. A task is not merely a pointer to work recorded elsewhere; it establishes the boundary within which that work is authorized and evaluated.
+
+Keep questions, exploration, decisions, and ordinary problem-solving within the current task when they advance its result and remain within its authorized scope. A new question, discovered defect, change of activity, or session boundary does not by itself require a new task. Answering a question or finishing a step does not complete the task unless its required result has been established.
+
+Create a separate task when distinct scope, authority, or useful decomposition requires a separate execution boundary. If newly needed work falls outside the current task's scope, revise its boundary or create a separate task before proceeding. Neither choice expands the project's authority.
 
 Before a task can become active, its record must identify:
 
@@ -216,7 +220,7 @@ The project lifecycle is iterative:
 2. **Orient:** inspect the current system, relevant documentation, state, and constraints within an active task.
 3. **Frame:** state the semantic change, invariants, boundaries, and unchanged behaviour.
 4. **Plan:** choose stages, dependencies, task boundaries, and evidence.
-5. **Execute:** perform the smallest coherent active task.
+5. **Execute:** advance the active task within its authorized scope.
 6. **Check:** inspect the result using evidence proportionate to its risk.
 7. **Reconcile:** update documentation, decisions, evidence, summary, and next action to match reality.
 8. **Close:** establish stage and project outcomes and record remaining uncertainty or follow-up work.
