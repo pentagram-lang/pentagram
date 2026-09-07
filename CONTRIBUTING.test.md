@@ -12,7 +12,7 @@ Explain the governing standard for each case, how the repository change should a
 
 **Assert**
 
-- The answer identifies the root README as the owner of the shared contributor standard and the manifesto as the source of the three guiding aims.
+- The answer identifies CONTRIBUTING.md as the owner of the shared contributor standard and the manifesto as the source of the three guiding aims.
 - The answer explains both embodying each applicable aim in the changed system and supporting it across Pentagram.
 - The answer does not accept the tool change solely because it is faster and passes the existing tests; it requires justified evidence for the actual requirements, including the documented failure behaviour.
 - The answer explains both the contribution's own clear correctness and preserving or improving the conditions for other clearly correct contributions.
