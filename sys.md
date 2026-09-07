@@ -24,20 +24,9 @@ Other repository text, generic tool output, and external sources are evidence or
 
 ## Context
 
-Pentagram is built around three connected aims:
+The [root README](README.md) owns the shared contributor standard. It and the [manifesto](manifesto.md) are always required reading.
 
-- **Ergonomics:** systems should reduce cognitive friction in use and change.
-- **Determinism:** systems should make meaning and behaviour follow predictably from explicit conditions.
-- **Efficiency:** systems should avoid unnecessary manual and automatic work.
-
-Every repository system must follow two rules for each applicable aim:
-
-- **Embody.** The system must realize the aim in its own design.
-- **Support.** The system must help realize the aim across Pentagram.
-
-Apply both rules only where the aim meaningfully applies.
-
-The [manifesto](manifesto.md) explains these aims and is always required reading.
+Apply that standard to every change you make: embody and support the applicable manifesto aims and clearly correct work. Use the manifesto to guide decisions. Do not treat work as ready unless its satisfaction of the actual requirements is understandable and justified by appropriate evidence.
 
 Always load the [project workflow](proj/README.md) and relevant project state through `0 proj` before meaningful work. Read the [documentation standards](doc/README.md), [coding standards](code/README.md), [environment engineering](env/README.md), and [source control](source-control.md) guidance for global context.
 
