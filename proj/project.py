@@ -646,13 +646,10 @@ BEGIN
     WHERE task_id = NEW.id AND status = 'open'
   ) THEN RAISE(ABORT, 'active task has an open blocker') END;
   SELECT CASE WHEN (
-    (NEW.goal_id IS NULL AND EXISTS (
-      SELECT 1 FROM goal WHERE status = 'active'
-    ))
-    OR (NEW.goal_id IS NOT NULL AND NOT EXISTS (
+    NEW.goal_id IS NOT NULL AND NOT EXISTS (
       SELECT 1 FROM goal
       WHERE id = NEW.goal_id AND status = 'active'
-    ))
+    )
   ) THEN RAISE(ABORT, 'active task does not match the active goal') END;
   SELECT CASE WHEN NEW.stage_id IS NOT NULL AND EXISTS (
     SELECT 1
@@ -700,13 +697,10 @@ BEGIN
     WHERE task_id = NEW.id AND status = 'open'
   ) THEN RAISE(ABORT, 'active task has an open blocker') END;
   SELECT CASE WHEN (
-    (NEW.goal_id IS NULL AND EXISTS (
-      SELECT 1 FROM goal WHERE status = 'active'
-    ))
-    OR (NEW.goal_id IS NOT NULL AND NOT EXISTS (
+    NEW.goal_id IS NOT NULL AND NOT EXISTS (
       SELECT 1 FROM goal
       WHERE id = NEW.goal_id AND status = 'active'
-    ))
+    )
   ) THEN RAISE(ABORT, 'active task does not match the active goal') END;
   SELECT CASE WHEN NEW.stage_id IS NOT NULL AND EXISTS (
     SELECT 1
@@ -742,7 +736,8 @@ BEGIN
   ) THEN RAISE(ABORT, 'active goal has an open blocker') END;
   SELECT CASE WHEN EXISTS (
     SELECT 1 FROM task
-    WHERE status = 'active' AND goal_id IS NOT NEW.id
+    WHERE status = 'active'
+      AND goal_id IS NOT NULL AND goal_id IS NOT NEW.id
   ) THEN RAISE(ABORT, 'active goal does not match the active task') END;
 END;
 
@@ -2213,10 +2208,6 @@ def _validate_current_lifecycle(connection):
           WHERE task_id = task.id AND status = 'open'
         )
         OR (
-          task.goal_id IS NULL
-          AND EXISTS (SELECT 1 FROM goal WHERE status = 'active')
-        )
-        OR (
           task.goal_id IS NOT NULL
           AND NOT EXISTS (
             SELECT 1 FROM goal
@@ -2266,7 +2257,8 @@ def _validate_current_lifecycle(connection):
         )
         OR EXISTS (
           SELECT 1 FROM task
-          WHERE status = 'active' AND goal_id IS NOT goal.id
+          WHERE status = 'active'
+            AND goal_id IS NOT NULL AND goal_id IS NOT goal.id
         )
       )
     LIMIT 1
@@ -2800,14 +2792,12 @@ def _project_completed_at(connection):
 def _ensure_task_goal_is_active(connection, goal_id):
   active_goal = _active_goal(connection)
   active_goal_id = active_goal['id'] if active_goal is not None else None
+  if goal_id is None:
+    return
   if active_goal_id == goal_id:
     return
-  if active_goal_id is None and goal_id is not None:
+  if active_goal_id is None:
     raise ProjectError(f'Task goal {goal_id} is not the active goal')
-  if active_goal_id is not None and goal_id is None:
-    raise ProjectError(
-      f'An active task must link to goal {active_goal_id}'
-    )
   raise ProjectError(
     f'Task goal {goal_id} does not match active goal {active_goal_id}'
   )
@@ -2892,7 +2882,6 @@ def create_goal(root, name, text, stages):
           'Project already has an active goal; achieve, cancel, or block '
           'it before setting another goal'
         )
-      _ensure_no_active_task(connection, 'Activating a goal')
       stage_ids = [
         _resolve_stage(connection, reference)
         for reference in stage_references
@@ -4493,7 +4482,7 @@ def _validate_active_state(connection, goal, task):
   if task['stage_id'] is None:
     raise ProjectError('Active task has no stage relationship')
   goal_id = goal['id'] if goal is not None else None
-  if task['goal_id'] != goal_id:
+  if task['goal_id'] is not None and task['goal_id'] != goal_id:
     raise ProjectError('Active task goal does not match the active goal')
   _ensure_goal_stage(
     connection, task['goal_id'], task['stage_id'], 'Active task'
