@@ -156,7 +156,7 @@ Task statuses are:
 - `completed`: its required result has been established; and
 - `cancelled`: intentionally ended without claiming completion.
 
-Only a pending, fully documented task can start. It must have no open blocker, it must belong to a stage, its stage dependencies must be achieved, and its goal relationship must match the active goal: a task linked to a goal requires that goal to be active, while a goal-less task requires that no goal be active.
+Only a pending, fully documented task can start. It must have no open blocker, it must belong to a stage, and its stage dependencies must be achieved. A task linked to a goal requires that goal to be active. A goal-less task may run whether or not the project has an active goal.
 
 Completing a task records the contributor's claim that its required result has been established against its `completion_evidence` criterion. That evidence can be an external observation or a project evidence record; the project plane does not evaluate it or require a linked evidence row. Record project evidence when later work must inspect the basis. Stage achievement has the separate named-evidence gate described below.
 

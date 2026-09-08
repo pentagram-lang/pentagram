@@ -737,8 +737,10 @@ class GoalLifecycleTest(ProjectTestCase):
 
     start_task(self.root, 'demo', linked)
     complete_task(self.root, 'demo', linked)
-    with self.assertRaisesRegex(ProjectError, 'must link to goal'):
-      start_task(self.root, 'demo', unlinked)
+    start_task(self.root, 'demo', unlinked)
+    self.assertEqual(
+      read_task(self.root, 'demo', unlinked)['task']['status'], 'active'
+    )
 
     record = read_goal(self.root, 'demo', goal)
     self.assertEqual(
@@ -762,14 +764,20 @@ class GoalLifecycleTest(ProjectTestCase):
       read_goal(self.root, 'demo', second)['goal']['status'], 'active'
     )
 
-  def test_goal_cannot_activate_while_a_goal_less_task_is_active(self):
+  def test_goal_can_activate_while_a_goal_less_task_is_active(self):
     self.create_project()
     stage = self.add_stage()
     task = self.add_documented_task(stage=stage)
     start_task(self.root, 'demo', task)
 
-    with self.assertRaisesRegex(ProjectError, 'active task .* end first'):
-      create_goal(self.root, 'demo', 'Goal', [stage])
+    goal = create_goal(self.root, 'demo', 'Goal', [stage])
+
+    self.assertEqual(
+      read_goal(self.root, 'demo', goal)['goal']['status'], 'active'
+    )
+    self.assertEqual(
+      read_task(self.root, 'demo', task)['task']['status'], 'active'
+    )
 
   def test_goal_achievement_requires_evidence_and_no_active_task(self):
     self.create_project()
@@ -2333,11 +2341,12 @@ class ProjectConstraintTest(ProjectTestCase):
     finally:
       connection.close()
 
-  def test_schema_rejects_active_task_with_wrong_goal(self):
+  def test_schema_rejects_active_task_with_inactive_goal(self):
     self.create_project()
     stage = add_stage(self.root, 'demo', 'stage', 'Stage')
-    create_goal(self.root, 'demo', 'Goal', [stage])
-    task = self.add_documented_task(stage=stage)
+    goal = create_goal(self.root, 'demo', 'Goal', [stage])
+    task = self.add_documented_task(stage=stage, goal=goal)
+    cancel_goal(self.root, 'demo', goal, 'Use goal-less work')
     connection = self.connection()
     try:
       with self.assertRaises(sqlite3.IntegrityError):
@@ -3288,8 +3297,9 @@ class ProjectSchemaTest(ProjectTestCase):
   ):
     self.create_project()
     stage = add_stage(self.root, 'demo', 'work', 'Complete the work')
-    create_goal(self.root, 'demo', 'Complete the project', [stage])
-    task = self.add_documented_task(stage=stage)
+    goal = create_goal(self.root, 'demo', 'Complete the project', [stage])
+    cancel_goal(self.root, 'demo', goal, 'Use goal-less work')
+    task = self.add_documented_task(stage=stage, goal=goal)
     path = self.root / '.tmp' / 'demo.sqlite3'
     connection = direct_database_connection(path)
     try:
