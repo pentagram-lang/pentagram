@@ -18,13 +18,7 @@ Do not lead with the author's history, the implementation chronology, or everyth
 
 ## Follow the thought
 
-Information should arrive in the order needed to reason about it.
-
-- Put conditions before the actions they govern.
-- Put warnings immediately before risky or irreversible steps.
-- State a decision before its rationale when the reader must act on it.
-- Establish a model before details that depend on it.
-- Keep causes near effects, rules near exceptions, and actions near expected results.
+Within a paragraph, let each sentence carry the thought forward. Put conditions before the claims or actions they govern. Put warnings before risky steps and decisions before their rationale when readers must act. Keep causes near effects, rules near exceptions, and actions near expected results.
 
 Give each paragraph one movement of thought. Open with the fact or relationship that makes the rest intelligible.
 
@@ -46,6 +40,14 @@ Keep conditions, modifiers, and exceptions close to what they govern.
 
 Use pronouns and demonstratives such as “it,” “this,” “that,” “these,” and “those” only when their referent is immediate and unmistakable. In long sentences or paragraphs, repeat the specific noun instead.
 
+## State meaning directly
+
+Do not let unexplained ideas substitute for what actually needs to be written out clearly in text.
+
+An author may know what the document should communicate. But unless the final text itself communicates that information directly, readers won't be able to receive it reliably.
+
+For example, unintroduced concepts, vague abstractions, and leaps in logic are all likely to violate this rule and result in a document that cannot do its job.
+
 ## Use sentence case
 
 Use sentence case for every repository-owned heading and text interface. Capitalize the first word and proper nouns. Preserve exact capitalization when required by an identifier, command, syntax, quotation, or established external term. [Terminology](terminology.md) records repository-owned proper nouns. Do not use title case to signal hierarchy, importance, or interface identity.
@@ -64,7 +66,7 @@ A document must work as rendered text for its readers and as editable source for
 
 Keep source order close to reading order. Prefer ordinary Markdown to raw HTML, manual spacing, and layout tricks. Let formatters own mechanical layout instead of creating hand-aligned source that breaks under editing.
 
-Make common edits local and predictable. A useful edit should produce a focused, intelligible diff rather than unrelated reflow or repeated maintenance elsewhere. Use authoring conventions and automation when they reduce total work without weakening the rendered result.
+Structure text so common later edits stay local and predictable. Keep related information together, give each idea one clear home, and use the same form for the same kind of information.
 
 ## Be exact, then stop
 
@@ -92,9 +94,19 @@ Distinguish missing facts, assumptions, estimates, unresolved decisions, conflic
 
 When uncertainty matters, name what could resolve the uncertainty and how an incorrect understanding would affect the system or decision. Do not hedge facts that are established for their stated scope. Honesty means expressing both confidence and doubt at their proper strength.
 
+## Prefer prose to lists
+
+Use prose when the reader needs to follow connected thought. A list is generally the wrong tool for that work.
+
+An unrestricted list suggests that its entries exhaust the subject. If the entries are not exhaustive, the document misleads readers. If they are exhaustive, a long list usually hides the relationships readers need.
+
+Use a list when a short, bounded set of parallel items is itself useful or when the document's format requires one. For illustration, introduce a restricted list with “For example,” so readers do not mistake its entries for an exhaustive account.
+
+This rule applies equally to formatted, multi-line lists and to ad hoc lists in sentences.
+
 ## Show the system
 
-Technical writing is more than prose. Use the form that makes the relevant relationship easiest to see: prose for causes, lists for parallel items, tables for regular dimensions, diagrams for flows or boundaries, examples for concrete behaviour, and formal notation when its precision earns the cost of learning it. A list or table should expose structure rather than hide the relationships among its entries.
+Technical writing is more than prose. Choose the form that makes the relevant relationship easiest to see. Use prose for connected explanation and a list only when its bounded parallel entries are easier to compare or act on. Tables, diagrams, examples, and formal notation each earn their place when they expose a relationship that prose would obscure.
 
 Keep examples small enough to expose the idea and real enough to reveal names, states, defaults, and consequences. State assumptions and placeholders. Show the expected result. Add invalid, boundary, or recovery cases when they change understanding.
 

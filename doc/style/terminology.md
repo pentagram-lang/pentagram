@@ -60,6 +60,8 @@ When a human's pronouns are unstated, use **they/them**. Do not infer pronouns f
 
 Repository prose uses Canadian English by default. Preserve the exact spelling of identifiers, syntax, commands, quoted text, upstream names, and established external terminology.
 
+Examples include `colour`, `behaviour`, `centre`, `artifact`, and `authorized`; this list is illustrative, not exhaustive.
+
 A local surface may follow another language convention when its audience or governing standard requires one. State the exception where authors will encounter it.
 
 ## Keep abbreviations useful
@@ -72,15 +74,11 @@ Do not coin an acronym merely to shorten a phrase. An abbreviation should reduce
 
 A terminology change is a system change, not a prose substitution. Start from the concept rather than searching for one spelling.
 
-Build an impact inventory before changing dependent uses. Check every applicable category:
+Build an impact inventory before changing dependent uses. Start with the documents and interfaces that define or expose the concept. Include governing definitions, local documentation, examples, diagrams, navigation, language syntax, public and user interfaces, and commands.
 
-- governing definitions, local documentation, examples, diagrams, and navigation;
-- language syntax, public interfaces, user interfaces, and commands;
-- source-code identifiers, schemas, configuration, protocols, storage, and serialized forms;
-- diagnostics, logs, metrics, traces, and other operational output;
-- tests, fixtures, snapshots, and generated artifacts;
-- compilers, formatters, generators, linters, editors, search indexes, and other tools; and
-- migration, release, support, mixed-version, and compatibility material.
+Trace the concept through implementation and stored forms, including source-code identifiers, schemas, configuration, protocols, storage, and serialized forms. Then check operational output, tests, fixtures, snapshots, generated artifacts, and the compilers, formatters, generators, linters, editors, search indexes, and other tools that may read or produce it.
+
+Finish with migration, release, support, mixed-version, and compatibility material. The exact surfaces depend on the concept; inspect every category that applies rather than treating this summary as a substitute for the inventory.
 
 The inventory follows conceptual dependencies as well as textual matches. A different spelling can refer to the same concept, and the same spelling can refer to unrelated concepts.
 

@@ -4,7 +4,9 @@ Within [documentation standards](../README.md), structure gives documentation an
 
 Structure works with the other documentation pillars. [Meaning](../meaning/README.md) establishes what documents claim and what their concepts denote. [Style](../style/README.md) governs expression within the form. [Quality](../quality/README.md) evaluates whether the resulting documentation works. Structure determines how content is arranged and connected, including the structural distinctions that readers and tools interpret.
 
-Structure applies the aims defined in the [Pentagram manifesto](../../manifesto.md). Ergonomic structure gives readers and authors nearby entry points, recognizable forms, and short paths to the depth they need. Deterministic structure makes placement, order, relationships, and machine interpretation follow explicit rules. Efficient structure keeps changes local, prevents competing copies, and creates regularity that can replace repeated manual work. These properties help Pentagram's documentation and structured records remain easy to discover, reason about, use, change, and validate.
+For documentation, structure is part of clear correctness. The structure must let readers find the right subject, follow its paths, and understand what each document contributes. The [quality criteria](../quality/criteria.md) judge those properties together with meaning, style, and reader use; a tidy hierarchy cannot repair missing or false meaning.
+
+Structure must embody and support the aims defined in the [Pentagram manifesto](../../manifesto.md). Ergonomic structure gives readers and authors nearby entry points, recognizable forms, and short paths to the depth they need. Deterministic structure makes placement, order, relationships, and machine interpretation follow explicit rules. Efficient structure keeps changes local, prevents competing copies, and creates regularity that can replace repeated manual work. These properties help Pentagram's documentation and structured records remain easy to discover, reason about, use, change, and validate.
 
 ## Topology
 

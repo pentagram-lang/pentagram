@@ -73,3 +73,29 @@ Claims defines the required outcomes. Recovery explains how a contributor restor
 - The ambiguous unlinked claims and recovery references each use a textual marker, bold styling, or both.
 - The rewrite does not turn every unlinked document reference into a link or mechanically mark references that are already clear.
 - The explanation cites house style or visibly applies its sentence-case and document-reference guidance.
+
+## Prefer prose to lists
+
+**Task**
+
+Rewrite this introduction in Pentagram's house style without adding facts:
+
+> This guide covers:
+>
+> - preparing a workspace;
+> - recovering a failed operation; and
+> - checking the resulting state.
+>
+> It also covers other repository work. In one sentence, the guide is described as covering preparation, recovery, and checking.
+
+Explain why the original formatted list and the sentence list are poor ways to introduce the guide. Explain when a restricted list could still help.
+
+**Assert**
+
+- The rewrite uses connected prose for the introduction instead of presenting the three topics as an unrestricted inventory.
+- The answer applies the same rule to the inline list in the final sentence.
+- The answer explains that an unrestricted list suggests exhaustive scope and that a long exhaustive list can hide relationships readers need.
+- The answer explains that a short bounded list can be useful when its parallel entries are the subject or when the format requires one.
+- The answer explains that “For example,” can restrict a list to illustration without claiming completeness.
+- The answer preserves all supplied topics and does not invent a new topic or rule.
+- The explanation cites house style or visibly applies its guidance on prose, lists, and reader understanding.

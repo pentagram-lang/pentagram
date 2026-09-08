@@ -78,12 +78,12 @@ Scale the audit without omitting it. One subagent can inspect the complete diff 
 ### Establish the audit boundary
 
 1. Squash the branch contribution into one change on top of its parent as the publication workflow requires.
-2. Identify the exact `PARENT` and finalized `CHANGE`. Inspect the complete Git diff and statistics from `jj diff --git --stat --from PARENT --to CHANGE`, and account for every changed file.
-3. Give one subagent the complete diff or divide it into coherent logical clusters. Write each assigned diff under `.tmp/` with `jj diff --git --from PARENT --to CHANGE -- FILESETS`, omitting `FILESETS` only for the complete diff. Record the exact revisions in the assignment. Inspect each file before assignment and keep it unchanged while the audit is active. The assignments must collectively cover the complete change.
+2. Identify the single finalized `CHANGE` ID. Inspect the complete Git diff and statistics with `jj diff --git --stat --revision CHANGE`, and account for every changed file.
+3. Give one subagent the complete diff or divide it into coherent logical clusters. Write each assigned diff under `.tmp/` with `jj diff --git --revision CHANGE -- FILESETS`, omitting `FILESETS` only for the complete diff. Record the `CHANGE` ID in every assignment and review. Inspect each file before assignment and keep it unchanged while the audit is active. The assignments must collectively cover the complete change.
 
 ### Run the independent audit
 
-Start each subagent without inherited authoring conversation or project conclusions. Tell the subagent not to read active project state or run `0 proj`. Give it the diff path, resulting repository context, exact responsibility, and required report without supplying a desired conclusion or draft message.
+Start each subagent without inherited authoring conversation or project conclusions. Tell the subagent not to read active project state or run `0 proj`. Give it the `CHANGE` ID, diff path, resulting repository context, exact responsibility, and required report without supplying a desired conclusion or draft message.
 
 The assigned diff bounds responsibility, not investigation. The subagent follows governing documentation, implementation, tests, callers, consumers, and tools far enough to establish:
 
@@ -97,7 +97,7 @@ The report records its diff coverage and identifies anything it could not establ
 
 ### Write from established facts
 
-1. Verify the reports against their cited sources and diff regions. Resolve discrepancies, repair problems, and keep unsupported or conflicting claims out of the message. If the audited parent-to-change diff changes, return to [establish the audit boundary](#establish-the-audit-boundary), reconcile complete coverage, and repeat the independent work for every affected region. Resume synthesis only after current reports collectively cover every line of the current diff and their material claims have been verified.
+1. Verify the reports against their cited sources and diff regions. Resolve discrepancies, repair problems, and keep unsupported or conflicting claims out of the message. If the audited `CHANGE` diff changes, return to [establish the audit boundary](#establish-the-audit-boundary), reconcile complete coverage, and repeat the independent work for every affected region. Resume synthesis only after current reports collectively cover every line of the current diff and their material claims have been verified.
 2. Identify the contribution's principal effect. Draft the [subject line](#subject-line) from that outcome and build the [narrative body](#narrative-body) from the decision-relevant intent, architecture, findings, and impact established by the audit.
 3. Audit every message claim against the finalized diff and its evidence. Read it as a contributor without the authoring context, remove transient or repeated material, and check grammar, wrapping, completeness, portability, and agreement with the final change. If this work changes the contribution, repeat the recovery loop in step 1 before continuing.
 4. Validate the message under [quality](../quality/README.md), then apply it to the exact final change through the revision-targeted publication action.

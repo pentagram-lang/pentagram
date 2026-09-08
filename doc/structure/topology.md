@@ -10,6 +10,12 @@ Documentation is a tree with links running through it. Directories contain files
 
 Pentagram's aims govern all three answers. Ergonomic topology keeps useful paths close to the work. Deterministic topology gives each subject a predictable home and makes relationships explicit. Efficient topology keeps reading and editing local, avoids competing copies, and gives tools regular structure to follow. The same properties expose system boundaries and keep documentation connected to implementation and evidence.
 
+## Exercise the reading path
+
+Read a documentation surface as a reader would. Start at its entry point, usually its `README.md`, and follow the path the document presents. At each link, ask whether the current document has established why the next one matters and what it will add. Then check whether the linked document begins where the previous one leaves off.
+
+If the reader must search for a missing bridge, guess why a document belongs, or read ahead before the path makes sense, the topology is making the reader do its work. The problem is in the connection between documents.
+
 ## Build the hierarchy around the subject
 
 Every level of the hierarchy must express a real relationship. A directory gathers one coherent subject. A file owns a coherent part of that subject. A section develops one part of its file. Children narrow or develop their parent; siblings divide the parent along distinctions readers can understand.
@@ -44,13 +50,7 @@ A structured format can define a **companion** whose exact path binds it to anot
 
 ## Give each document one clear job
 
-A document needs one centre of gravity. Different jobs create different reading paths:
-
-- orientation locates a subject and opens the relevant paths;
-- explanation builds a model or preserves rationale;
-- a procedure guides a task, recovery, or other transformation;
-- reference fixes exact boundaries; and
-- change documentation carries understanding across versions.
+A document needs one centre of gravity. Different jobs create different reading paths. For example, a document may orient readers to a subject, build a model or preserve rationale, guide a task or recovery, fix exact boundaries, or carry understanding across versions.
 
 The jobs are design tools, not a mandatory taxonomy or rigid templates. Combine jobs when they serve one coherent use. Separate jobs when they need different entry conditions, reading orders, depths, or maintenance boundaries.
 
@@ -58,11 +58,7 @@ Layer depth without splitting the truth. An entry document provides enough conte
 
 ## Build paths with links
 
-Hierarchy gives every document a home. Links make the hierarchy usable for more than one path.
-
-- Link upward to broader context.
-- Link downward to deeper detail.
-- Link sideways to related concepts, procedures, implementation, and evidence.
+Hierarchy gives every document a home. Links make the hierarchy usable for more than one path. A link can lead upward to broader context, downward to deeper detail, or sideways to related concepts, procedures, implementation, and evidence.
 
 Target the smallest section that satisfies the relationship. The surrounding sentence states whether the target supplies navigation, authority, prerequisite knowledge, rationale, or evidence. The [house style: write useful links](../style/house.md#write-useful-links) section governs link wording and within-document consistency.
 
@@ -70,11 +66,7 @@ A link extends local meaning; it does not replace local meaning. Keep a conditio
 
 ## Compose from one authority
 
-Reference, generation, and projection let several documents use one governing source:
-
-- **Reference** links a dependent document to the source.
-- **Generation** derives regular facts or structures from the source.
-- **Projection** selects and reshapes the source for another path or level of abstraction.
+Reference, generation, and projection let several documents use one governing source. Reference links a dependent document to the source. Generation derives regular facts or structures from the source. Projection selects and reshapes the source for another path or level of abstraction.
 
 Reference must leave enough context at the point of use. Generation must name a canonical input and use a reproducible transformation. Projection must preserve provenance, scope, and status. None of the three mechanisms creates a second authority.
 
@@ -90,16 +82,15 @@ After the change, follow the paths in both directions. Readers and authors must 
 
 ## Recognize topology failures
 
-Topology has failed when its shape creates work or uncertainty instead of removing them:
+Topology has failed when its shape creates work or uncertainty instead of removing them.
 
-- **Central warehouse:** documentation lives far from the systems and work it governs.
-- **Taxonomy without a path:** the hierarchy classifies information but does not lead through a real decision or task.
-- **One giant node:** unrelated jobs and depths force every reader through the same surface.
-- **Meaning at a distance:** essential conditions or consequences are scattered across a chain of links.
-- **Competing copies:** several nodes appear to govern the same content.
-- **Orphan node:** content has no useful route from its local entry point or back to broader context.
-- **Incidental locality:** content is physically nearby but belongs to a different conceptual or change boundary.
-- **Rigid symmetry:** directories or files mirror code or a template without helping readers.
-- **Unstable path:** structural changes break links, anchors, tools, or compatibility without an explicit transition.
+For example, topology can fail through:
+
+- **Distance:** A central warehouse puts documentation far from the systems and work it governs. Incidental locality puts content nearby even though it belongs to a different conceptual or change boundary.
+- **Missing routes:** A taxonomy without a path classifies information without leading through a real decision or task. An orphan node has no useful route from its local entry point or back to broader context.
+- **One giant node:** Unrelated jobs and depths are forced through the same surface.
+- **Competing copies:** Several nodes appear to govern the same content.
+- **Meaning at a distance:** Essential conditions or consequences are scattered across a chain of links.
+- **Rigid or unstable structure:** Rigid symmetry mirrors code or a template without helping readers. An unstable path breaks links, anchors, tools, or compatibility without an explicit transition.
 
 Recurring difficulty placing or connecting documentation can expose a poorly defined system boundary. Inspect the governed design before adding hierarchy or links to hide the confusion.

@@ -4,7 +4,9 @@ Within [documentation standards](../README.md), meaning determines what document
 
 Meaning works with the other documentation pillars. [Structure](../structure/README.md) gives meaning a home, order, and links that delegate authority. [Style](../style/README.md) makes meaning clear without changing its force. [Quality](../quality/README.md) evaluates whether the documented meaning is correct and works for its readers. Meaning governs the semantic content and relationships that the other pillars arrange, express, and evaluate.
 
-Meaning applies the aims defined in the [Pentagram manifesto](../../manifesto.md). Ergonomic meaning helps readers form a model they can reuse and helps authors see what a change affects. Deterministic meaning makes conclusions follow from explicit conditions and gives implementation and tests a shared semantic authority to realize and validate. Efficient meaning lets stable concepts do repeated explanatory work and states resource behaviour clearly enough to preserve efficiencies and repair waste.
+Meaning is one part of clear correctness. Its claims, concepts, relationships, and notation must accurately describe the subject within the stated scope. The [quality criteria](../quality/criteria.md) judge that meaning together with structure, style, and reader use; correct claims do not compensate for relationships readers cannot follow.
+
+Meaning must embody and support the aims defined in the [Pentagram manifesto](../../manifesto.md). Ergonomic meaning lets readers form a model they can reuse. Deterministic meaning makes conclusions follow from explicit conditions and gives implementation and tests a shared semantic authority to realize and validate. Efficient meaning lets stable concepts do repeated explanatory work and states resource behaviour clearly enough to preserve useful efficiencies and repair waste.
 
 ## Claims
 
