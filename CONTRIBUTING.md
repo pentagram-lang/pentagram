@@ -17,4 +17,9 @@ For each aim, every contribution must fulfil both obligations to the extent appl
 
 **Clearly correct is the acceptance standard for every contribution.** Correct means satisfying the actual requirements, including those arising from the manifesto aims. Clearly means the contribution and its evidence make that satisfaction understandable and justified.
 
-Contributions must embody and support this standard too: be clearly correct themselves and preserve or improve the conditions for other clearly correct contributions. Understandable contracts, trustworthy components, and useful checks can provide that support.
+Contributions must embody and support this standard too: be clearly correct themselves and preserve or improve the conditions for other clearly correct contributions.
+
+## Examples
+
+- **Correct.** A function returns the expected values but exceeds a required memory bound. It is incorrect: returning the expected values satisfies only part of its requirements.
+- **Clearly.** A check rejects negative lengths, but the length's type cannot represent a negative value. That makes the check's redundancy evident. Tests containing only positive lengths would not establish the same fact.
