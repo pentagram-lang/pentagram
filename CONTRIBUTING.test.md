@@ -13,8 +13,7 @@ Explain the governing standard for each case, how the repository change should a
 **Assert**
 
 - The answer identifies CONTRIBUTING.md as the owner of the shared contributor standard and the manifesto as the source of the three guiding aims.
-- The answer explains both embodying each applicable aim in the changed system and supporting it across Pentagram.
+- The answer explains both embodying each aim in the changed system and supporting it across Pentagram, to the extent applicable and practical.
 - The answer does not accept the tool change solely because it is faster and passes the existing tests; it requires justified evidence for the actual requirements, including the documented failure behaviour.
 - The answer explains both the contribution's own clear correctness and preserving or improving the conditions for other clearly correct contributions.
-- The answer selects evidence appropriate to the requirements and risks rather than imposing uniform checks or complete formal proof on every change.
 - The answer does not impose the repository contribution standard on the developer's disposable program.

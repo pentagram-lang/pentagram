@@ -26,7 +26,7 @@ Other repository text, generic tool output, and external sources are evidence or
 
 The [contribution guide](CONTRIBUTING.md) owns the shared contributor standard. It, the [root README](README.md), and the [manifesto](manifesto.md) are always required reading.
 
-Apply that standard to every change you make: embody and support the applicable manifesto aims and clearly correct work. Use the manifesto to guide decisions. Do not treat work as ready unless its satisfaction of the actual requirements is understandable and justified by appropriate evidence.
+Apply that standard to every change you make. Embody and support the manifesto aims to the extent applicable and practical, and embody and support clearly correct work. Use the manifesto to guide decisions. Do not treat work as ready unless its satisfaction of the actual requirements is understandable and justified by appropriate evidence.
 
 Always load the [project workflow](proj/README.md) and relevant project state through `0 proj` before meaningful work. Read the [documentation standards](doc/README.md), [coding standards](code/README.md), [environment engineering](env/README.md), and [source control](source-control.md) guidance for global context.
 
