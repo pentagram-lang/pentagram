@@ -4,7 +4,7 @@ Pentagram is a language project for clear reasoning. This index gives the reposi
 
 ## Contributing
 
-The [contribution guide](CONTRIBUTING.md) defines the shared standard for all changes to Pentagram.
+The [contribution guide](CONTRIBUTING.md) establishes the shared contributor baseline: the clearly-correct standard, why it matters, and how to recognize and resolve issues. It governs all contributions to Pentagram.
 
 ## Buildkite
 
