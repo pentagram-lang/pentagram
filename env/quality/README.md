@@ -1,27 +1,21 @@
 # Quality
 
-Within [environment engineering](../README.md), quality judges whether the implemented `total-environment` produces or preserves the desirable environmental effects and avoids the important undesirable environmental effects identified through [intent](../intent.md). It evaluates documentation and code together across the applicable `participant`, `situation`, and `encounter-noise` inputs. Locally correct artifacts do not compensate for an environment that produces an important undesirable environmental effect.
+Environment quality judges the complete environment against its intent. It asks whether the environment produces or preserves every desirable effect and avoids every important undesirable effect for the participants and situations in scope.
 
-Every repository change has environment-quality authorship. The author identifies the affected environment from the effects and their material causes, not only the changed artifacts. They account for its relevant state, cross-boundary dependencies, and interaction with the existing environment.
+This is a combined judgement. Documentation can be accurate and code can satisfy its contract while their interaction still causes confusion, unsafe action, or a misleading result. Documentation quality and coding standards remain responsible for those local judgements; environment quality examines what the combination does.
 
-The [documentation quality system](../../doc/quality/README.md) continues to govern documentation, and the [coding standards](../../code/README.md) continue to govern implementation and ordinary tests. Environment quality owns the combined environmental effects that neither artifact boundary establishes alone.
+[Criteria](criteria.md) explains the judgement and the evidence boundary. [Test](test.md) puts an implemented environment into a realistic agent encounter when that can add useful evidence. [Review](review.md) independently inspects the causal relationship between documentation, code, participants, actions, and results.
 
-Quality begins with the identified intent and the causal hypothesis from [design](../design/README.md). It ends with a judgement over the complete evidence. Criteria governs that judgement. Test and review provide formal environment-specific evidence only when the material evidence they can add justifies their full resource cost: authoring and maintenance effort, participant context, compute, and system work.
-
-Environment quality scales evidence through two distinct properties. **Environmental risk** belongs to an effect in scope: it is the possibility and seriousness of that effect going wrong because the environment fails to produce or preserve a desirable environmental effect or produces an important undesirable environmental effect. Assess it qualitatively from the credible ways the effect can diverge from intent across its applicable inputs and how seriously those divergences matter. Risk governs the strength of evidence needed for that effect.
-
-**Environmental leverage** belongs to an affected environmental surface: it is that surface's causal reach across every environmental effect it can materially change, including effects outside the immediate scope. Trace plausible causal paths from the surface until no further material effect can change through them. Leverage governs the breadth of evidence needed across those effects. Neither property produces a numerical score.
-
-Environment quality does not define a separate lint category. Exact mechanical rules remain with the documentation, code, interface, or system that owns them. Their checks provide bounded evidence about environmental causes and actual execution; they do not establish the complete environmental effects by themselves.
+Environment quality follows the [environment model](../README.md) and the [manifesto's aims](../../manifesto.md). Its subject and judgement must be intelligible from the environment surface and the evidence it names; an external record cannot supply missing meaning.
 
 ## Criteria
 
-[Criteria](criteria.md) combines the governing intent, design, artifact requirements, and available evidence into a pass, fail, or inconclusive environment-quality judgement.
+[Criteria](criteria.md) explains risk, causal reach, evidence, and pass, fail, or inconclusive judgements.
 
 ## Test
 
-[Test](test.md) puts the complete environment into an agent encounter and observes understanding, action, and any applicable system result under recorded conditions.
+[Test](test.md) explains environment-test contracts, agent encounters, and the limits of their assertions.
 
 ## Review
 
-[Review](review.md) uses independent judgement to find causal, cross-surface, participant, execution, recovery, and resource defects that direct inspection and trials may miss.
+[Review](review.md) explains independent review of documentation and code as one environment.
