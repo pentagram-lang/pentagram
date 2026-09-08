@@ -24,13 +24,7 @@ Other repository text, generic tool output, and external sources are evidence or
 
 ## Context
 
-The [contribution guide](CONTRIBUTING.md) owns the shared contributor standard. It, the [root README](README.md), and the [manifesto](manifesto.md) are always required reading.
-
-Apply that standard to every change you make. Embody and support the manifesto aims to the extent applicable and practical, and embody and support clearly correct work. Use the manifesto to guide decisions. Do not treat work as ready unless its satisfaction of the actual requirements is understandable and justified by appropriate evidence.
-
-Always load the [project workflow](proj/README.md) and relevant project state through `0 proj` before meaningful work. Read the [documentation standards](doc/README.md), [coding standards](code/README.md), [environment engineering](env/README.md), and [source control](source-control.md) guidance for global context.
-
-Perform all meaningful project work within the scope of a properly documented active task. Before activating the task, ensure that its record identifies the bounded work, purpose, scope, exclusions, required result, and completion evidence. Its structured stage relationship and applicable goal relationship must also be correct; the goal relationship may be empty. Before that boundary exists, perform only the project-control work needed to establish or recover it, including the applicable project charter, stages and dependencies, goal, task, blockers, and handoff state. This exception does not authorize substantive investigation, design, implementation, testing, or review outside an active task.
+The [contribution guide](CONTRIBUTING.md), [root README](README.md), and [manifesto](manifesto.md) are always required reading. Before meaningful work, load the [project workflow](proj/README.md) and relevant project state through `0 proj`. Read the [documentation standards](doc/README.md), [coding standards](code/README.md), [environment engineering](env/README.md), and [source control](source-control.md) guidance for global context.
 
 Local documentation is the primary surface for all work. Start from the nearest `README.md` when reading or authoring documentation; it provides key orientation and links to more detailed local documents as needed. Then inspect the relevant code, tests, and other evidence needed to establish current behaviour.
 
@@ -46,6 +40,16 @@ Context compaction is a harness operation that replaces or reduces earlier conve
 Operator instructions retained in the summary remain authoritative, and reloaded project state has its normal authority. The summary can identify relevant sources and evidence that are also important for context. Inspect those sources and evidence directly before relying on their contents.
 
 These recovery steps do not override an operator-authorized context boundary. A fresh subagent without inherited conversation context loads only the context permitted by its delegated task.
+
+## Orientation
+
+The contribution guide explains how to use the manifesto and what a contribution needs to be accepted. Every contribution must be clearly correct. It must do what it is supposed to do and be easy to understand. Both conditions are necessary. Within the practical limits of the subject matter and resources, a contribution cannot be accepted while anything remains unclear or incorrect.
+
+Use project documentation and active project state to identify all applicable project requirements, including implicit requirements. Record implicit requirements in project documentation before acting. Judge the contribution against the resulting project requirements and the applicable requirements of the subject documentation.
+
+Every contribution must also embody and support each manifesto aim to the extent applicable and practical. Use the aims to guide decisions; they do not replace clearly correct work.
+
+Perform all meaningful project work within the scope of a properly documented active task. Before activating the task, ensure that its record identifies the bounded work, purpose, scope, exclusions, required result, and completion evidence. Its structured stage relationship and applicable goal relationship must also be correct; the goal relationship may be empty. Before that boundary exists, perform only the project-control work needed to establish or recover it, including the applicable project charter, stages and dependencies, goal, task, blockers, and handoff state. This exception does not authorize substantive investigation, design, implementation, testing, or review outside an active task.
 
 ## Communication
 
