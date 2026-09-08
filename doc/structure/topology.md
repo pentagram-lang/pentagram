@@ -10,6 +10,12 @@ Documentation is a tree with links running through it. Directories contain files
 
 Pentagram's aims govern all three answers. Ergonomic topology keeps useful paths close to the work. Deterministic topology gives each subject a predictable home and makes relationships explicit. Efficient topology keeps reading and editing local, avoids competing copies, and gives tools regular structure to follow. The same properties expose system boundaries and keep documentation connected to implementation and evidence.
 
+## Exercise the reading path
+
+Read a documentation surface as a reader would. Start at its entry point, usually its `README.md`, and follow the path the document presents. At each link, ask whether the current document has established why the next one matters and what it will add. Then check whether the linked document begins where the previous one leaves off.
+
+If the reader must search for a missing bridge, guess why a document belongs, or read ahead before the path makes sense, the topology is making the reader do its work. The problem is in the connection between documents.
+
 ## Build the hierarchy around the subject
 
 Every level of the hierarchy must express a real relationship. A directory gathers one coherent subject. A file owns a coherent part of that subject. A section develops one part of its file. Children narrow or develop their parent; siblings divide the parent along distinctions readers can understand.

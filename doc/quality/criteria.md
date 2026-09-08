@@ -10,6 +10,8 @@ Each pillar owns its requirements and defines where they apply. Each pillar's RE
 
 Local documentation can add narrower requirements for its own surface. Those requirements apply alongside the pillar standards.
 
+Violations of [meaning](../meaning/README.md), [structure](../structure/README.md), and [style](../style/README.md) are correctness problems. A document must correctly match the Pentagram documentation contract in what it says, how it is arranged, and how it is expressed. Clarity problems often hide incorrect meaning and are often caused by incorrect structure or style. Correct meaning, structure, and style do not guarantee clarity.
+
 ## Require the whole result
 
 Judge each document and its local documentation surface. A clear leaf fails when readers cannot find it or its index misrepresents it. A coherent surface fails when a necessary claim is false or a necessary instruction is unreadable.

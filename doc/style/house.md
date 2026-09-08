@@ -18,13 +18,7 @@ Do not lead with the author's history, the implementation chronology, or everyth
 
 ## Follow the thought
 
-Information should arrive in the order needed to reason about it.
-
-- Put conditions before the actions they govern.
-- Put warnings immediately before risky or irreversible steps.
-- State a decision before its rationale when the reader must act on it.
-- Establish a model before details that depend on it.
-- Keep causes near effects, rules near exceptions, and actions near expected results.
+Within a paragraph, let each sentence carry the thought forward. Put conditions before the claims or actions they govern. Put warnings before risky steps and decisions before their rationale when readers must act. Keep causes near effects, rules near exceptions, and actions near expected results.
 
 Give each paragraph one movement of thought. Open with the fact or relationship that makes the rest intelligible.
 
@@ -45,6 +39,14 @@ Name the actor when responsibility or behaviour depends on it. Prefer concrete v
 Keep conditions, modifiers, and exceptions close to what they govern.
 
 Use pronouns and demonstratives such as “it,” “this,” “that,” “these,” and “those” only when their referent is immediate and unmistakable. In long sentences or paragraphs, repeat the specific noun instead.
+
+## State meaning directly
+
+Do not let unexplained ideas substitute for what actually needs to be written out clearly in text.
+
+An author may know what the document should communicate. But unless the final text itself communicates that information directly, readers won't be able to receive it reliably.
+
+For example, unintroduced concepts, vague abstractions, and leaps in logic are all likely to violate this rule and result in a document that cannot do its job.
 
 ## Use sentence case
 

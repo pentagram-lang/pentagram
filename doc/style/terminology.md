@@ -60,6 +60,8 @@ When a human's pronouns are unstated, use **they/them**. Do not infer pronouns f
 
 Repository prose uses Canadian English by default. Preserve the exact spelling of identifiers, syntax, commands, quoted text, upstream names, and established external terminology.
 
+Examples include `colour`, `behaviour`, `centre`, `artifact`, and `authorized`; this list is illustrative, not exhaustive.
+
 A local surface may follow another language convention when its audience or governing standard requires one. State the exception where authors will encounter it.
 
 ## Keep abbreviations useful
