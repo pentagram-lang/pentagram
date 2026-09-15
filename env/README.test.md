@@ -15,7 +15,7 @@ You are about to design documentation and code for a new repository command. Exp
 - The answer includes at least one desirable effect for humans and one for agents because the complete environment must benefit both participant classes.
 - The answer distinguishes intended effects from interventions and does not treat `env/` as a source of predetermined intents.
 - The answer follows causal reach to bound the `total-environment` and keeps state created or preserved by documentation and code in that environment.
-- The answer uses `participant`, `situation`, and `encounter-noise` to state the applicable encounter conditions, keeps material external conditions outside the `total-environment`, and does not duplicate environment state through `situation`.
+- The answer uses `participant`, `situation`, and `encounter-noise` to state the applicable encounter conditions, keeps material external conditions outside the `total-environment`, and does not duplicate environment state through `situation`. It says that a review or test handoff selects state for consideration but does not determine whether that state belongs to the `total-environment`.
 - The answer cites `env/intent.md` and the applicable definitions in `env/theory.md`.
 
 ## Scale environment-quality evidence
@@ -29,6 +29,9 @@ A proposed change affects shared repository guidance used across many subjects. 
 - The answer assigns environmental risk to each effect in scope and explains that it governs evidentiary strength.
 - The answer assesses risk from the credible material ways the effect can diverge from intent and how seriously those divergences matter.
 - The answer assigns environmental leverage to each affected environmental surface across all effects and explains that it governs evidentiary breadth.
+- The answer explains that environment quality judges whether the complete environment is clearly correct: it does what intent and applicable requirements require, lets participants in scope understand what it means and use it as intended under the named conditions, and does not make them supply unstated meaning, reconcile contradictions, or perform avoidable work that the environment could perform itself.
+- The answer treats the design hypothesis as a causal path to examine rather than an additional outcome that the environment must realize.
+- The answer says that the quality judgement names its subject, intent, conditions, and evidence; intent may come from an accessible record named by the quality process, while private conversation and author memory cannot supply missing meaning.
 - The answer follows plausible causal paths from an affected surface and stops expanding the boundary when no further material effect can change through them.
 - The answer weighs the evidence an environment test or review can add against its resource cost without describing the test run itself as risky.
 - The answer cites the governing definitions and methods in `env/quality/`.
@@ -44,8 +47,8 @@ A change contains documentation and an executable command implemented in `comman
 - The answer says documentation tests assert reader understanding or action attributable to documentation and never assert a result of actual system execution.
 - The answer says implementation tests assert only results of actual execution and do not assert participant understanding or action.
 - The answer places implementation tests in the same-directory shadow test file required by `code/README.md`, not in a `.test.md` companion.
-- The answer says environment tests assert understanding or action from an encounter with the complete environment and may also assert an applicable system result.
-- The answer distinguishes participant action from a system result by the proposition asserted, even when one execution trace supplies evidence for both.
+- The answer says environment tests assert understanding or action from an encounter with the complete environment and may also assert an applicable system result. Each test has one evidence boundary, while documentation and environment tests can coexist as sibling tests in one companion.
+- The answer distinguishes participant action from a system result by the proposition asserted, even when one execution trace supplies evidence for both, and does not use one test to combine documentation and environment evidence boundaries.
 - The answer explains that documentation and environment tests share the `.test.md` companion schema, can accompany any file type, and are distinguished by their task, assertions, and causal boundary rather than by the subject's file type. It maps a companion for `command.rs` to `command.rs.test.md`.
 - The answer cites `doc/quality/test.md`, `code/README.md`, and `env/quality/test.md`.
 

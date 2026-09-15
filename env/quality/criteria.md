@@ -1,16 +1,16 @@
 # Criteria
 
-Within [quality](README.md), environment quality is one judgement over the affected `total-environment`. The author's [identified intent](../intent.md) supplies the effects and encounter conditions. [Design](../design/README.md) supplies the intervention and causal hypothesis. Documentation, code, and local subject standards supply their own requirements. Evidence determines whether the complete result meets them.
+Within [quality](README.md), environment quality is one judgement over the affected `total-environment`. A clearly correct environment does what its intent and applicable requirements require. Participants in scope must be able to understand what the environment means and use it as intended under the named conditions. The environment must not require them to supply unstated meaning, reconcile contradictions, or perform avoidable work that it could perform itself. The author's [identified intent](../intent.md) supplies the effects and encounter conditions. [Design](../design/README.md) supplies the intervention and causal hypothesis. Documentation, code, and local subject standards supply their own requirements. Evidence determines whether the complete result meets them.
 
 ## Use the governing inputs
 
-Use intent for the desirable environmental effects and important undesirable environmental effects and their applicable `participant`, `situation`, and `encounter-noise` conditions. Use the [environmental encounter model](../theory.md#environmental-encounter) to identify the affected `total-environment`. Use the design hypothesis for the environmental causes and predicted path to each effect.
+Use intent for the desirable environmental effects and important undesirable environmental effects and their applicable `participant`, `situation`, and `encounter-noise` conditions. Use the [theory: environmental encounter model](../theory.md#environmental-encounter) to identify the affected `total-environment`. Use the design hypothesis for the environmental causes and predicted path to each effect.
 
 Apply the requirements owned by the affected documentation, code, interfaces, and systems. Environment quality judges their combined effects; it does not replace their local authority.
 
 ## Require the whole environment
 
-The complete environment must produce or preserve every desirable environmental effect and avoid every important undesirable environmental effect across the applicable encounter conditions. Documentation and code together must realize the causal hypothesis. Conceptual and actual execution must agree where their relationship affects the result.
+The complete environment must produce or preserve every desirable environmental effect and avoid every important undesirable environmental effect across the applicable encounter conditions. The design hypothesis identifies a causal path to examine; it is not an additional outcome that the environment must realize. Conceptual and actual execution must agree where their relationship affects the result.
 
 Human and agent paths may differ, but they must preserve the same governing meaning and remain compatible. The complete environment must produce or preserve at least one desirable environmental effect for each participant class and correct every material frame distortion identified by intent and design.
 

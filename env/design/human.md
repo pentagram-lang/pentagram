@@ -1,6 +1,6 @@
 # Human design
 
-Within [environment design](README.md), human design turns identified effects into an environment that works for the applicable humans. Intent already supplies those effects and their applicable `participant`, `situation`, and `encounter-noise` conditions. The [human schema model](../theory.md#human-schema-activation) explains how environmental cues shape conception and action.
+Within [environment design](README.md), human design turns identified effects into an environment that works for the applicable humans. Intent already supplies those effects and their applicable `participant`, `situation`, and `encounter-noise` conditions. The [theory: human schema activation](../theory.md#human-schema-activation) explains how environmental cues shape conception and action.
 
 The principles below govern the design together. Each principle changes a design decision; none is a checklist of techniques.
 
@@ -8,7 +8,7 @@ The principles below govern the design together. Each principle changes a design
 
 A human experiences a task, not an artifact. Documentation and executable systems succeed or fail as one path even when different subjects own them.
 
-Follow the task from the human's starting condition through to the consequential task result. Design every transition that can break orientation or change meaning. Do not accept a clear page, usable command, or sound implementation when the complete path still prevents the intended effect.
+Follow the task from the human's starting condition through to the consequential task result. Design every transition that can break orientation or change meaning. Documentation and code can each meet their local contract while the complete path still prevents the intended effect.
 
 > **Example**
 >
@@ -48,4 +48,4 @@ Begin with the barriers faced by humans who would otherwise be excluded. Preserv
 
 State the intended effect the intervention serves, the environmental cause it changes, the resulting path through the whole experience, and the effects predicted under the applicable `participant`, `situation`, and `encounter-noise` conditions. When the effect depends on correcting a frame distortion, state the material distortion and how the path corrects it. Mark unsupported beliefs about humans as assumptions.
 
-[Environment quality](../quality/README.md) uses that hypothesis to select proportionate evidence and judge the implemented result. Apply [agent design](agent.md) to the same proposed environment before accepting it; a human benefit cannot excuse an important undesirable environmental effect on agents.
+[Environment quality](../quality/README.md) uses that hypothesis to select proportionate evidence and judge the implemented result. Use [agent design](agent.md) to examine the same proposed environment for agent effects. A human benefit cannot excuse an important undesirable environmental effect on agents.

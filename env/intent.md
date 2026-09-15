@@ -15,7 +15,7 @@ The author must identify their intent before designing the environment or evalua
 
 State each effect as the outcome, invariant, or transition that matters. For a system effect, distinguish a result that execution may permit from one it must produce. Every intent must include at least one desirable effect for humans and one for agents because the complete environment must benefit both participant classes. One effect can serve both classes when its conditions genuinely apply to both.
 
-Before stating those effects, bound the subject as the [environmental encounter model](theory.md#environmental-encounter) defines it. Name the affected `total-environment`, its relevant state and cross-boundary dependencies, and any material conditions that remain external. The boundary follows the effects and their environmental causes, not only the artifacts being edited.
+Name the subject and the effects under consideration, then bound the subject as the [theory: environmental encounter model](theory.md#environmental-encounter) defines it. Name the affected `total-environment`, its relevant state and cross-boundary dependencies, and any material conditions that remain external. Refine the boundary when identifying an effect or cause reveals another material part of the environment. The boundary follows the effects and their environmental causes, not only the artifacts being edited.
 
 The environmental encounter model also explains why an effect depends on what reaches a participant in a situation. For each effect, identify:
 

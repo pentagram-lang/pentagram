@@ -2,15 +2,15 @@
 
 [Quality](README.md) uses test to put an implemented `total-environment` into a realistic agent encounter and observe its effects. Environment-test assertions cover participant understanding or action and, when applicable, a result that actual system execution permits or produces.
 
-Environment tests use the `.test.md` companion and `Tests`, `Task`, and `Assert` form owned by [documentation testing](../../doc/quality/test.md#store-tests-beside-their-subject). They have a different causal boundary and assertion scope. A documentation test attributes understanding or action to documentation. An environment test attributes understanding or action, and any asserted result, to the complete environmental encounter.
+Environment tests use the `.test.md` companion and `Tests`, `Task`, and `Assert` form owned by [documentation test: write the test contract](../../doc/quality/test.md#write-the-test-contract). They have a different causal boundary and assertion scope. A documentation test attributes understanding or action to documentation. An environment test attributes understanding or action, and any asserted result, to the complete environmental encounter.
 
 Environment testing does not conduct human studies. Existing evidence of human effects can still contribute to the quality judgement governed by [environment criteria](criteria.md).
 
 ## Use the shared companion
 
-Store an environment test beside any subject file as [documentation testing](../../doc/quality/test.md#store-tests-beside-their-subject) requires. Documentation and environment tests can coexist as sibling H2 tests in the same companion, including a companion for a code file. The file type does not determine the test kind.
+Store an environment test beside any subject file as [documentation test: store tests beside their subject](../../doc/quality/test.md#store-tests-beside-their-subject) requires. Documentation and environment tests can coexist as sibling H2 tests in the same companion, including a companion for a code file. The file type does not determine the test kind.
 
-Follow the exact [shared test form](../../doc/quality/test.md#write-the-test-contract). The task and assertions determine whether a test supplies documentation evidence, environment evidence, or both. Do not add a type field or another heading level.
+Follow the exact [documentation test: write the test contract](../../doc/quality/test.md#write-the-test-contract). Each test has one evidence boundary. Its task and assertions determine whether it is a documentation test, whose evidence is attributable to documentation, or an environment test, whose evidence is attributable to the complete environmental encounter. A companion can contain both kinds as sibling H2 tests, but one test does not combine their boundaries. Do not add a type field or another heading level.
 
 ## Design environment-test coverage
 
@@ -52,9 +52,9 @@ Assertions describe effects, not the environmental causes predicted to produce t
 
 ## Run and judge the encounter
 
-Run the test from the repository root against the repository as it exists. Start a fresh agent without inherited authoring conversation. Give the agent `Task`, but hide the companion and `Assert`. Tell the agent not to read `*.test.md` or active project state and not to run `0 proj`, unless project state is an explicit part of the encounter.
+Run the test from the repository root against the repository as it exists. Start a fresh agent without inherited authoring conversation. Give the agent `Task`, but hide the companion and `Assert`. Tell the agent not to read `*.test.md` or active project state and not to run `0 proj`, unless project state is an explicit part of the encounter. This exception does not expose the companion or `Assert`.
 
-Expose the environmental channel named by the task. Preserve the returned answer and citations, tool calls and outputs, artifacts, system results, feedback, and state. Record the agent, harness, exposed model and reasoning configuration, available tools, permissions, environment state, encounter noise, and material limitations.
+Expose the environmental channel named by the task. Identify the companion and test name, and preserve the test's `Task` and `Assert` contract with the result. Preserve the returned answer and citations, tool calls and outputs, artifacts, system results, feedback, and state. Record the agent, harness, exposed model and reasoning configuration, available tools, permissions, environment state, encounter noise, and material limitations.
 
 A test contract does not authorize destructive, external, privileged, credentialed, or irreversible action. Obtain the required authority or use a safe fixture.
 

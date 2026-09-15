@@ -1,6 +1,6 @@
 # Agent design
 
-Within [environment design](README.md), agent design turns identified effects into an environment that works for the applicable agents. When environmental text reaches model context, [LLM probability conditioning](../theory.md#llm-probability-conditioning) makes it a direct input to model output, while tools and systems determine what generated choices can actually do.
+Within [environment design](README.md), agent design turns identified effects into an environment that works for the applicable agents. When environmental text reaches model context, [theory: LLM probability conditioning](../theory.md#llm-probability-conditioning) makes it a direct input to model output, while tools and systems determine what generated choices can actually do.
 
 The principles below govern the design together. Each principle changes a design decision; none is a checklist of prompting tricks.
 
@@ -70,4 +70,4 @@ Begin with the smallest clear environment that expresses the result and boundari
 
 State the required result, the environmental causes the intervention changes, the expected path through context and execution, and the effects predicted under the applicable `participant`, `situation`, and `encounter-noise` conditions. When the effect depends on correcting a frame distortion, state the material distortion and how the path corrects it. Record material model and harness assumptions without generalizing beyond them.
 
-[Environment quality](../quality/README.md) uses that hypothesis to select proportionate evidence and judge the implemented result. Apply [human design](human.md) to the same proposed environment before accepting it; an agent benefit cannot excuse an important undesirable environmental effect on humans.
+[Environment quality](../quality/README.md) uses that hypothesis to select proportionate evidence and judge the implemented result. Use [human design](human.md) to examine the same proposed environment for human effects. An agent benefit cannot excuse an important undesirable environmental effect on humans.
