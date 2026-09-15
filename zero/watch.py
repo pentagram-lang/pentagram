@@ -6,11 +6,12 @@ import sys
 import threading
 import time
 
-import lib
 import pywatchman
 
-# ANSI Colors
-GRAY = '\033[90m'
+from zero import lib
+
+# ANSI Colours
+GREY = '\033[90m'
 RED = '\033[1;91m'
 GREEN = '\033[1;92m'
 YELLOW = '\033[93m'
@@ -20,14 +21,14 @@ CYAN = '\033[96m'
 RESET = '\033[0m'
 
 
-def color_line(line, color):
-  return f'{color}{line}{RESET}'
+def colour_line(line, colour):
+  return f'{colour}{line}{RESET}'
 
 
 def status(label, duration, success=True):
-  color = GREEN if success else RED
+  colour = GREEN if success else RED
   text = 'PASS' if success else 'FAIL'
-  print(f'[{color}{text}{RESET}] {label} ({duration:.2f}s)')
+  print(f'[{colour}{text}{RESET}] {label} ({duration:.2f}s)')
 
 
 class Timer:
@@ -39,11 +40,11 @@ class Timer:
 
 
 class StreamPrefixer(threading.Thread):
-  def __init__(self, stream, prefix, color, output_stream=sys.stdout):
+  def __init__(self, stream, prefix, colour, output_stream=sys.stdout):
     super().__init__()
     self.stream = stream
     self.prefix = prefix
-    self.color = color
+    self.colour = colour
     self.output_stream = output_stream
     self.daemon = True
 
@@ -52,7 +53,7 @@ class StreamPrefixer(threading.Thread):
       for line in iter(self.stream.readline, ''):
         line_str = line.rstrip()
         if line_str:
-          formatted = f'{self.color}[{self.prefix}] {line_str}{RESET}\n'
+          formatted = f'{self.colour}[{self.prefix}] {line_str}{RESET}\n'
           self.output_stream.write(formatted)
           self.output_stream.flush()
     except ValueError:
@@ -112,7 +113,7 @@ class WatchSession:
         if 'subscription' in key and key['subscription'] == 'rust-trigger':
           files = key.get('files', [])
           if files:
-            print(f'{GRAY}Change detected in {len(files)} files...{RESET}')
+            print(f'{GREY}Change detected in {len(files)} files...{RESET}')
             self._rebuild_and_restart(files)
 
       except pywatchman.SocketTimeout:
@@ -295,7 +296,7 @@ class WatchSession:
     t = Timer()
     with self.lock:
       if self.child_process:
-        print(f'{GRAY}Stopping active process...{RESET}')
+        print(f'{GREY}Stopping active process...{RESET}')
         self.child_process.terminate()
         try:
           self.child_process.wait(timeout=2)
@@ -338,8 +339,8 @@ class WatchSession:
     except ValueError:
       pass
 
-  def _run_cmd(self, cmd, label, color):
-    print(f'{color}Running {label}...{RESET}')
+  def _run_cmd(self, cmd, label, colour):
+    print(f'{colour}Running {label}...{RESET}')
     t = Timer()
     proc = subprocess.Popen(
       cmd,
@@ -349,8 +350,8 @@ class WatchSession:
       text=True,
     )
 
-    stdout_thread = StreamPrefixer(proc.stdout, label, color)
-    stderr_thread = StreamPrefixer(proc.stderr, label, color)
+    stdout_thread = StreamPrefixer(proc.stdout, label, colour)
+    stderr_thread = StreamPrefixer(proc.stderr, label, colour)
     stdout_thread.start()
     stderr_thread.start()
 

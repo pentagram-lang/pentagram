@@ -14,10 +14,11 @@ class Timer:
 
 
 def status(label, duration, success=True):
-  color = 'green' if success else 'red'
+  colour = 'green' if success else 'red'
   text = 'PASS' if success else 'FAIL'
   click.echo(
-    f'[{click.style(text, fg=color, bold=True)}] {label} ({duration:.2f}s)'
+    f'[{click.style(text, fg=colour, bold=True)}] '
+    f'{label} ({duration:.2f}s)'
   )
 
 
