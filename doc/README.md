@@ -16,7 +16,7 @@ The [manifesto's three aims](../manifesto.md) guide these standards:
 - **Determinism:** make meaning, status, and links predictable.
 - **Efficiency:** carry the needed information without avoidable reading or maintenance work.
 
-The aims improve the documentation system. They do not replace accuracy, understandability, or usability, and they do not make unclear or inaccurate documentation acceptable.
+The aims improve the documentation system. They do not make unclear or inaccurate documentation acceptable.
 
 ## Meaning
 
