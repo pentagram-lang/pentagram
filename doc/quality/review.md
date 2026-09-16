@@ -1,6 +1,6 @@
 # Review
 
-A review gives documentation a fresh reading. The author asks an independent reviewer to read a named set of documents as written and report every problem present in those documents that makes them unclear or incorrect. The [review protocol](review-protocol.md) tells the reviewer how to do this. This guide explains the author's part.
+Within [documentation quality](README.md), a review gives documentation a fresh reading. The author asks an independent reviewer to read a named set of documents as written and report every problem present in those documents that makes them unclear or incorrect. The [review protocol](review-protocol.md) tells the reviewer how to do this. This guide explains the author's part.
 
 ## Prepare the handoff
 
