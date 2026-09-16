@@ -85,6 +85,24 @@ Scale the audit without omitting it. One subagent can inspect the complete diff 
 
 Start each subagent without inherited authoring conversation or project conclusions. Tell the subagent not to read active project state or run `0 proj`. Give it the `CHANGE` ID, diff path, resulting repository context, exact responsibility, and required report without supplying a desired conclusion or draft message.
 
+Use one chat prompt for each audit. Build it using this template:
+
+```text
+Do not read active project state or run `0 proj`. Inspect change <CHANGE> using the diff at <DIFF PATH>. Read the resulting repository as needed to establish the facts within the responsibility below. Do not draft a commit message or propose any repairs.
+
+Change ID:
+<jj change ID>
+
+Diff:
+<path to the complete diff or assigned diff>
+
+Responsibility:
+<the exact files or logical cluster this audit covers>
+
+Required report:
+<the coverage, established behaviour, intent, rationale, authority, evidence, affected boundaries, compatibility, resource behaviour, consequential findings, and unresolved uncertainty or evidence gaps to report>
+```
+
 The assigned diff bounds responsibility, not investigation. The subagent follows governing documentation, implementation, tests, callers, consumers, and tools far enough to establish:
 
 - the changed lines and resulting behaviour;

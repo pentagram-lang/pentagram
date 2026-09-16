@@ -7,9 +7,7 @@ A review gives documentation a fresh reading. The author asks an independent rev
 The handoff to the reviewer is a single chat prompt. Build it using this template:
 
 ```text
-Read `doc/quality/review-protocol.md` and follow it.
-Read the documents below as written. Report every problem present in those
-documents that makes them unclear or incorrect. Do not propose any repairs.
+Read `doc/quality/review-protocol.md` and follow it. Do not read active project state or run `0 proj`. Read the documents below as written. Report every problem present in those documents that makes them unclear or incorrect. Do not propose any repairs.
 
 Documents to review:
 <each document path>
@@ -52,9 +50,7 @@ Documents to review:
 Updated documents:
 <the named documents updated by the repair>
 
-Read the current documents as written. Check the findings from the previous
-review against the current text and report every problem currently present that
-makes the documents unclear or incorrect. Do not propose any repairs.
+Read the current documents as written. Check the findings from the previous review against the current text and report every problem currently present that makes the documents unclear or incorrect. Do not propose any repairs.
 ```
 
 If the author does not reuse the same subagent, start a new review with the [handoff prompt](#prepare-the-handoff). Treat it as a new review rather than passing the previous review's context to a new subagent.

@@ -14,6 +14,7 @@ Use `doc/quality/review.md` to answer this task and cite the relevant section. A
 - The reviewer is started as a separate subagent without inherited authoring conversation or project conclusions and receives the handoff, not the author's private explanation.
 - The handoff states the readers and what they need to understand or do.
 - The handoff tells the reviewer to follow `doc/quality/review-protocol.md`.
+- The handoff tells the reviewer not to read active project state or run `0 proj`.
 - The handoff does not include private explanation or limit the reviewer to one suspected problem.
 - The answer uses one prompt containing the handoff and the review request.
 - The answer cites `doc/quality/review.md` as the basis for the handoff guidance.
