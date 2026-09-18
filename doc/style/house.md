@@ -1,10 +1,8 @@
 # House style
 
-Within [style](README.md), writing is part of the interface. If a reader must untangle the prose before they can reason about the system, the documentation has moved complexity instead of removing it.
+Within [style](README.md), writing is part of the interface that documentation exposes. If a reader must untangle the prose before they can reason about the system, the documentation has moved complexity instead of removing it.
 
-House style applies Pentagram's aims to expression. Ergonomic writing follows the reader's thought and remains workable in source. Deterministic writing makes interpretation follow predictably from explicit words and context. Efficient writing carries every needed distinction without unnecessary reading, translation, formatting, or editing work.
-
-Pentagram writing is direct, alive, and exact. It can carry a real voice and still be technical. The [Pentagram manifesto](../../manifesto.md) is an authoritative example: it makes strong claims in clear language, uses contrast and rhythm to make ideas memorable, and states plainly that its aspirations are not current behaviour.
+House style applies Pentagram's aims to expression. Ergonomic writing follows the reader's thought and remains accessible to edits. Deterministic writing makes interpretation follow predictably from explicit words and context. Efficient writing carries every needed distinction without unnecessary reading, translation, or formatting work.
 
 House style governs expression. [Meaning](../meaning/README.md) establishes what the document says, [structure](../structure/README.md) gives it a home, and [quality](../quality/README.md) asks whether it works. The rules here are shared defaults, not a demand that every document sound the same.
 
@@ -24,13 +22,15 @@ Give each paragraph one movement of thought. Open with the fact or relationship 
 
 Chronology is useful when chronology is the subject: a state transition, incident timeline, or migration sequence. Elsewhere, it usually records discovery instead of explaining the system.
 
-## Use a real voice
+## Use the correct voice
 
-Write like an author who understands the subject and respects the reader. Be confident where authority and evidence support confidence. Name uncertainty where they do not.
+Pentagram writing is always direct, alive, and exact. It carries a real personality and remains technical. The [Pentagram manifesto](../../manifesto.md) is the authoritative exemplar voice at its most rhetorical: it makes strong claims in clear language, uses concrete contrasts and deliberate rhythm to make ideas memorable, keeps human stakes visible, and states plainly that its aspirations are not current behaviour.
 
-The house voice is not one fixed tone. A specification is exact and restrained. A recovery procedure is calm and firm. An explanation can be warm and conversational. A manifesto can be forceful, rhythmic, and metaphorical. They belong to the same house because each makes its thought clear.
+Different types of documents adapt that intensity to their function rather than copying it. For example, a specification might be exact and restrained, a recovery procedure could be calm and firm, while an explanation may benefit from being warm and conversational.
 
-Do not confuse neutrality with rigour. Strong language can sharpen a real distinction. It must not hide conditions, manufacture authority, or replace an argument. Avoid marketing language, condescension, and claims about what a reader should find easy or obvious.
+Strong language can sharpen a real distinction. It must not hide conditions, manufacture authority, or replace an argument.
+
+Always avoid platitudes and condescension.
 
 ## Build clean sentences
 
@@ -39,6 +39,16 @@ Name the actor when responsibility or behaviour depends on it. Prefer concrete v
 Keep conditions, modifiers, and exceptions close to what they govern.
 
 Use pronouns and demonstratives such as “it,” “this,” “that,” “these,” and “those” only when their referent is immediate and unmistakable. In long sentences or paragraphs, repeat the specific noun instead.
+
+## Balance repetition and variation
+
+Repetition can bind a passage together, emphasise a claim, or give it deliberate rhythm. Repeat words or structures when the repetition carries one of those meanings; do not repeat them merely because the previous sentence provides a convenient template.
+
+When the thought changes, let the language change with it. Change the sentence's movement when a new construction or cadence will show the changed relationship or give the next claim its proper weight. Variation should follow meaning, not decorate it.
+
+Do not replace an exact term with a synonym merely to avoid repeating it. If the term must remain, vary the larger construction; if the term is not exact and its repetition becomes monotonous, choose a natural alternative.
+
+A passage can be grammatically correct and still feel dead when repeated wording or sentence structure makes each new thought arrive in the same shape. Restore its movement by changing the construction, combining or cutting sentences, or shifting the rhythm.
 
 ## State meaning directly
 
@@ -121,6 +131,12 @@ Descriptive link text is permitted for rhetorical effect when the description st
 Within one document, use the same link text for each resolved target, including its fragment. Links to different fragments are different targets.
 
 The surrounding sentence should explain the relationship between the current text and the target: navigation, definition, authority, prerequisite, rationale, or evidence. A link must not make readers guess why the target matters, and it must not replace a condition, warning, or consequence needed locally.
+
+## Leverage structured Markdown features
+
+Depending on the subject and the desired tone of the document, use Markdown features such as lists, tables, and horizontal rules. These can help make some ideas immediately clear in a way that plain paragraphs cannot.
+
+When using lists (ordered and unordered), if list items are large, then add blank lines between them to improve readability.
 
 ## Keep style local
 

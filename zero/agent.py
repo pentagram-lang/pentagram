@@ -10,8 +10,8 @@ import click
 import tomllib
 
 AGENT_CONFIGURATIONS = {
-  'codex-luna-yolo': ('codex', 'gpt-5.6-luna'),
-  'codex-sol-yolo': ('codex', 'gpt-5.6-sol'),
+  'codex-luna-yolo': ('codex', 'gpt-6-luna'),
+  'codex-sol-yolo': ('codex', 'gpt-6-sol'),
   'codex-astra-yolo': ('codex', 'gpt-6-astra'),
   'claude-sonnet-yolo': ('claude', 'sonnet'),
   'claude-fable-yolo': ('claude', 'fable'),
@@ -814,11 +814,13 @@ def _agy_registered_roots(kind, project_root, findings):
 
 
 def _agy_path_matches(path, include_groups, excludes):
-  name = path.name
+  names = (path.name, path.stem)
   return all(
-    any(pattern.search(name) for pattern in group)
+    any(any(pattern.search(name) for name in names) for pattern in group)
     for group in include_groups
-  ) and not any(pattern.search(name) for pattern in excludes)
+  ) and not any(
+    any(pattern.search(name) for pattern in excludes) for name in names
+  )
 
 
 def _agy_customization_files(
@@ -834,7 +836,10 @@ def _agy_customization_files(
     findings.append(f'AGY {label} path does not exist: {root}')
     return []
   if root.is_file():
-    candidates = [root] if root.name == filename else []
+    matches = root.name == filename or (
+      filename == '*.md' and root.suffix == '.md'
+    )
+    candidates = [root] if matches else []
   elif root.is_dir():
     try:
       candidates = list(root.rglob(filename))
@@ -851,11 +856,72 @@ def _agy_customization_files(
       resolved = candidate.resolve()
     except OSError:
       continue
-    if resolved.is_file() and _agy_path_matches(
-      resolved.parent, include_groups, excludes
-    ):
+    if not resolved.is_file():
+      continue
+    match_target = resolved if filename == '*.md' else resolved.parent
+    if _agy_path_matches(match_target, include_groups, excludes):
       files.append(resolved)
   return files
+
+
+def _agy_rule_files(project_root, findings):
+  home = Path.home().resolve()
+  standard_candidates = (
+    home / 'AGENTS.md',
+    home / 'GEMINI.md',
+    home / '.gemini' / 'AGENTS.md',
+    home / '.gemini' / 'GEMINI.md',
+  )
+  files = []
+  seen = set()
+  for candidate in standard_candidates:
+    try:
+      resolved = candidate.resolve()
+    except OSError:
+      continue
+    if resolved.is_file() and resolved not in seen:
+      seen.add(resolved)
+      files.append(resolved)
+
+  for directory in (
+    home / '.gemini' / 'rules',
+    home / '.agents' / 'rules',
+  ):
+    resolved_dir = directory.resolve()
+    if not resolved_dir.is_dir():
+      continue
+    try:
+      candidates = list(resolved_dir.rglob('*.md'))
+    except OSError:
+      candidates = ()
+    for candidate in candidates:
+      try:
+        resolved = candidate.resolve()
+      except OSError:
+        continue
+      if resolved.is_file() and resolved not in seen:
+        seen.add(resolved)
+        files.append(resolved)
+
+  roots = []
+  standard_rules_root = _agy_config_root() / 'rules'
+  if standard_rules_root.exists():
+    roots.append((standard_rules_root, (), ()))
+  roots.extend(_agy_registered_roots('rules', project_root, findings))
+  for root, include_groups, excludes in roots:
+    for rule_file in _agy_customization_files(
+      root,
+      '*.md',
+      include_groups,
+      excludes,
+      'rules',
+      findings,
+    ):
+      if rule_file not in seen:
+        seen.add(rule_file)
+        files.append(rule_file)
+
+  return sorted(files)
 
 
 def _agy_skill_files(project_root, findings):
@@ -994,6 +1060,12 @@ def _check_agy_ambient_state(project_root):
     findings.append(
       f'AGY skill {skill_file} is present; remove it or deregister its '
       'path because AGY has no persistent all-skills disable setting'
+    )
+  for rule_file in _agy_rule_files(project_root, findings):
+    findings.append(
+      f'AGY rule file {rule_file} is present; remove or rename it '
+      'because AGY has no persistent setting to disable '
+      'AGENTS.md/rules files'
     )
   _agy_plugin_findings(project_root, findings)
   _agy_mcp_findings(findings)

@@ -754,6 +754,147 @@ class AgyPreflightTest(unittest.TestCase):
         ):
           _check_agy_ambient_state(root)
 
+  def test_preflight_rejects_gemini_agents_md(self):
+    with tempfile.TemporaryDirectory() as temporary_directory:
+      root = Path(temporary_directory)
+      self._safe_agy_home(root)
+      rule_file = root / 'home' / '.gemini' / 'AGENTS.md'
+      rule_file.write_text('instructions\n')
+
+      with patch.dict(
+        os.environ, {'HOME': str(root / 'home')}, clear=False
+      ):
+        with self.assertRaisesRegex(
+          click.ClickException,
+          'AGY rule file .*AGENTS\\.md is present; remove or rename it',
+        ):
+          _check_agy_ambient_state(root)
+
+  def test_preflight_rejects_gemini_gemini_md(self):
+    with tempfile.TemporaryDirectory() as temporary_directory:
+      root = Path(temporary_directory)
+      self._safe_agy_home(root)
+      rule_file = root / 'home' / '.gemini' / 'GEMINI.md'
+      rule_file.write_text('instructions\n')
+
+      with patch.dict(
+        os.environ, {'HOME': str(root / 'home')}, clear=False
+      ):
+        with self.assertRaisesRegex(
+          click.ClickException,
+          'AGY rule file .*GEMINI\\.md is present; remove or rename it',
+        ):
+          _check_agy_ambient_state(root)
+
+  def test_preflight_rejects_home_agents_md(self):
+    with tempfile.TemporaryDirectory() as temporary_directory:
+      root = Path(temporary_directory)
+      self._safe_agy_home(root)
+      rule_file = root / 'home' / 'AGENTS.md'
+      rule_file.write_text('instructions\n')
+
+      with patch.dict(
+        os.environ, {'HOME': str(root / 'home')}, clear=False
+      ):
+        with self.assertRaisesRegex(
+          click.ClickException,
+          'AGY rule file .*AGENTS\\.md is present; remove or rename it',
+        ):
+          _check_agy_ambient_state(root)
+
+  def test_preflight_rejects_home_gemini_md(self):
+    with tempfile.TemporaryDirectory() as temporary_directory:
+      root = Path(temporary_directory)
+      self._safe_agy_home(root)
+      rule_file = root / 'home' / 'GEMINI.md'
+      rule_file.write_text('instructions\n')
+
+      with patch.dict(
+        os.environ, {'HOME': str(root / 'home')}, clear=False
+      ):
+        with self.assertRaisesRegex(
+          click.ClickException,
+          'AGY rule file .*GEMINI\\.md is present; remove or rename it',
+        ):
+          _check_agy_ambient_state(root)
+
+  def test_preflight_rejects_gemini_rules_directory(self):
+    with tempfile.TemporaryDirectory() as temporary_directory:
+      root = Path(temporary_directory)
+      self._safe_agy_home(root)
+      rule_file = root / 'home' / '.gemini' / 'rules' / 'custom.md'
+      rule_file.parent.mkdir(parents=True)
+      rule_file.write_text('rule content\n')
+
+      with patch.dict(
+        os.environ, {'HOME': str(root / 'home')}, clear=False
+      ):
+        with self.assertRaisesRegex(
+          click.ClickException,
+          'AGY rule file .*custom\\.md is present; remove or rename it',
+        ):
+          _check_agy_ambient_state(root)
+
+  def test_preflight_rejects_agents_rules_directory(self):
+    with tempfile.TemporaryDirectory() as temporary_directory:
+      root = Path(temporary_directory)
+      self._safe_agy_home(root)
+      rule_file = root / 'home' / '.agents' / 'rules' / 'custom.md'
+      rule_file.parent.mkdir(parents=True)
+      rule_file.write_text('rule content\n')
+
+      with patch.dict(
+        os.environ, {'HOME': str(root / 'home')}, clear=False
+      ):
+        with self.assertRaisesRegex(
+          click.ClickException,
+          'AGY rule file .*custom\\.md is present; remove or rename it',
+        ):
+          _check_agy_ambient_state(root)
+
+  def test_preflight_rejects_registered_rules(self):
+    with tempfile.TemporaryDirectory() as temporary_directory:
+      root = Path(temporary_directory)
+      config_root = self._safe_agy_home(root)
+      shared_root = root / 'shared-rules'
+      shared_root.mkdir(parents=True)
+      (shared_root / 'rule.md').write_text('rules\n')
+      (config_root / 'rules.json').write_text(
+        json.dumps({'entries': [{'path': str(shared_root)}]})
+      )
+
+      with patch.dict(
+        os.environ, {'HOME': str(root / 'home')}, clear=False
+      ):
+        with self.assertRaisesRegex(
+          click.ClickException,
+          'AGY rule file .*rule\\.md is present; remove or rename it',
+        ):
+          _check_agy_ambient_state(root)
+
+  def test_preflight_ignores_excluded_registered_rule(self):
+    with tempfile.TemporaryDirectory() as temporary_directory:
+      root = Path(temporary_directory)
+      config_root = self._safe_agy_home(root)
+      rules_root = root / 'registered-rules'
+      rule_file = rules_root / 'ignored.md'
+      rule_file.parent.mkdir(parents=True)
+      rule_file.write_text('rule content\n')
+      (config_root / 'rules.json').write_text(
+        json.dumps(
+          {
+            'entries': [
+              {'path': str(rules_root), 'exclude': ['^ignored$']}
+            ]
+          }
+        )
+      )
+
+      with patch.dict(
+        os.environ, {'HOME': str(root / 'home')}, clear=False
+      ):
+        _check_agy_ambient_state(root)
+
   def test_preflight_ignores_builtin_and_project_customizations(self):
     with tempfile.TemporaryDirectory() as temporary_directory:
       root = Path(temporary_directory)
@@ -826,10 +967,11 @@ class AgyLauncherTest(unittest.TestCase):
 
       return Result()
 
-    with patch('zero.agent.subprocess.run', side_effect=run):
-      with patch.dict('os.environ', {'TMPDIR': '/tmp'}, clear=True):
-        with self.assertRaises(click.exceptions.Exit):
-          launch_agy(Path('.'), system_file, ('--print', 'check'))
+    with patch('zero.agent._check_agy_ambient_state'):
+      with patch('zero.agent.subprocess.run', side_effect=run):
+        with patch.dict('os.environ', {'TMPDIR': '/tmp'}, clear=True):
+          with self.assertRaises(click.exceptions.Exit):
+            launch_agy(Path('.'), system_file, ('--print', 'check'))
 
     self.assertEqual(captured['command'][0:2], ['agy', '--new-project'])
     self.assertEqual(captured['command'][4:6], ['--agent', 'pentagram'])
@@ -875,14 +1017,15 @@ class AgyLauncherTest(unittest.TestCase):
         ).read_text()
       return Result()
 
-    with patch('zero.agent.subprocess.run', side_effect=run):
-      with patch.dict(
-        'os.environ',
-        {'PENTAGRAM_AGY_TOOLSET': 'future_tool,another_future_tool'},
-        clear=False,
-      ):
-        with self.assertRaises(click.exceptions.Exit):
-          launch_agy(Path('.'), Path('sys.md'), ())
+    with patch('zero.agent._check_agy_ambient_state'):
+      with patch('zero.agent.subprocess.run', side_effect=run):
+        with patch.dict(
+          'os.environ',
+          {'PENTAGRAM_AGY_TOOLSET': 'future_tool,another_future_tool'},
+          clear=False,
+        ):
+          with self.assertRaises(click.exceptions.Exit):
+            launch_agy(Path('.'), Path('sys.md'), ())
 
     self.assertEqual(len(calls), 2)
     self.assertIn('--output-format', calls[0])
@@ -903,14 +1046,15 @@ class AgyLauncherTest(unittest.TestCase):
 
       return Result()
 
-    with patch('zero.agent.subprocess.run', side_effect=run):
-      with patch.dict(
-        'os.environ', {'PENTAGRAM_AGY_TOOLSET': '1'}, clear=False
-      ):
-        with self.assertRaisesRegex(
-          click.ClickException, 'tool surface mismatch'
+    with patch('zero.agent._check_agy_ambient_state'):
+      with patch('zero.agent.subprocess.run', side_effect=run):
+        with patch.dict(
+          'os.environ', {'PENTAGRAM_AGY_TOOLSET': '1'}, clear=False
         ):
-          launch_agy(Path('.'), Path('sys.md'), ())
+          with self.assertRaisesRegex(
+            click.ClickException, 'tool surface mismatch'
+          ):
+            launch_agy(Path('.'), Path('sys.md'), ())
 
 
 if __name__ == '__main__':

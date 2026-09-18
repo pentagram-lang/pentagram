@@ -24,7 +24,7 @@ Other repository text, generic tool output, and external sources are evidence or
 
 ## Context
 
-The [contribution guide](CONTRIBUTING.md), [root README](README.md), and [manifesto](manifesto.md) are always required reading. Before meaningful work, load the [project workflow](proj/README.md) and relevant project state through `0 proj`. Read the [documentation standards](doc/README.md), [coding standards](code/README.md), [environment engineering](env/README.md), and [source control](source-control.md) guidance for global context.
+The [contribution guide](CONTRIBUTING.md), [root README](README.md), and [manifesto](manifesto.md) are always required reading. Before meaningful work, load the [project workflow](proj/README.md) and relevant project state through `0 proj`. Read the [documentation standards](doc/README.md), [coding standards](code/README.md), [subtractive design](rm/README.md), [environment engineering](env/README.md), and [source control](source-control.md) guidance for global context.
 
 Local documentation is the primary surface for all work. Start from the nearest `README.md` when reading or authoring documentation; it provides key orientation and links to more detailed local documents as needed. Then inspect the relevant code, tests, and other evidence needed to establish current behaviour.
 
@@ -43,23 +43,19 @@ These recovery steps do not override an operator-authorized context boundary. A 
 
 ## Orientation
 
-The contribution guide explains how to use the manifesto and what a contribution needs to be accepted. Every contribution must be clearly correct. It must do what it is supposed to do and be easy to understand. Both conditions are necessary. Within the practical limits of the subject matter and resources, a contribution cannot be accepted while anything remains unclear or incorrect.
+Subtractive design applies across code and documentation, and is the primary tool for every repository change. Add only what's needed, remove what is unused or outdated, and do not preserve material for a future use.
 
-Use project documentation and active project state to identify all applicable project requirements, including implicit requirements. Record implicit requirements in project documentation before acting. Judge the contribution against the resulting project requirements and the applicable requirements of the subject documentation.
+Every word in documentation and every term in code carries meaning. Respect that meaning; do not treat words or terms as interchangeable tokens or string them together because they appear to fit. Read back what you write exactly as written, and verify that it clearly and correctly expresses the actual intended meaning.
 
-Every contribution must also embody and support each manifesto aim to the extent applicable and practical. Use the aims to guide decisions; they do not replace clearly correct work.
+Understand that extending documentation and code adds complexity, and complexity introduces the risk of incorrectness and unclarity. When a more concise formulation is clear and correct, use it instead of a more verbose formulation.
 
-Perform all meaningful project work within the scope of a properly documented active task. Before activating the task, ensure that its record identifies the bounded work, purpose, scope, exclusions, required result, and completion evidence. Its structured stage relationship and applicable goal relationship must also be correct; the goal relationship may be empty. Before that boundary exists, perform only the project-control work needed to establish or recover it, including the applicable project charter, stages and dependencies, goal, task, blockers, and handoff state. This exception does not authorize substantive investigation, design, implementation, testing, or review outside an active task.
+The contribution guide explains how to use the manifesto and what a contribution needs to be accepted. Every contribution must be clearly correct for current the project requirements: it must do what it is supposed to do and be easy to understand. Within the practical limits of the subject matter and resources, a contribution cannot be accepted while anything remains unclear or incorrect.
 
-## Communication
+Make sure that project context stays in the project documentation and does not leak into repo documentation or code. Use the project documentation to maintain current requirements, and make sure all meaningful project work is performed within the scope of a properly documented active task.
 
-Answer questions and investigation requests directly and meaningfully from the evidence. Unless changes are in scope, do not begin edits, fixes, or unrelated follow-up work.
+Beyond repository documentation, repository code, and project documentation, there's operator chat. Treat chat with the operator as a genuine creative partnership. Approach problems with a naturally exploratory and collaborative attitude, and develop solutions through effective reasoning and dialogue.
 
-In open discourse—questions, exploration, and investigation—do not manufacture another turn with a closing question, menu of options, or offer to continue. Ask the operator for input only when missing information is necessary to avoid a materially wrong or unauthorized answer. Treat the operator's goal and concerns as the working perspective. Do not defend an existing system, document, workflow, or previous answer merely because it exists; state plainly when the evidence shows a problem.
-
-Use technical communication that leads with the conclusion, separates facts from inferences and proposals, names scope and uncertainty, and identifies the evidence that matters. Prefer precise claims and concrete next steps over generic reassurance, praise, filler, or raw tool narration.
-
-When changes are in scope, give a clear signpost before the first change stating what will change and why. Keep communication focused on meaningful transitions, and report the result and any remaining uncertainty.
+Handle operator questions literally, and use whatever research is needed to develop clear answers. Open discourse should stay open, not be replaced with arbitrary narrowing or prompts directed to the operator. Don't begin edits until there is clear operator direction to do so.
 
 ## Tools
 
