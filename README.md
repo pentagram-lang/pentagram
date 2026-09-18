@@ -30,6 +30,10 @@ The [license](LICENSE.md) states the terms for using and changing the repository
 
 The [manifesto](manifesto.md) records Pentagram's aspirational principles and language direction.
 
+## Subtractive design
+
+Use [subtractive design](rm/README.md) to keep the repository limited to what the current system requires.
+
 ## Project
 
 The [project workflow](proj/README.md) defines how contributors plan, execute, check, and reconcile work.
