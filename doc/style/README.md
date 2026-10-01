@@ -1,0 +1,15 @@
+# Style
+
+Within [documentation standards](../README.md), style governs how documented meaning is expressed in prose, source, examples, diagrams, and names. It does not determine whether that meaning is true, where its authority belongs, or whether its evidence is adequate.
+
+Style is part of clear correctness. An applicable style rule is a documentation rule, not optional polish. Violating it is a documentation correctness problem. Style cannot make false meaning true, and accurate meaning cannot excuse expression that readers cannot follow. The [quality criteria](../quality/criteria.md) judge style together with meaning, structure, and reader use.
+
+Style must embody and support the aims of ergonomics, determinism, and efficiency defined in the [Pentagram manifesto](../../manifesto.md). Good style makes text natural to read and edit, makes interpretation predictable from explicit wording and context, and reduces unnecessary work in reading, translation, formatting, and editing. It supports the aims across Pentagram by making documented systems easier to understand, use, and change and by making their semantics, benefits, deficiencies, and unknowns clear enough to act on.
+
+## House style
+
+Use [house style](house.md) for Pentagram's shared expression defaults. It covers reader-led writing, voice, source ergonomics, claim expression, technical forms, links, uncertainty, and local adaptation.
+
+## Terminology
+
+Use [terminology](terminology.md) to give each concept a clear, stable name within its scope and avoid translation across documentation and system surfaces. It covers definitions, local vocabularies, cross-surface mappings, role terms, abbreviations, and terminology change.

@@ -34,8 +34,8 @@ echo "--- :nix: Running build"
 nix build --verbose .#default \
   --extra-substituters "file://$CACHE_DIR?priority=10&trusted=1"
 
-echo "+++ :pentagram: Running pt check"
-nix shell .#default --command pt check
+echo "+++ :pentagram: Running 0 check"
+nix shell .#default --command 0 check
 
 echo "--- :nix: Syncing to 'pentagram' volume"
 # Export the build results after success (version is abandonned anyway on
