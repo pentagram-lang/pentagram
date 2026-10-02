@@ -94,6 +94,22 @@ class DocumentationLintTest(unittest.TestCase):
     self.assertEqual(3, diagnostics[0].line)
     self.assertIn("local links to 'target.md'", diagnostics[0].message)
 
+  def test_permits_case_variation_matching_sentence_position(self):
+    self.write_root_index([('Guide', 'guide.md'), ('Target', 'target.md')])
+    self.write(
+      'guide.md',
+      """# Guide
+
+[Target](target.md) is at the beginning.
+Later, [target](./target.md) is mid-sentence.
+""",
+    )
+    self.write('target.md', '# Target\n')
+
+    diagnostics = self.diagnostics()
+
+    self.assertNotIn('MD003', self.codes())
+
   def test_requires_index_sections_for_direct_children(self):
     self.write('README.md', '# Root\n')
     self.write('guide.md', '# Guide\n')
