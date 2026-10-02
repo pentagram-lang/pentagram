@@ -314,7 +314,7 @@ def _check_links(state):
     for target, links in sorted(valid_links.items()):
       first = links[0]
       for link in links[1:]:
-        if link.text != first.text:
+        if link.text.casefold() != first.text.casefold():
           state.add(
             path,
             link.line,

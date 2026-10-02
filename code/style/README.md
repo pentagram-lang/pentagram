@@ -16,4 +16,4 @@ Use [functional programming](fn.md) to shape code as data transformations that c
 
 ## Partitioning
 
-Use [partitioning](part.md) to divide code into coherent units that maximize knowledge locality. Good partitioning is what enables code to scale in both power and safety.
+Use [partitioning](part.md) to divide code into coherent units that maximize local ownership of data and functions. Good partitioning is what enables code to scale in both power and safety.
