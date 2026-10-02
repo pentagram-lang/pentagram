@@ -20,7 +20,7 @@ These aims improve the code as a system. They do not make unclear or inaccurate 
 
 ## Performance
 
-[Performance](performance/README.md) describes Pentagram's requirement to be very, very fast for real use cases, and how this is accomplished and established at multiple levels.
+[Performance](performance/README.md) introduces Pentagram's requirement to be very, very fast for real use cases, and explains how it is accomplished and established at multiple levels.
 
 ## Style
 
@@ -28,4 +28,4 @@ These aims improve the code as a system. They do not make unclear or inaccurate 
 
 ## Quality
 
-[Quality](quality/README.md) judges whether code is clearly correct, and describes how tiered evidence is used to show, with the highest practical certainty, that Pentagram has no defects.
+[Quality](quality/README.md) judges whether code is clearly correct, and specifies how tiered evidence is used to show, with the highest practical certainty, that Pentagram has no defects.
