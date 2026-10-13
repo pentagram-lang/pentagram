@@ -1,12 +1,12 @@
 # Quality
 
-Documentation quality is a judgement about a complete documentation surface, not about isolated sentences. The surface must accurately describe its subject for its stated scope and status, and its intended readers must be able to find, understand, and use the information. If either part fails, the documentation is not clearly correct.
+Within [documentation standards](../README.md), documentation quality is a judgement about a complete documentation surface, not about isolated sentences. The surface must accurately describe its subject for its stated scope and status, and its intended readers must be able to find, understand, and use the information. If either part fails, the documentation is not clearly correct.
 
-Judge the surface described by the [documentation standards](../README.md): its entry document, every document and section in its reader path, links, structure, and relevant companions. Apply the meaning, structure, and style standards to that surface. It must be intelligible from the surface and the subject it describes, without private conversation, author memory, or an external decision record. Those records cannot supply meaning that the documentation omits.
+Quality works with the other documentation pillars. [Meaning](../meaning/README.md) establishes what documents claim and what concepts denote. [Structure](../structure/README.md) arranges content into an interpretable hierarchy with clear paths and boundaries. [Style](../style/README.md) governs how documented meaning is expressed in prose, source, examples, diagrams, and names. Quality evaluates whether the complete documentation surface satisfies all three pillars together, verifying that accurate claims are not obscured by fractured structure or impenetrable expression.
 
-[Criteria](criteria.md) explains the judgement. [Lint](lint.md) checks mechanical properties. [Test](test.md) observes readers using the documentation. [Review](review.md) uses independent inspection to find defects those checks and trials may miss. Each method contributes bounded evidence; none is an automatic approval.
+Quality is the mechanism that demonstrates clear correctness. Satisfying an individual pillar in isolation does not guarantee that documentation works; an accurate statement fails when readers cannot locate it, a clean hierarchy fails when its content is inaccurate, and polished prose cannot rescue misleading claims. [Criteria](criteria.md) judges documentation across its complete surface and reading paths, using bounded evidence to establish that documentation faithfully describes its subject and serves its intended reader use.
 
-The quality process follows the [documentation standards](../README.md). The [manifesto's aims](../../manifesto.md) guide the result, but an aim does not excuse inaccurate or unusable documentation.
+Quality must embody and support the aims defined in the [Pentagram manifesto](../../manifesto.md). Ergonomic quality provides immediate feedback during authoring and produces actionable inspection findings that pinpoint deficiencies without ambiguity. Deterministic quality makes verification repeatable through explicit lint rules, structured reader trial protocols, and transparent review checklists. Efficient quality bounds verification effort by applying automated mechanical checks before investing contributor time in reader trials and multi-party reviews.
 
 ## Criteria
 
@@ -22,8 +22,4 @@ The quality process follows the [documentation standards](../README.md). The [ma
 
 ## Review
 
-[Review](review.md) defines independent inspection, findings, evaluation, repair, and re-review for documentation.
-
-## Review protocol
-
-[Review protocol](review-protocol.md) tells reviewers how to inspect documentation as written and report every supported problem that keeps it from being clearly correct.
+[Review](review/README.md) defines independent inspection, findings, evaluation, repair, and re-review for documentation.

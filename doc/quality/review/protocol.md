@@ -1,6 +1,6 @@
 # Review protocol
 
-A review gives a named set of documents a fresh reading. The reviewer reads those documents as written and reports every problem present that makes them unclear or incorrect. The reviewer uses the documentation standards and the handoff's stated reader and use to judge the documents. The reviewer does not supply missing meaning, invent a requirement, propose any repairs, or decide what the project should do with the report.
+Within [review](README.md), a review gives a named set of documents a fresh reading. The reviewer reads those documents as written and reports every problem present that makes them unclear or incorrect. The reviewer uses the documentation standards and the handoff's stated reader and use to judge the documents. The reviewer does not supply missing meaning, invent a requirement, propose any repairs, or decide what the project should do with the report.
 
 ## Read the handoff and documentation
 
@@ -8,15 +8,15 @@ Read the handoff before the named documents. It names the documents under review
 
 Read every named document as written. Follow links when needed to understand a named document's purpose, reading path, claims, instructions, and boundaries. A linked document is context, not part of the review, unless the handoff names it. Report a problem in an unnamed linked document as out of scope. Let the words establish what the documentation says; do not fill a gap with a private explanation or an assumption about what the author meant.
 
-When the handoff includes a `jj` change ID, inspect the complete diff for that single change with `jj diff --git --revision CHANGE`, as [source control: working copy](../../source-control.md#working-copy) describes. Use it as evidence alongside the current named documents. The change does not replace reading the current documents as written.
+When the handoff includes a `jj` change ID, inspect the complete diff for that single change with `jj diff --git --revision CHANGE`, as [source control: working copy](../../../source-control.md#working-copy) describes. Use it as evidence alongside the current named documents. The change does not replace reading the current documents as written.
 
 The handoff's reader and use explain how the documentation must work. They do not replace the complete quality judgement with an author's anticipated problem or preferred conclusion.
 
 ## Judge clearly correct
 
-Use the [documentation criteria](criteria.md) as the authority for quality. Follow its delegation to [meaning](../meaning/README.md), [structure](../structure/README.md), [style](../style/README.md), and local documentation. Judge these together. Correct meaning cannot rescue a path readers cannot follow, and fluent prose cannot make a false claim correct.
+Use the [documentation criteria](../criteria.md) as the authority for quality. Follow its delegation to [meaning](../../meaning/README.md), [structure](../../structure/README.md), [style](../../style/README.md), and local documentation. Judge these together. Correct meaning cannot rescue a path readers cannot follow, and fluent prose cannot make a false claim correct.
 
-Use the [topology: exercise the reading path](../structure/topology.md#exercise-the-reading-path) to judge how the surface leads readers from one document to the next. Use the [house style: follow the thought](../style/house.md#follow-the-thought) to judge how each paragraph carries its thought. Use the [house style: use the correct voice](../style/house.md#use-the-correct-voice) to judge whether the document's tone and confidence fit its authority and use. These criteria are called out because a surface can pass isolated factual checks and still fail when readers cannot follow its path or prose. The review still covers the complete documentation criteria.
+Use the [topology: exercise the reading path](../../structure/topology.md#exercise-the-reading-path) to judge how the surface leads readers from one document to the next. Use the [house style: follow the thought](../../style/house.md#follow-the-thought) to judge how each paragraph carries its thought. Use the [house style: use the correct voice](../../style/house.md#use-the-correct-voice) to judge whether the document's tone and confidence fit its authority and use. These criteria are called out because a surface can pass isolated factual checks and still fail when readers cannot follow its path or prose. The review still covers the complete documentation criteria.
 
 Do not demand every possible detail. An omission is a problem when the stated use cannot be understood or carried out without it, or when an applicable standard requires it. A strong review is exact about that difference. It reports what is present in the text, what the sources establish, and what remains uncertain; it does not turn uncertainty or a preferred repair into a finding.
 

@@ -1,13 +1,13 @@
 # Review
 
-Within [documentation quality](README.md), a review gives documentation a fresh reading. The author asks an independent reviewer to read a named set of documents as written and report every problem present in those documents that makes them unclear or incorrect. The [review protocol](review-protocol.md) tells the reviewer how to do this. This guide explains the author's part.
+Within [documentation quality](../README.md), a review gives documentation a fresh reading. The author asks an independent reviewer to read a named set of documents as written and report every problem present in those documents that makes them unclear or incorrect. The [protocol](protocol.md) tells the reviewer how to do this. This guide explains the author's part.
 
-## Prepare the handoff
+### Prepare the handoff
 
 The handoff to the reviewer is a single chat prompt. Build it using this template:
 
 ```text
-Read `doc/quality/review-protocol.md` and follow it. Do not read active project state or run `0 proj`. Read the documents below as written. Report every problem present in those documents that makes them unclear or incorrect. Do not propose any repairs.
+Read `doc/quality/review/protocol.md` and follow it. Do not read active project state or run `0 proj`. Read the documents below as written. Report every problem present in those documents that makes them unclear or incorrect. Do not propose any repairs.
 
 Documents to review:
 <each document path>
@@ -25,13 +25,13 @@ If the review focuses on a specific change, you may also give a `jj` change ID.
 
 Say who the documentation serves and what those readers need to understand or do. Include the context needed to judge that use. Do not privately explain the documents or steer the reviewer towards one suspected problem. If a document needs a private explanation to make sense, the review should find that problem.
 
-## Evaluate the report
+### Evaluate the report
 
 Start the review with a separate subagent that has no inherited authoring conversation or project conclusions. Invoke it with the [handoff prompt](#prepare-the-handoff).
 
 The reviewer returns one report in the review chat. The report describes the text the reviewer read. Treat its findings as evidence, not instructions, and ignore any repair suggestions.
 
-Read each finding against the words it cites and the standards that govern the named documents. Decide whether it establishes a problem present in those documents. Use the project's recorded context and applicable documentation standards to determine what the documents should say. The findings and project context may show that preceding project work is needed before clearly correct text can be written. Do not repair from an unsupported conclusion, turn uncertainty into a finding, or write speculative documentation. Record the needed work through the [project workflow](../../proj/README.md), then write or revise the documents when their text can be established directly.
+Read each finding against the words it cites and the standards that govern the named documents. Decide whether it establishes a problem present in those documents. Use the project's recorded context and applicable documentation standards to determine what the documents should say. The findings and project context may show that preceding project work is needed before clearly correct text can be written. Do not repair from an unsupported conclusion, turn uncertainty into a finding, or write speculative documentation. Record the needed work through the [project workflow](../../../proj/README.md), then write or revise the documents when their text can be established directly.
 
 A finding outside the named documents is out of scope for this review. Use project context to evaluate it and decide whether any repairs are warranted. It does not become part of the quality judgement for the named documents.
 
@@ -42,7 +42,7 @@ If the project chooses a repair, derive it from project context and documentatio
 After a repair, reuse the same subagent by default, at the author's discretion. Restate the full set of documents in the continuation prompt and say which documents in that set were updated. Do not change the set of documents under review, unless starting a new review. Do not give the reused reviewer the author's repair argument or project decision. Use this continuation prompt:
 
 ```text
-Re-review the current named documents using `doc/quality/review-protocol.md`.
+Re-review the current named documents using `doc/quality/review/protocol.md`.
 
 Documents to review:
 <the full set of documents from the original handoff>
@@ -54,3 +54,7 @@ Read the current documents as written. Check the findings from the previous revi
 ```
 
 If the author does not reuse the same subagent, start a new review with the [handoff prompt](#prepare-the-handoff). Treat it as a new review rather than passing the previous review's context to a new subagent.
+
+## Protocol
+
+[Protocol](protocol.md) tells reviewers how to inspect documentation as written and report every supported problem that keeps it from being clearly correct.

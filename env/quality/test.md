@@ -48,7 +48,7 @@ One observation can support separate action and result assertions, but it does n
 
 An environment test can use understanding or action as its only assertions. Include a result only when it is part of the intended effect under test. Do not request private reasoning or accept self-assessment as evidence of understanding.
 
-Assertions describe effects, not the environmental causes predicted to produce them. Inspect causes directly and use [review](review.md) to find defects beyond the named effects.
+Assertions describe effects, not the environmental causes predicted to produce them. Inspect causes directly and use [review](review/README.md) to find defects beyond the named effects.
 
 ## Run and judge the encounter
 

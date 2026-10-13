@@ -2,7 +2,7 @@
 
 [Quality](README.md) uses test to put documentation into use, regardless of the file type that contains it. An independent subagent receives a realistic reader task. The trial succeeds or fails through returned answers and citations, produced artifacts, and observable effects—not through the subagent's opinion of its own understanding.
 
-Subagent trials directly observe reader understanding and action that [lint](lint.md) and [review](review.md) can only infer. Documentation-test assertions do not cover results that actual system execution permits or produces. Each trial also consumes substantial time and compute and supports only a bounded claim under its recorded conditions. Documentation tests are valuable evidence, but they are not cheap coding unit tests to accumulate or run by default.
+Subagent trials directly observe reader understanding and action that [lint](lint.md) and [review](review/README.md) can only infer. Documentation-test assertions do not cover results that actual system execution permits or produces. Each trial also consumes substantial time and compute and supports only a bounded claim under its recorded conditions. Documentation tests are valuable evidence, but they are not cheap coding unit tests to accumulate or run by default.
 
 ## Design test coverage
 
@@ -102,4 +102,4 @@ The supported claim cannot exceed the assertions. A correct answer found through
 
 A failure can belong to the documentation, test contract, trial conditions, tool, or governed system. Repair the source of the failure. Do not add hints merely to force a passing result.
 
-Test observes reader understanding and action attributable to documentation; it never asserts a result of actual system execution. The [lint](lint.md) document checks mechanical source properties, and [review](review.md) judges meaning, expression, and design. Use [environment tests](../../env/quality/test.md) when an agent encounter with the complete environment must establish understanding or action and may also establish a system result.
+Test observes reader understanding and action attributable to documentation; it never asserts a result of actual system execution. The [lint](lint.md) document checks mechanical source properties, and [review](review/README.md) judges meaning, expression, and design. Use [environment tests](../../env/quality/test.md) when an agent encounter with the complete environment must establish understanding or action and may also establish a system result.

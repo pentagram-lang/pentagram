@@ -311,7 +311,9 @@ def _check_links(state):
           )
           continue
       valid_links[(target_path, fragment)].append(link)
-    for target, links in sorted(valid_links.items()):
+    for target, links in sorted(
+      valid_links.items(), key=lambda item: (item[0][0], item[0][1] or '')
+    ):
       first = links[0]
       for link in links[1:]:
         if link.text.casefold() != first.text.casefold():

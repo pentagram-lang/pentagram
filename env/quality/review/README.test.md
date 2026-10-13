@@ -4,7 +4,7 @@
 
 **Task**
 
-Use `env/quality/review.md` to prepare an independent review of a preview environment. The environment includes a preview document, the command that implements it, its target-selection interface, and the state it can change. Humans and agents need to understand which target will be used, what the command will do, and whether a remote result can occur. The intended effect is a local preview with no remote change. The design hypothesis says that the document, interface, command, and feedback should make that boundary clear and enforce it. An existing default can make participants infer that remote synchronization is permitted; treat that as a material frame distortion the environment must correct. Existing documentation, implementation, and environment-test evidence covers only its own recorded conditions. Explain what the author decides before review and what the single handoff prompt contains. Cite the governing repository documentation.
+Use `env/quality/review/README.md` to prepare an independent review of a preview environment. The environment includes a preview document, the command that implements it, its target-selection interface, and the state it can change. Humans and agents need to understand which target will be used, what the command will do, and whether a remote result can occur. The intended effect is a local preview with no remote change. The design hypothesis says that the document, interface, command, and feedback should make that boundary clear and enforce it. An existing default can make participants infer that remote synchronization is permitted; treat that as a material frame distortion the environment must correct. Existing documentation, implementation, and environment-test evidence covers only its own recorded conditions. Explain what the author decides before review and what the single handoff prompt contains. Cite the governing repository documentation.
 
 **Assert**
 
@@ -16,13 +16,13 @@ Use `env/quality/review.md` to prepare an independent review of a preview enviro
 - The answer distinguishes state created or preserved by documentation or code in the `total-environment` from external participant, situation, and encounter-noise conditions, without duplicating environment state in `situation`.
 - The answer says that the reviewer is a separate subagent with no inherited authoring conversation or project conclusions and receives the handoff rather than a private explanation.
 - The answer says that one `jj` change ID may be supplied when the review focuses on a specific change and that it does not replace the current surface or expand its boundary.
-- The answer cites `env/quality/review.md`, `env/quality/criteria.md`, and `env/quality/test.md` as the governing guidance.
+- The answer cites `env/quality/review/README.md`, `env/quality/criteria.md`, and `env/quality/test.md` as the governing guidance.
 
 ## Evaluate an environmental report
 
 **Task**
 
-Use `env/quality/review.md` to evaluate this fictional report without editing files or executing a command. The named environment contains a preview label that says “local only” and a command whose default configuration also synchronizes the preview to a remote target. The reviewer reports that the label and default execution contradict the intended no-remote-change effect and suggests changing the intent to permit synchronization. The reviewer also claims that a human already sent confidential data because of the command, but cites only the conflicting label and configuration; no participant or execution evidence exists. Finally, the reviewer reports a broken link in an unnamed archive document. The active task permits evaluation only and authorizes no edits or external actions. Explain how the author evaluates the report, what remains a prediction or evidence gap, and what may happen next. Cite the governing repository documentation.
+Use `env/quality/review/README.md` to evaluate this fictional report without editing files or executing a command. The named environment contains a preview label that says “local only” and a command whose default configuration also synchronizes the preview to a remote target. The reviewer reports that the label and default execution contradict the intended no-remote-change effect and suggests changing the intent to permit synchronization. The reviewer also claims that a human already sent confidential data because of the command, but cites only the conflicting label and configuration; no participant or execution evidence exists. Finally, the reviewer reports a broken link in an unnamed archive document. The active task permits evaluation only and authorizes no edits or external actions. Explain how the author evaluates the report, what remains a prediction or evidence gap, and what may happen next. Cite the governing repository documentation.
 
 **Assert**
 
@@ -33,13 +33,13 @@ Use `env/quality/review.md` to evaluate this fictional report without editing fi
 - The answer keeps the review report, finding dispositions, and environment-quality judgement distinct.
 - The answer says that a report with no findings does not by itself establish that the environment passes.
 - The answer makes no edits or external actions while evaluating the report under the stated evaluation-only task.
-- The answer cites `env/quality/review.md` and `env/quality/criteria.md` as the governing guidance.
+- The answer cites `env/quality/review/README.md` and `env/quality/criteria.md` as the governing guidance.
 
 ## Review a repaired environment
 
 **Task**
 
-Use `env/quality/review.md` to explain the next review after the author repairs the command and preview document. The author will reuse the same subagent. The original environmental surface remains under review, and the author has updated only the command and preview document. Explain what the continuation prompt says and how the author evaluates the new report. Do not propose a repair.
+Use `env/quality/review/README.md` to explain the next review after the author repairs the command and preview document. The author will reuse the same subagent. The original environmental surface remains under review, and the author has updated only the command and preview document. Explain what the continuation prompt says and how the author evaluates the new report. Do not propose a repair.
 
 **Assert**
 
@@ -48,13 +48,13 @@ Use `env/quality/review.md` to explain the next review after the author repairs 
 - The answer says that the author does not change the named review set or pass the repair argument or project decision to the reused reviewer.
 - The answer says that if the author does not reuse the same subagent, the author starts a new review with the original handoff.
 - The answer says that the author evaluates the new report against the current environment, intent, applicable standards, and project context rather than treating the repair or a no-finding report as proof of resolution.
-- The answer cites `env/quality/review.md` as the governing guidance.
+- The answer cites `env/quality/review/README.md` as the governing guidance.
 
 ## Combine documentation and environment review
 
 **Task**
 
-Use `env/quality/review.md` to arrange one review of `doc/quality/review.md` and `env/quality/review.md`. The purpose is to judge whether readers and participants can understand and correctly use the review processes, including handling unsupported findings and unwanted repair advice. Explain when one handoff and one report are appropriate and how the resulting judgements remain separate. Do not perform the review. Cite the governing repository documentation.
+Use `env/quality/review/README.md` to arrange one review of `doc/quality/review/README.md` and `env/quality/review/README.md`. The purpose is to judge whether readers and participants can understand and correctly use the review processes, including handling unsupported findings and unwanted repair advice. Explain when one handoff and one report are appropriate and how the resulting judgements remain separate. Do not perform the review. Cite the governing repository documentation.
 
 **Assert**
 
@@ -65,4 +65,4 @@ Use `env/quality/review.md` to arrange one review of `doc/quality/review.md` and
 - The answer distinguishes documentation review of the documents as written from environment review of what documentation and code together cause participants to understand, do, and observe.
 - The answer says that if one report cannot preserve those boundaries, the author arranges separate reviews and reports.
 - The answer says that the reviewer does not propose repairs and that the author evaluates findings using the applicable criteria and project context.
-- The answer cites `doc/quality/review.md`, `doc/quality/review-protocol.md`, `env/quality/review.md`, and `env/quality/criteria.md`.
+- The answer cites `doc/quality/review/README.md`, `doc/quality/review/protocol.md`, `env/quality/review/README.md`, and `env/quality/criteria.md`.

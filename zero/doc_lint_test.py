@@ -106,7 +106,7 @@ Later, [target](./target.md) is mid-sentence.
     )
     self.write('target.md', '# Target\n')
 
-    diagnostics = self.diagnostics()
+    self.diagnostics()
 
     self.assertNotIn('MD003', self.codes())
 

@@ -1,6 +1,6 @@
 # Review protocol
 
-An environment review gives a named environmental surface a fresh reading. The reviewer reads its documentation and code together and reports every problem present that makes the environment unclear or incorrect for its intended use. The reviewer uses the environment criteria and the handoff's stated intent, conditions, causal model, evidence, and participant use to identify supported problems. The reviewer does not supply missing meaning, invent a requirement, propose any repairs, or decide what the project should do with the report.
+Within [review](README.md), an environment review gives a named environmental surface a fresh reading. The reviewer reads its documentation and code together and reports every problem present that makes the environment unclear or incorrect for its intended use. The reviewer uses the environment criteria and the handoff's stated intent, conditions, causal model, evidence, and participant use to identify supported problems. The reviewer does not supply missing meaning, invent a requirement, propose any repairs, or decide what the project should do with the report.
 
 ## Read the handoff and environment
 
@@ -10,13 +10,13 @@ Inspect every named document, code path, interface, state boundary, and other su
 
 If the handoff does not supply these inputs clearly enough to judge the environment, report that limitation instead of silently assuming them.
 
-Use the [theory: environmental encounter model](../theory.md#environmental-encounter) to distinguish state created or preserved by documentation or code in the `total-environment` from external conditions supplied by `participant`, `situation`, or `encounter-noise`.
+Use the [theory: environmental encounter model](../../theory.md#environmental-encounter) to distinguish state created or preserved by documentation or code in the `total-environment` from external conditions supplied by `participant`, `situation`, or `encounter-noise`.
 
-When the handoff includes a `jj` change ID, inspect the complete diff for that single change with `jj --ignore-working-copy diff --git --revision CHANGE`, as [source control: working copy](../../source-control.md#working-copy) describes. The `--ignore-working-copy` option prevents this read-only inspection from snapshotting current edits. Use the diff with the current named environment; it does not replace that inspection or expand the named boundary.
+When the handoff includes a `jj` change ID, inspect the complete diff for that single change with `jj --ignore-working-copy diff --git --revision CHANGE`, as [source control: working copy](../../../source-control.md#working-copy) describes. The `--ignore-working-copy` option prevents this read-only inspection from snapshotting current edits. Use the diff with the current named environment; it does not replace that inspection or expand the named boundary.
 
 ## Judge the environment
 
-Use [criteria](criteria.md) as the authority for environment quality. Use the supplied intent for the desirable and important undesirable effects and their conditions. Use the design hypothesis for the proposed causal path. Apply the requirements owned by the affected documentation, code, interfaces, and systems. Environment review supplies evidence about the combined result; it does not replace those local authorities or issue the pass, fail, or inconclusive quality judgement.
+Use [criteria](../criteria.md) as the authority for environment quality. Use the supplied intent for the desirable and important undesirable effects and their conditions. Use the design hypothesis for the proposed causal path. Apply the requirements owned by the affected documentation, code, interfaces, and systems. Environment review supplies evidence about the combined result; it does not replace those local authorities or issue the pass, fail, or inconclusive quality judgement.
 
 Follow the path from each participant's situation through the information, actions, constraints, feedback, and state the environment exposes. Inspect what the documentation and code together cause participants to understand and do, and what actual execution permits or produces. Report a problem when the named environment establishes a contradiction, an unsafe or misleading action or result, or another condition that prevents the intended use or violates an applicable requirement.
 

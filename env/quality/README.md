@@ -4,7 +4,7 @@ Environment quality judges whether the complete environment is clearly correct f
 
 This is a combined judgement. Documentation can be accurate and code can satisfy its contract while their interaction still causes confusion, unsafe action, or a misleading result. [Documentation quality](../../doc/quality/README.md) judges the documentation as written, and the [coding standards](../../code/README.md) govern code and implementation tests. Environment quality judges what the combination causes participants to understand, do, and observe, including results that actual execution permits or produces.
 
-[Criteria](criteria.md) explains the judgement and the evidence boundary. [Test](test.md) puts an implemented environment into a realistic agent encounter when that can add useful evidence. [Review](review.md) independently inspects the causal relationship between documentation, code, participants, actions, and results.
+[Criteria](criteria.md) explains the judgement and the evidence boundary. [Test](test.md) puts an implemented environment into a realistic agent encounter when that can add useful evidence. [Review](review/README.md) independently inspects the causal relationship between documentation, code, participants, actions, and results.
 
 Environment quality follows the [environment theory](../theory.md) and the [manifesto's aims](../../manifesto.md). Name the subject, intent, conditions, and evidence that support each quality judgement. Intent need not be part of the environment surface; [intent](../intent.md) says when to record it, and a review handoff may supply it through an accessible source. Private conversation and author memory cannot supply missing meaning.
 
@@ -18,8 +18,4 @@ Environment quality follows the [environment theory](../theory.md) and the [mani
 
 ## Review
 
-[Review](review.md) explains the author's process for arranging and evaluating independent review of documentation and code as one environment.
-
-## Review protocol
-
-[Review protocol](review-protocol.md) tells reviewers how to inspect an environment and report every supported problem that makes it unclear or incorrect.
+[Review](review/README.md) defines independent inspection, findings, evaluation, repair, and re-review for the environment.
