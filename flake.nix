@@ -20,7 +20,7 @@
           (import ./nix/watchman.nix)
           (import ./nix/python.nix)
           (import ./nix/nix.nix)
-          (import ./nix/task.nix)
+          (import ./nix/zero.nix)
         ];
         pkgs = import nixpkgs { inherit system overlays; };
       in
@@ -32,7 +32,7 @@
             pkgs.pentagram-watchman
             pkgs.pentagram-python
             pkgs.pentagram-nix
-            pkgs.pt
+            pkgs.zero
           ];
         };
       }
