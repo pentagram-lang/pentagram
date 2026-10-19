@@ -50,6 +50,7 @@
   "explorer.fileNesting.enabled": true,
   "explorer.fileNesting.patterns": {
     "*.rs": "${capture}_test.rs",
+    "*.md": "${capture}.test.md",
     "*.penta": "${capture}.test.penta"
   }
 }
