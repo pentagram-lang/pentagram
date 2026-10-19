@@ -39,7 +39,9 @@ Use the report as evidence in the complete quality judgement. A report with no f
 
 If the project chooses a repair, derive it from project context and documentation standards, not from a reviewer suggestion. Repair the documents as a whole rather than patching only the quoted passage. Do not treat a finding as an invitation to add complexity that makes the documents unclear or incorrect.
 
-After a repair, reuse the same subagent by default, at the author's discretion. Restate the full set of documents in the continuation prompt and say which documents in that set were updated. Do not change the set of documents under review, unless starting a new review. Do not give the reused reviewer the author's repair argument or project decision. Use this continuation prompt:
+### Review a repair
+
+After a repair, reuse the same subagent by default. Restate the full set of documents in the continuation prompt and say which documents in that set were updated. Do not change the set of documents under review, unless starting a new review. Do not give the reused reviewer the author's repair argument or project decision. Use this continuation prompt:
 
 ```text
 Re-review the current named documents using `doc/quality/review/protocol.md`.
@@ -54,6 +56,12 @@ Read the current documents as written. Check the findings from the previous revi
 ```
 
 If the author does not reuse the same subagent, start a new review with the [handoff prompt](#prepare-the-handoff). Treat it as a new review rather than passing the previous review's context to a new subagent.
+
+### Relate to other review processes
+
+Documentation review is independent of [code review](../../../code/quality/review/README.md) and [environment review](../../../env/quality/review/README.md). Each process evaluates its subject against its own criteria, and no review type replaces or substitutes for another. A passing documentation review establishes only that the inspected text satisfies documentation criteria; it does not establish that code executes correctly or that the environment produces its intended effects.
+
+Work that touches documentation frequently crosses quality domains. When a change introduces or modifies code, arrange [code review](../../../code/quality/review/README.md) to judge whether that code faithfully executes its intended behaviour across its complete execution surface. When documentation instructs participants or establishes procedures that shape interaction and system state, arrange [environment review](../../../env/quality/review/README.md) to judge what documentation and code together cause participants to understand, do, and observe.
 
 ## Protocol
 

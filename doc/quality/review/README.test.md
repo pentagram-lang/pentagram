@@ -52,3 +52,17 @@ Use `doc/quality/review/README.md` to answer this task and cite the relevant sec
 - If the author does not reuse the same subagent, the author starts a new review with the original handoff prompt rather than passing the previous review's context to a new subagent.
 - The handoff excludes the author's repair argument and project decision.
 - The answer cites `doc/quality/review/README.md` as the basis for the re-review guidance.
+
+## Relate to other review processes
+
+**Task**
+
+Use `doc/quality/review/README.md` to answer this task and cite the relevant section. An author prepares a documentation change that documents a recovery procedure with executable shell commands. Explain how documentation review relates to other review processes and whether additional reviews are warranted.
+
+**Assert**
+
+- The answer explains that documentation review is independent of code review and environment review, and that no review type replaces or substitutes for another.
+- The answer explains that a passing documentation review establishes only that the inspected text satisfies documentation criteria, and does not establish code or environment quality.
+- The answer explains that introducing or modifying code may warrant an independent code review to judge whether that code faithfully executes its intended behaviour across its complete execution surface.
+- The answer explains that documentation instructing participants or establishing procedures that shape interaction and system state may warrant an independent environment review to judge what documentation and code together cause participants to understand, do, and observe.
+- The answer cites `doc/quality/review/README.md` as the basis for the multi-process guidance.

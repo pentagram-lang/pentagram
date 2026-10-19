@@ -50,19 +50,17 @@ Use `env/quality/review/README.md` to explain the next review after the author r
 - The answer says that the author evaluates the new report against the current environment, intent, applicable standards, and project context rather than treating the repair or a no-finding report as proof of resolution.
 - The answer cites `env/quality/review/README.md` as the governing guidance.
 
-## Combine documentation and environment review
+## Relate to other review processes
 
 **Task**
 
-Use `env/quality/review/README.md` to arrange one review of `doc/quality/review/README.md` and `env/quality/review/README.md`. The purpose is to judge whether readers and participants can understand and correctly use the review processes, including handling unsupported findings and unwanted repair advice. Explain when one handoff and one report are appropriate and how the resulting judgements remain separate. Do not perform the review. Cite the governing repository documentation.
+Use `env/quality/review/README.md` to answer this task and cite the relevant section. An author prepares an environment change that includes a preview guide and an implementing command. Explain how environment review relates to other review processes and whether additional reviews are warranted.
 
 **Assert**
 
-- The answer uses one handoff and one report only when the same investigation can adequately cover both documentation and environmental effects.
-- The answer says to build one chat prompt rather than two handoffs, tells the reviewer to read and follow both protocols, and asks for every problem present that makes either subject unclear or incorrect without proposing repairs.
-- The answer says that the one combined report is one response with separate documentation and environment parts, and that each part follows its own protocol's report form.
-- The handoff names both subjects, criteria, and boundaries and supplies documentation reader use and environmental intent, conditions, causal model, relevant state, evidence, participants, and use.
-- The answer distinguishes documentation review of the documents as written from environment review of what documentation and code together cause participants to understand, do, and observe.
-- The answer says that if one report cannot preserve those boundaries, the author arranges separate reviews and reports.
-- The answer says that the reviewer does not propose repairs and that the author evaluates findings using the applicable criteria and project context.
-- The answer cites `doc/quality/review/README.md`, `doc/quality/review/protocol.md`, `env/quality/review/README.md`, and `env/quality/criteria.md`.
+- The answer explains that environment review is independent of documentation review and code review, and that no review type replaces or substitutes for another.
+- The answer explains that environment review does not replace local documentation criteria for text as written or local code criteria for machine execution.
+- The answer explains that a passing environment review does not establish that local documentation or code is clearly correct under its own standards.
+- The answer explains that documentation in the environment may warrant an independent documentation review to judge whether that documentation accurately describes its subject and gives meaning a durable, navigable form as written.
+- The answer explains that code in the environment may warrant an independent code review to judge whether that code faithfully executes its intended behaviour across its complete execution surface.
+- The answer cites `env/quality/review/README.md` as the basis for the multi-process guidance.
