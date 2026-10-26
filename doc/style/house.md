@@ -74,7 +74,7 @@ A link already marks a linked document reference. An unlinked reference to a doc
 
 A document must work as rendered text for its readers and as editable source for its authors. Design both surfaces before accepting a trade-off. If the trade-off remains, protect reader comprehension, correct action, and safety.
 
-Keep source order close to reading order. Prefer ordinary Markdown to raw HTML, manual spacing, and layout tricks. Let formatters own mechanical layout instead of creating hand-aligned source that breaks under editing.
+Keep source order close to reading order. Prefer ordinary Markdown to raw HTML, manual spacing, and layout tricks. For math, use the plain-text notation in [equations](../meaning/equations.md) rather than LaTeX or MathML so the source remains directly readable without rendering. Let formatters own mechanical layout instead of creating hand-aligned source that breaks under editing.
 
 Structure text so common later edits stay local and predictable. Keep related information together, give each idea one clear home, and use the same form for the same kind of information.
 
@@ -113,6 +113,10 @@ An unrestricted list suggests that its entries exhaust the subject. If the entri
 Use a list when a short, bounded set of parallel items is itself useful or when the document's format requires one. For illustration, introduce a restricted list with “For example,” so readers do not mistake its entries for an exhaustive account.
 
 This rule applies equally to formatted, multi-line lists and to ad hoc lists in sentences.
+
+## Use the Oxford comma
+
+When a list in a sentence is valid, use the Oxford comma—a comma before the final conjunction in a series of three or more items (such as “a, b, and c”)—so item boundaries remain unambiguous.
 
 ## Show the system
 

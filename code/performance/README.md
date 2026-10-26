@@ -8,7 +8,7 @@ The same high performance standard applies to internal repo tooling. This serves
 
 Achieving extreme speed is essentially about managing work that computations need to perform. The fastest thing is to do nothing or do less work, and then the remaining work needs to be tackled with proper strategy and tactics.
 
-Maintaining extreme speed is its own complex problem: it can't be done through a single benchmark or a wall-clock timer. Similar to how comprehensive software quality requires an array of techniques from unit tests to formal proofs, performance requires multiple measurement methods working together, each with their own strengths and weaknesses.
+Maintaining extreme speed is its own complex problem: it can't be done through a single benchmark or a wall-clock timer. Similar to how comprehensive software quality requires an array of techniques from unit tests to formal verification, performance requires multiple measurement methods working together, each with their own strengths and weaknesses.
 
 ## Performance lifecycle (the evolutionary spiral)
 
@@ -24,7 +24,7 @@ Treating optimization as something to defer will lead to systemic performance de
 
 Software does not execute in an abstract mathematical realm. Achieving extreme speed requires mechanical sympathy: understanding how the physical machine operates and how real data is structured. Designing for performance means reckoning with four physical and algorithmic realities.
 
-**Scale regimes ($n$):** Performance decisions must match the size of the workload. At small to moderate $n$, constant factors, cache line utilization, and branch predictability dominate runtime; a flat linear scan across contiguous memory routinely beats a balanced search tree or hash table. The flip side is equally dangerous: casually using superlinear algorithms ($O(n^2)$ or higher) on unbounded or large datasets causes catastrophic scaling cliffs in production, especially when small test cases mask the problem during development. In the absence of empirical benchmarks and distribution models, initial design should establish a sensible scale regime baseline—defaulting to linear or near-linear algorithms for workloads that can scale, while keeping small-$n$ operations flat and contiguous.
+**Scale regimes (`n`):** Performance decisions must match the size of the workload. At small to moderate `n`, constant factors, cache line utilization, and branch predictability dominate runtime; a flat linear scan across contiguous memory routinely beats a balanced search tree or hash table. The flip side is equally dangerous: casually using superlinear algorithms (`O(n^2)` or higher) on unbounded or large datasets causes catastrophic scaling cliffs in production, especially when small test cases mask the problem during development. In the absence of empirical benchmarks and distribution models, initial design should establish a sensible scale regime baseline—defaulting to linear or near-linear algorithms for workloads that can scale, while keeping small-`n` operations flat and contiguous.
 
 **Data shape and order:** Real-world data is rarely uniform, random noise. It can exhibit structural properties like pre-sorted sequences, power-law distributions, spatial clustering, or common prefixes. Instead of algorithms that pay for generalized worst-case guarantees, high-performance code recognizes and exploits structural patterns in data, using adaptive algorithms, specialized representations, and fast paths for dominant distributions. However, specializing code for assumed distributions carries severe risks: it creates steep performance cliffs when real inputs deviate from the expected shape, multiplies maintenance burden through divergent code paths, and introduces subtle correctness hazards for unrepresented edge cases. Exploiting data shapes must remain disciplined and heavily guarded, ensuring robust fallback behaviour and preventing speculative specialization from compromising clarity.
 
@@ -146,7 +146,7 @@ Each measurement mode targets a distinct layer of execution, carrying specific s
 
 - **Weaknesses:** Work counters are disconnected from physical silicon realities, remaining blind to cache misses, pipeline stalls, branch mispredictions, and memory bus latency. Reducing the number of retired instructions or allocations does not guarantee faster elapsed time on real hardware.
 
-- **Ideal stages:** This mode is best suited for the `dev loop` and `pre-merge` CI gates because its noise-free determinism guarantees that tests never flake or block contributors with false regressions.
+- **Ideal stages:** This mode is best suited for the `dev loop` and `pre-merge` CI gates because its noise-free determinism guarantees that checks never flake or block contributors with false regressions. When deterministic cost accounting is used as a pass/fail gate, it is treated as a performance-oriented test governed by all testing and flake rules in [test](../quality/test.md).
 
 ### Wall-clock latency timers
 
@@ -157,6 +157,16 @@ Each measurement mode targets a distinct layer of execution, carrying specific s
 - **Weaknesses:** Elapsed physical time provides coarse aggregate measurements with no internal attribution. It is highly susceptible to host machine noise, operating system scheduling, background processes, and thermal throttling, making it too noisy for automated gating.
 
 - **Ideal stages:** Timers are essential in the `dev loop` for immediate developer feedback and in the `field` to monitor end-to-end operation durations across production deployments.
+
+### System resource-utilization time series
+
+- **Target:** It samples machine-wide or container-wide resource consumption at regular intervals across a workload, recording time series of CPU core saturation, memory footprint, and disk or network I/O throughput.
+
+- **Strengths:** Resource timelines expose macro-level hardware underutilization, memory pressure spikes, I/O bottlenecks, and parallelism contention across concurrent workloads. When correlated with other timeline events—such as [timeline traces and spans](#timeline-traces-and-spans)—they show which active operations drive resource spikes or contend for capacity, guiding hardware right-sizing and scheduler tuning.
+
+- **Weaknesses:** System-wide time series provide coarse process- or machine-level aggregates rather than instruction- or function-level attribution, and their fidelity is bounded by the sampling interval and host operating-system accounting.
+
+- **Ideal stages:** This mode is essential in `pre-merge` and `post-merge` CI pipelines (to monitor parallelism, right-size hardware, and diagnose contention) as well as in the `dev loop` and `field` for observing macro-level resource envelopes.
 
 ### Timeline traces and spans
 
@@ -200,7 +210,7 @@ Each measurement mode targets a distinct layer of execution, carrying specific s
 
 ### Statistical benchmark distributions
 
-- **Target:** It evaluates complete latency distributions ($p50$, $p95$, and $p99$) alongside interior time budgets for constituent phases, derived from controlled, repeated executions on dedicated bare-metal hardware.
+- **Target:** It evaluates complete latency distributions (`p50`, `p95`, and `p99`) alongside interior time budgets for constituent phases, derived from controlled, repeated executions on dedicated bare-metal hardware.
 
 - **Strengths:** Controlled benchmarks measure true physical latency and tail behaviour under repeatable test conditions, establishing statistical confidence against regression thresholds. Tracking interior time budgets establishes explicit quality-of-service (QoS) levels across subsystems and immediately isolates the root cause when a latency target fails.
 
