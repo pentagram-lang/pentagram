@@ -303,7 +303,7 @@ def agent():
 @lib.command_with_aliases(
   agent,
   name='codex-luna-yolo',
-  aliases=['luna', 'cluna'],
+  aliases=['luna'],
   context_settings=dict(ignore_unknown_options=True, help_option_names=[]),
 )
 @click.argument('args', nargs=-1, type=click.UNPROCESSED)
@@ -315,7 +315,7 @@ def codex_luna_agent(args):
 @lib.command_with_aliases(
   agent,
   name='codex-sol-yolo',
-  aliases=['sol', 'csol'],
+  aliases=['sol'],
   context_settings=dict(ignore_unknown_options=True, help_option_names=[]),
 )
 @click.argument('args', nargs=-1, type=click.UNPROCESSED)
@@ -327,7 +327,7 @@ def codex_sol_agent(args):
 @lib.command_with_aliases(
   agent,
   name='codex-astra-yolo',
-  aliases=['astra', 'castra'],
+  aliases=['astra'],
   context_settings=dict(ignore_unknown_options=True, help_option_names=[]),
 )
 @click.argument('args', nargs=-1, type=click.UNPROCESSED)
@@ -339,7 +339,7 @@ def codex_astra_agent(args):
 @lib.command_with_aliases(
   agent,
   name='claude-sonnet-yolo',
-  aliases=['sonnet', 'csonnet'],
+  aliases=['sonnet'],
   context_settings=dict(ignore_unknown_options=True, help_option_names=[]),
 )
 @click.argument('args', nargs=-1, type=click.UNPROCESSED)
@@ -351,7 +351,7 @@ def claude_sonnet_agent(args):
 @lib.command_with_aliases(
   agent,
   name='claude-fable-yolo',
-  aliases=['fable', 'cfable'],
+  aliases=['fable'],
   context_settings=dict(ignore_unknown_options=True, help_option_names=[]),
 )
 @click.argument('args', nargs=-1, type=click.UNPROCESSED)
@@ -363,13 +363,25 @@ def claude_fable_agent(args):
 @lib.command_with_aliases(
   agent,
   name='agy-flash-yolo',
-  aliases=['flash', 'aflash'],
+  aliases=['flash'],
   context_settings=dict(ignore_unknown_options=True, help_option_names=[]),
 )
 @click.argument('args', nargs=-1, type=click.UNPROCESSED)
 def agy_agent(args):
-  """Launch Antigravity with the Pentagram workspace rules."""
+  """Launch Antigravity Flash with the Pentagram workspace rules."""
   agent_runner.launch('agy-flash-yolo', args)
+
+
+@lib.command_with_aliases(
+  agent,
+  name='agy-argon-yolo',
+  aliases=['argon'],
+  context_settings=dict(ignore_unknown_options=True, help_option_names=[]),
+)
+@click.argument('args', nargs=-1, type=click.UNPROCESSED)
+def agy_agent(args):
+  """Launch Antigravity Argon with the Pentagram workspace rules."""
+  agent_runner.launch('agy-argon-yolo', args)
 
 
 @lib.command_with_aliases(cli, aliases=['w'])

@@ -16,6 +16,7 @@ AGENT_CONFIGURATIONS = {
   'claude-sonnet-yolo': ('claude', 'sonnet'),
   'claude-fable-yolo': ('claude', 'fable'),
   'agy-flash-yolo': ('agy', 'gemini-3.8-flash-high'),
+  'agy-argon-yolo': ('agy', 'gemini-4-argon-medium'),
 }
 
 AGY_TOOLSET_ENV = 'PENTAGRAM_AGY_TOOLSET'
