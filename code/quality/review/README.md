@@ -4,7 +4,7 @@ Within [quality](../README.md), a review gives code an independent, unsteered in
 
 ### Decide whether review adds evidence
 
-Use [criteria](../criteria.md) to decide whether code review adds material evidence to the quality judgement. Review is not automatic for every change. Stage verification into tiered evidence: apply inexpensive static checks and local test proofs before investing resources in an independent review. Arrange review when inspecting code as written can reveal problems that available checks, tests, or measurements do not establish. Weigh that evidence against the computational and cognitive cost of preparing and running the review, then choose the smallest set of reviews that can make the complete evidence adequate.
+Use [criteria](../criteria.md) to decide whether code review adds material evidence to the quality judgement. Review is not automatic for every change. Stage verification into tiered evidence: apply inexpensive static checks and local tests before investing resources in an independent review. Arrange review when inspecting code as written can reveal problems that available checks, tests, or measurements do not establish. Weigh that evidence against the computational and cognitive cost of preparing and running the review, then choose the smallest set of reviews that can make the complete evidence adequate.
 
 ### Prepare the handoff
 

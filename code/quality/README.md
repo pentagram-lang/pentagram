@@ -18,11 +18,15 @@ Quality must embody and support the aims defined in the [Pentagram manifesto](..
 
 ## Test
 
-[Test](test.md) specifies the required standard for automated correctness proofs, including how to use the tiered evidence levels together for high correctness confidence.
+[Test](test.md) specifies how to design, run, and maintain tests, combining overlapping verification techniques across lifecycle stages for high confidence in correctness.
 
 ## Review
 
 [Review](review/README.md) defines independent inspection, findings, evaluation, repair, and re-review for code.
+
+## Type
+
+[Type](type.md) explains how to use strong types to enforce invariants at compile time and make invalid states unrepresentable.
 
 ## Error handling
 
