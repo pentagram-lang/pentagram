@@ -42,7 +42,7 @@ Good partitioning is the deliberate result of designing an API from the outside 
 
 5. **Purge reverse dependencies.** Ensure lower-level partitions contain no vocabulary, workflows, or assumptions from higher-level callers. A partition must remain completely freestanding and usable in isolation without awareness of who calls it.
 
-6. **Contain failures.** Translate internal calculation failures and low-level errors into domain-meaningful return values. Do not allow internal implementation mechanics or unexpected error types (or control flow) to leak across the API boundary.
+6. **Contain failures.** Recover internally from failures that the partition can own, represent expected branching outcomes as normal return data, and declare only the operational errors that callers must confront (see [error handling](../quality/err.md)). Do not allow internal implementation mechanics or unexpected error types (or control flow) to leak across the API boundary.
 
 7. **Strip unused internal scope.** Remove all code within the partition not transitively used to satisfy the API. Applying [subtractive design](../../rm/README.md) internally ensures the partition contains only the exact code required for its capability.
 

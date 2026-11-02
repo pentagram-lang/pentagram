@@ -24,17 +24,23 @@ Before data and functions can be properly designed, precise definitions of a few
 
 The default programming habit is code-first development: writing subroutine instructions before understanding the underlying computation. This ad hoc approach results in procedural code without any genuine functions, and it completely skips intentional data design.
 
-Designing clearly correct data and functions reverses that habit. Instead of writing code as it comes to mind, derive the function's structure from the data it transforms:
+Designing clearly correct data and functions reverses that habit. Instead of writing code as it comes to mind, derive the function's structure from the data it transforms.
+
+> **Note**
+>
+> Not every input or execution condition produces a normal output value. When designing a transformation, distinguish between branching outcomes that callers use as normal output data, operational failures declared as explicit errors, and precondition or invariant violations that crash immediately (see [error handling](../quality/err.md)). Both declared errors and invariant crashes are valid, intentional parts of a function's contract when the transformation cannot complete normally.
+
+Follow this six-step recipe to design each function:
 
 1. **Define the computation and the data.** Many tasks are not stated as obvious computations. Identify the exact computation the task requires: what domain information it must consume and what result it must produce. Map that information to explicit data representations, and write examples of valid data. If the data cannot represent a necessary distinction, correct the data definition before writing code.
 
-2. **Specify the function.** State the signature—the input and output data types—and write a concise purpose statement defining the transformation. Declare the interface with a placeholder body.
+2. **Specify the function.** State the signature—the input and output data types, plus any declared error contract—and write a concise purpose statement defining the transformation and its preconditions. Declare the interface with a placeholder body.
 
-3. **Work out examples.** Calculate expected outputs for representative inputs before writing the body. Cover typical, boundary, and error cases to establish expected behaviour independently of the implementation.
+3. **Work out examples.** Calculate expected outcomes—outputs, errors, or crashes—for representative inputs before writing the body. Cover typical, boundary, and failure cases to establish expected behaviour independently of the implementation.
 
 4. **Derive the template from the data shape.** Let the shape of the input data dictate the outline of the function body. For example, sum types require branches for each case, compound types require field extraction, and recursive data structures require recursive calls.
 
-5. **Complete the function.** Fill in the template to transform inputs into outputs, guided by the purpose statement and worked examples.
+5. **Complete the function.** Fill in the template to transform inputs into outputs, enforce preconditions, and propagate or raise declared errors, guided by the purpose statement and worked examples.
 
 6. **Test the function.** Turn the worked examples into executable tests. When a test fails, trace the defect back to the earlier step: fix the implementation, revise the template, correct the examples, or repair the data definition.
 
