@@ -26,7 +26,7 @@ Quality must embody and support the aims defined in the [Pentagram manifesto](..
 
 ## Type
 
-[Type](type.md) explains how to use strong types to enforce invariants at compile time and make invalid states unrepresentable.
+[Type](type.md) specifies how to design strong typing systems across functions, partitions, and boundaries for continuous compile-time confidence, bounded local reasoning, and unrepresentable invalid states.
 
 ## Error handling
 

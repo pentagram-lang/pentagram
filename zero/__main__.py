@@ -384,6 +384,18 @@ def agy_agent(args):
   agent_runner.launch('agy-argon-yolo', args)
 
 
+@lib.command_with_aliases(
+  agent,
+  name='agy-carbon-yolo',
+  aliases=['carbon'],
+  context_settings=dict(ignore_unknown_options=True, help_option_names=[]),
+)
+@click.argument('args', nargs=-1, type=click.UNPROCESSED)
+def agy_agent(args):
+  """Launch Antigravity Carbon with the Pentagram workspace rules."""
+  agent_runner.launch('agy-carbon-yolo', args)
+
+
 @lib.command_with_aliases(cli, aliases=['w'])
 def watch_cmd():
   """Watch for changes and run tests."""

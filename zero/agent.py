@@ -17,6 +17,7 @@ AGENT_CONFIGURATIONS = {
   'claude-fable-yolo': ('claude', 'fable'),
   'agy-flash-yolo': ('agy', 'gemini-3.8-flash-high'),
   'agy-argon-yolo': ('agy', 'gemini-4-argon-medium'),
+  'agy-carbon-yolo': ('agy', 'gemini-4-carbon-medium'),
 }
 
 AGY_TOOLSET_ENV = 'PENTAGRAM_AGY_TOOLSET'
