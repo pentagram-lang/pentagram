@@ -1,5 +1,6 @@
 line-length = 75
 indent-width = 2
+target-version = "py313"
 
 [format]
 quote-style = "single"
@@ -7,4 +8,4 @@ indent-style = "space"
 line-ending = "lf"
 
 [lint]
-select = ["E", "F", "I"]
+select = ["E", "F", "I", "B", "UP", "RUF", "ANN"]

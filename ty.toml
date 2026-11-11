@@ -1,0 +1,6 @@
+[environment]
+python-version = "3.13"
+root = ["."]
+
+[src]
+include = ["zero", "proj"]

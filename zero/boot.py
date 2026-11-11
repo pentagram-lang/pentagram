@@ -1,16 +1,14 @@
 import os
+from collections.abc import Sequence
 
 
-def run_shell(args):
+def run_shell(args: Sequence[str]) -> None:
   """
   Runs the boot_shell using cargo run, replacing the current process.
   """
-  # boot/shell is the package 'shell' in the cargo workspace.
-  # We use 'cargo run -p shell' to run it.
-  cmd = ['cargo', 'run', '-p', 'boot_shell', '--'] + list(args)
+  cmd = ['cargo', 'run', '-p', 'boot_shell', '--', *args]
 
   # execvp replaces the current process with the new program.
-  # The first argument is the file to execute (cargo), the second is the
-  # list of arguments (including the command name).
-  print(f'Exec: {" ".join(cmd)}')
+  # Cargo selects the boot_shell package; remaining arguments follow '--'.
+  print(f'Exec: {" ".join(cmd)}', flush=True)
   os.execvp('cargo', cmd)

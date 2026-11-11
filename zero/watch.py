@@ -5,6 +5,9 @@ import subprocess
 import sys
 import threading
 import time
+from collections.abc import Iterable, Sequence
+from pathlib import Path, PurePosixPath
+from typing import IO, TypedDict
 
 import pywatchman
 
@@ -21,35 +24,74 @@ CYAN = '\033[96m'
 RESET = '\033[0m'
 
 
-def colour_line(line, colour):
+class BuildState(TypedDict):
+  rebuilt_shell: bool
+
+
+type TestBinary = tuple[str, str]
+
+
+def _string_keyed_object(value: object) -> dict[str, object] | None:
+  if not isinstance(value, dict):
+    return None
+  result: dict[str, object] = {}
+  for key, item in value.items():
+    if not isinstance(key, str):
+      return None
+    result[key] = item
+  return result
+
+
+def _string_list(value: object) -> list[str] | None:
+  if not isinstance(value, list):
+    return None
+  result: list[str] = []
+  for item in value:
+    if not isinstance(item, str):
+      return None
+    result.append(item)
+  return result
+
+
+def colour_line(line: str, colour: str) -> str:
   return f'{colour}{line}{RESET}'
 
 
-def status(label, duration, success=True):
+def status(label: str, duration: float, success: bool = True) -> None:
   colour = GREEN if success else RED
   text = 'PASS' if success else 'FAIL'
   print(f'[{colour}{text}{RESET}] {label} ({duration:.2f}s)')
 
 
 class Timer:
-  def __init__(self):
+  def __init__(self) -> None:
     self.start = time.time()
 
-  def duration(self):
+  def duration(self) -> float:
     return time.time() - self.start
 
 
 class StreamPrefixer(threading.Thread):
-  def __init__(self, stream, prefix, colour, output_stream=sys.stdout):
+  def __init__(
+    self,
+    stream: IO[str] | None,
+    prefix: str,
+    colour: str,
+    output_stream: IO[str] | None = None,
+  ) -> None:
     super().__init__()
     self.stream = stream
     self.prefix = prefix
     self.colour = colour
-    self.output_stream = output_stream
+    self.output_stream = (
+      sys.stdout if output_stream is None else output_stream
+    )
     self.daemon = True
 
-  def run(self):
+  def run(self) -> None:
     try:
+      if self.stream is None:
+        return
       for line in iter(self.stream.readline, ''):
         line_str = line.rstrip()
         if line_str:
@@ -60,16 +102,44 @@ class StreamPrefixer(threading.Thread):
       pass  # Stream closed
 
 
+def _python_test_commands(
+  files: Iterable[str],
+) -> list[tuple[list[str], str]]:
+  roots = {
+    path.parts[0]
+    for path in (PurePosixPath(file) for file in files)
+    if path.parts and path.suffix == '.py'
+  }
+  return [
+    (['0', 'check', command], command)
+    for root, command in (('zero', 'ztest'), ('proj', 'ptest'))
+    if root in roots
+  ]
+
+
+def _nixfmt_check_command(root: str | os.PathLike[str]) -> list[str]:
+  root_path = Path(root)
+  nix_files = sorted(
+    str(path)
+    for pattern in ('*.nix', 'nix/*.nix')
+    for path in root_path.glob(pattern)
+    if path.is_file()
+  )
+  return ['nixfmt', '--check', *nix_files]
+
+
 class WatchSession:
-  def __init__(self, root):
+  def __init__(self, root: str | os.PathLike[str]) -> None:
     self.root = os.path.abspath(root)
     self.client = pywatchman.client(timeout=1.0)
-    self.child_process = None
+    self.child_process: subprocess.Popen[str] | None = None
+    self.stdout_thread: StreamPrefixer | None = None
+    self.stderr_thread: StreamPrefixer | None = None
     self.should_stop = False
     self.lock = threading.Lock()
     self.first_rust_run = True
 
-  def start(self):
+  def start(self) -> None:
     try:
       self.client.capabilityCheck(optional=[])
       # Watch the project root
@@ -81,7 +151,7 @@ class WatchSession:
     self._subscribe()
     self._loop()
 
-  def _subscribe(self):
+  def _subscribe(self) -> None:
     # Trigger on any Rust file change or Cargo.toml/lock
     sub = {
       'expression': [
@@ -100,21 +170,19 @@ class WatchSession:
     }
     self.client.query('subscribe', self.root, 'rust-trigger', sub)
 
-  def _loop(self):
+  def _loop(self) -> None:
     while not self.should_stop:
       try:
         # Receive events
-        key = self.client.receive()
-        if not key:
+        event = _string_keyed_object(self.client.receive())
+        if event is None or event.get('subscription') != 'rust-trigger':
           continue
-
-        # Check if it's our subscription
-        # The python client returns the data directly
-        if 'subscription' in key and key['subscription'] == 'rust-trigger':
-          files = key.get('files', [])
-          if files:
-            print(f'{GREY}Change detected in {len(files)} files...{RESET}')
-            self._rebuild_and_restart(files)
+        files = _string_list(event.get('files', []))
+        if files is None:
+          continue
+        if files:
+          print(f'{GREY}Change detected in {len(files)} files...{RESET}')
+          self._rebuild_and_restart(files)
 
       except pywatchman.SocketTimeout:
         pass
@@ -122,7 +190,9 @@ class WatchSession:
         self.stop()
         break
 
-  def _rebuild_and_restart(self, files=None):
+  def _rebuild_and_restart(
+    self, files: Iterable[str] | None = None
+  ) -> None:
     t_total = Timer()
     # Determine context
     is_rust = True
@@ -166,6 +236,10 @@ class WatchSession:
             self._run_cmd, ['ruff', 'check'], 'py-lint', YELLOW
           )
         ] = 'py-lint'
+        for command, label in _python_test_commands(files or ()):
+          futures[
+            executor.submit(self._run_cmd, command, label, MAGENTA)
+          ] = label
 
       if is_dprint:
         futures[
@@ -178,7 +252,7 @@ class WatchSession:
         futures[
           executor.submit(
             self._run_cmd,
-            ['nixfmt', '--check', '*.nix', 'nix/*.nix'],
+            _nixfmt_check_command(self.root),
             'nix-fmt',
             CYAN,
           )
@@ -207,12 +281,14 @@ class WatchSession:
 
     status('watch-iteration', t_total.duration(), all_success)
 
-  def _rust_build_pipeline(self, executor):
+  def _rust_build_pipeline(
+    self, executor: concurrent.futures.ThreadPoolExecutor
+  ) -> bool:
     t = Timer()
     # A. Build & Discover
     print(f'{BLUE}Running build...{RESET}')
-    test_binaries = []
-    build_state = {'rebuilt_shell': False}
+    test_binaries: list[TestBinary] = []
+    build_state: BuildState = {'rebuilt_shell': False}
 
     cmd = [
       'cargo',
@@ -292,7 +368,7 @@ class WatchSession:
 
     return all_passed
 
-  def _restart_child_process(self):
+  def _restart_child_process(self) -> bool:
     t = Timer()
     with self.lock:
       if self.child_process:
@@ -304,34 +380,64 @@ class WatchSession:
           self.child_process.kill()
         self.child_process = None
 
+      bin_path = os.path.join(self.root, 'target', 'debug', 'boot_shell')
+      if not os.path.isfile(bin_path):
+        print(
+          f'{RED}Could not find boot_shell binary at {bin_path}{RESET}'
+        )
+        status('restart-shell', t.duration(), False)
+        return False
+
       self._start_child()
     status('restart-shell', t.duration(), True)
     return True
 
-  def _process_build_output(self, stream, binaries, state, is_first_run):
+  def _process_build_output(
+    self,
+    stream: IO[str] | None,
+    binaries: list[TestBinary],
+    state: BuildState,
+    is_first_run: bool,
+  ) -> None:
     try:
+      if stream is None:
+        return
       for line in iter(stream.readline, ''):
         if not line:
           break
         try:
-          data = json.loads(line)
+          data = _string_keyed_object(json.loads(line))
+          if data is None:
+            continue
           reason = data.get('reason')
 
           if reason == 'compiler-message':
-            msg = data.get('message', {}).get('rendered', '')
-            if msg:
-              sys.stdout.write(msg)
+            message = _string_keyed_object(data.get('message'))
+            rendered = (
+              message.get('rendered') if message is not None else None
+            )
+            if isinstance(rendered, str) and rendered:
+              sys.stdout.write(rendered)
 
           elif reason == 'compiler-artifact':
-            target = data.get('target', {})
+            target = _string_keyed_object(data.get('target'))
+            target_name = (
+              target.get('name') if target is not None else None
+            )
+            profile = _string_keyed_object(data.get('profile'))
+            test_profile = (
+              profile.get('test') if profile is not None else False
+            )
             fresh = data.get('fresh', False)
             executable = data.get('executable')
 
-            if executable:
-              if data.get('profile', {}).get('test'):
-                if is_first_run or not fresh:
-                  binaries.append((executable, target.get('name')))
-              elif target.get('name') == 'boot_shell' and not fresh:
+            if isinstance(executable, str) and isinstance(
+              target_name, str
+            ):
+              if test_profile is True:
+                if is_first_run or fresh is False:
+                  binaries.append((executable, target_name))
+              elif target_name == 'boot_shell' and fresh is False:
                 state['rebuilt_shell'] = True
 
         except json.JSONDecodeError:
@@ -339,7 +445,7 @@ class WatchSession:
     except ValueError:
       pass
 
-  def _run_cmd(self, cmd, label, colour):
+  def _run_cmd(self, cmd: Sequence[str], label: str, colour: str) -> bool:
     print(f'{colour}Running {label}...{RESET}')
     t = Timer()
     proc = subprocess.Popen(
@@ -364,14 +470,10 @@ class WatchSession:
     status(label, duration, success)
     return success
 
-  def _start_child(self):
+  def _start_child(self) -> None:
     # Run the boot_shell binary directly
     # We assume it was built by the build step
     bin_path = os.path.join(self.root, 'target', 'debug', 'boot_shell')
-    if not os.path.exists(bin_path):
-      print(f'{RED}Could not find boot_shell binary at {bin_path}{RESET}')
-      return
-
     cmd = [
       bin_path,
       'test',
@@ -396,13 +498,13 @@ class WatchSession:
     self.stdout_thread.start()
     self.stderr_thread.start()
 
-  def stop(self):
+  def stop(self) -> None:
     self.should_stop = True
     if self.child_process:
       self.child_process.terminate()
 
 
-def run_watch():
+def run_watch() -> None:
   session = WatchSession(os.getcwd())
   try:
     session.start()

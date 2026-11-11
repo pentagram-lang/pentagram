@@ -64,14 +64,20 @@ Handle operator questions literally, and use whatever research is needed to deve
 - `0 fix` formats and applies standard lint fixes.
 - `0 check --skip-commit` runs checks without commit-message or history validation.
 - `0 check` runs the complete check cycle, including history validation (only use this when finalizing a commit for merge).
+- `0 check fmt` runs formatter checks; `0 check lint` runs Python and Rust static lint.
+- `0 check type` enforces static typing across first-party Python code and tests.
+- `0 check ztest` and `0 check ptest` run the `zero/` and `proj/` Python test suites.
 - `0 check btest` runs Rust bootstrap tests.
-- `0 check test` runs end-to-end language tests.
+- `0 check test` runs core language tests.
 - `0 check doc` runs documentation lint.
 - `0 check commit` runs commit-message line-length validation.
+- `0 watch` or `0 --watch` runs incremental checks for supported changes; see the command-plane reference for watched file types and check scope.
 - `0 proj list` identifies unarchived projects.
 - `0 proj create NAME --objective TEXT` creates a project.
 - `0 proj handoff NAME` reads the compact session handoff: project status and objective; active and blocked work; summary and next action; open blocker targets and requirements; and bounded relevant decisions, evidence, and task logs with follow-up commands.
 - `0 run` runs the boot shell.
+
+Use `nix shell .#default -c COMMAND...` to run these commands with the repository's Python and development dependencies. The [command-plane reference](zero/README.md) documents Python test filters, timing, parallel defaults, and watch behaviour.
 
 Validate changes with evidence proportionate to their risk and the claims being made. Start with focused relevant checks and broaden only when the affected boundary warrants it.
 

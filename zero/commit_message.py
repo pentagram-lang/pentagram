@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import subprocess
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -23,12 +24,12 @@ class Diagnostic:
   code: str
   message: str
 
-  def __str__(self):
+  def __str__(self) -> str:
     return f'commit message line {self.line}: {self.code}: {self.message}'
 
 
 class CommitMessageLintError(RuntimeError):
-  def __init__(self, diagnostics):
+  def __init__(self, diagnostics: Sequence[Diagnostic]) -> None:
     self.diagnostics = tuple(diagnostics)
     details = '\n'.join(
       f'  - {diagnostic}' for diagnostic in self.diagnostics
@@ -36,7 +37,7 @@ class CommitMessageLintError(RuntimeError):
     super().__init__('Commit message lint violations:\n' + details)
 
 
-def _read_message(repository_root):
+def _read_message(repository_root: Path) -> str:
   try:
     result = subprocess.run(
       ['git', 'show', '-s', '--format=%B', 'HEAD'],
@@ -59,7 +60,7 @@ def _read_message(repository_root):
   return result.stdout
 
 
-def _is_exact_literal(line):
+def _is_exact_literal(line: str) -> bool:
   if line != line.strip():
     return False
   if _URI.fullmatch(line) or _COMMAND.fullmatch(line):
@@ -69,8 +70,7 @@ def _is_exact_literal(line):
   return bool(_PATH.fullmatch(line) or _IDENTIFIER.fullmatch(line))
 
 
-def lint_commit_message(repository_root):
-  message = _read_message(Path(repository_root).resolve())
+def lint_message(message: str) -> tuple[Diagnostic, ...]:
   lines = message.splitlines()
   diagnostics = []
   if lines and len(lines[0]) > MAX_LINE_LENGTH:
@@ -100,7 +100,14 @@ def lint_commit_message(repository_root):
   return tuple(sorted(diagnostics))
 
 
-def check_commit_message(repository_root):
+def lint_commit_message(
+  repository_root: str | Path,
+) -> tuple[Diagnostic, ...]:
+  message = _read_message(Path(repository_root).resolve())
+  return lint_message(message)
+
+
+def check_commit_message(repository_root: str | Path) -> None:
   diagnostics = lint_commit_message(repository_root)
   if diagnostics:
     raise CommitMessageLintError(diagnostics)

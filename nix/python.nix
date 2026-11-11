@@ -8,8 +8,13 @@ final: prev:
         ps.markdown-it-py
         ps.click
         ps.pywatchman
+        ps.pytest
+        ps.pytest-xdist
+        ps.wcwidth
       ]))
       final.ruff
+      final.ty
+      final.gitMinimal
     ];
   };
 }

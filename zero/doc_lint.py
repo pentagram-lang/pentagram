@@ -1,14 +1,20 @@
 from __future__ import annotations
 
 import html
+import os
 import re
 import subprocess
 from collections import defaultdict
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from urllib.parse import unquote
 
 from markdown_it import MarkdownIt
+from markdown_it.rules_inline import autolink as _markdown_autolink
+from markdown_it.rules_inline import link as _markdown_link
+from markdown_it.rules_inline.state_inline import StateInline
+from markdown_it.token import Token
 
 _URI_SCHEME = re.compile(r'^[A-Za-z][A-Za-z0-9+.-]*:')
 _HTML_TAG = re.compile(r'<[^>]*>')
@@ -21,12 +27,12 @@ class Diagnostic:
   code: str
   message: str
 
-  def __str__(self):
+  def __str__(self) -> str:
     return f'{self.path}:{self.line}: {self.code}: {self.message}'
 
 
 class DocumentationLintError(RuntimeError):
-  def __init__(self, diagnostics):
+  def __init__(self, diagnostics: Sequence[Diagnostic]) -> None:
     self.diagnostics = tuple(diagnostics)
     details = '\n'.join(
       f'  - {diagnostic}' for diagnostic in self.diagnostics
@@ -56,27 +62,42 @@ class Link:
 class Document:
   path: str
   source: str
-  tokens: list
+  tokens: list[Token]
   headings: list[Heading]
   links: list[Link]
 
 
+@dataclass
 class _LintState:
-  def __init__(self, root, inventory):
-    self.root = root
-    self.inventory = tuple(sorted(inventory))
-    self.inventory_set = {path.as_posix() for path in self.inventory}
-    self.markdown_paths = tuple(
-      path.as_posix() for path in self.inventory if path.suffix == '.md'
-    )
-    self.documents = {}
-    self.diagnostics = []
-
-  def add(self, path, line, code, message):
-    self.diagnostics.append(Diagnostic(path, line, code, message))
+  root: Path
+  inventory: tuple[Path, ...]
+  inventory_set: set[str]
+  markdown_paths: tuple[str, ...]
+  documents: dict[str, Document]
+  diagnostics: list[Diagnostic]
 
 
-def _git_inventory(repository_root):
+def _new_lint_state(root: Path, inventory: Iterable[Path]) -> _LintState:
+  ordered_inventory = tuple(sorted(inventory))
+  return _LintState(
+    root,
+    ordered_inventory,
+    {path.as_posix() for path in ordered_inventory},
+    tuple(
+      path.as_posix() for path in ordered_inventory if path.suffix == '.md'
+    ),
+    {},
+    [],
+  )
+
+
+def _add_diagnostic(
+  state: _LintState, path: str, line: int, code: str, message: str
+) -> None:
+  state.diagnostics.append(Diagnostic(path, line, code, message))
+
+
+def _git_inventory(repository_root: Path) -> tuple[Path, ...]:
   try:
     result = subprocess.run(
       [
@@ -90,7 +111,6 @@ def _git_inventory(repository_root):
       cwd=repository_root,
       capture_output=True,
       check=False,
-      text=True,
     )
   except OSError as error:
     raise RuntimeError(
@@ -98,17 +118,20 @@ def _git_inventory(repository_root):
     ) from error
 
   if result.returncode != 0:
-    detail = result.stderr.strip() or 'unknown git error'
+    detail = (
+      result.stderr.decode(errors='replace').strip() or 'unknown git error'
+    )
     raise RuntimeError(f'Cannot scan repository with git: {detail}')
 
-  return tuple(
-    Path(path)
-    for path in result.stdout.split('\0')
-    if path and (repository_root / Path(path)).exists()
+  paths = (
+    Path(os.fsdecode(raw_path))
+    for raw_path in result.stdout.split(b'\0')
+    if raw_path
   )
+  return tuple(path for path in paths if (repository_root / path).exists())
 
 
-def _visible_text(tokens):
+def _visible_text(tokens: list[Token] | None) -> str:
   text = []
   for token in tokens or []:
     if token.type in {'text', 'code_inline'}:
@@ -122,7 +145,7 @@ def _visible_text(tokens):
   return ''.join(text)
 
 
-def _heading_identifier(text):
+def _heading_identifier(text: str) -> str:
   return ''.join(
     '-' if character.isspace() else character
     for character in text.lower()
@@ -132,8 +155,50 @@ def _heading_identifier(text):
   )
 
 
-def _parse_document(path, source):
+def _token_line(path: str, token: Token) -> int:
+  if token.map is None:
+    raise RuntimeError(
+      f'Markdown parser produced {token.type!r} without a source map '
+      f'in {path}'
+    )
+  return token.map[0] + 1
+
+
+def _inline_line_offset(path: str, token: Token) -> int:
+  offset: object = token.meta.get('inline_line')
+  if not isinstance(offset, int):
+    raise RuntimeError(
+      f'Markdown parser produced a link without a source offset in {path}'
+    )
+  return offset
+
+
+def _link_rule_with_source_line(
+  rule: Callable[[StateInline, bool], bool],
+) -> Callable[[StateInline, bool], bool]:
+  def link_rule(state: StateInline, silent: bool) -> bool:
+    link_start = state.pos
+    token_start = len(state.tokens)
+    matched = rule(state, silent)
+    if matched and not silent:
+      line = state.src.count('\n', 0, link_start)
+      for token in state.tokens[token_start:]:
+        if token.type == 'link_open':
+          token.meta['inline_line'] = line
+          break
+    return matched
+
+  return link_rule
+
+
+def _parse_document(path: str, source: str) -> Document:
   parser = MarkdownIt('commonmark', {'html': True})
+  parser.inline.ruler.at(
+    'link', _link_rule_with_source_line(_markdown_link)
+  )
+  parser.inline.ruler.at(
+    'autolink', _link_rule_with_source_line(_markdown_autolink)
+  )
   tokens = parser.parse(source)
   headings = []
   links = []
@@ -146,7 +211,7 @@ def _parse_document(path, source):
       headings.append(
         Heading(
           int(token.tag[1:]),
-          token.map[0] + 1,
+          _token_line(path, token),
           text,
           _heading_identifier(text),
         )
@@ -172,9 +237,10 @@ def _parse_document(path, source):
         if depth:
           child_index += 1
           continue
+        line = _token_line(path, token) + _inline_line_offset(path, child)
         links.append(
           Link(
-            token.map[0] + 1,
+            line,
             _visible_text(children[child_index + 1 : close_index - 1]),
             child.attrGet('href') or '',
           )
@@ -185,7 +251,7 @@ def _parse_document(path, source):
   return Document(path, source, tokens, headings, links)
 
 
-def _normalise_target_path(source_path, raw_path):
+def _normalise_target_path(source_path: str, raw_path: str) -> str | None:
   if not raw_path:
     return source_path
   if raw_path.startswith('/'):
@@ -204,7 +270,9 @@ def _normalise_target_path(source_path, raw_path):
   return '/'.join(parts)
 
 
-def _link_target(source_path, href):
+def _link_target(
+  source_path: str, href: str
+) -> tuple[str | None, str | None, bool, str | None]:
   raw_path, separator, raw_fragment = href.partition('#')
   if '?' in raw_path:
     return None, None, True, 'query'
@@ -215,7 +283,7 @@ def _link_target(source_path, href):
   return path, fragment, False, None
 
 
-def _check_headings(state):
+def _check_headings(state: _LintState) -> None:
   for path in sorted(state.documents):
     headings = state.documents[path].headings
     by_identifier = defaultdict(list)
@@ -223,7 +291,8 @@ def _check_headings(state):
       by_identifier[heading.identifier].append(heading)
     for identifier, matches in sorted(by_identifier.items()):
       for heading in matches[1:]:
-        state.add(
+        _add_diagnostic(
+          state,
           path,
           heading.line,
           'MD001',
@@ -234,7 +303,7 @@ def _check_headings(state):
         )
 
 
-def _check_links(state):
+def _check_links(state: _LintState) -> None:
   for path in sorted(state.documents):
     document = state.documents[path]
     headings = defaultdict(list)
@@ -250,15 +319,17 @@ def _check_links(state):
       link.target_fragment = fragment
       link.has_query = has_query
       if error == 'query':
-        state.add(
+        _add_diagnostic(
+          state,
           path,
           link.line,
           'MD002',
           'local link destination contains a query string',
         )
         continue
-      if error == 'outside':
-        state.add(
+      if target_path is None:
+        _add_diagnostic(
+          state,
           path,
           link.line,
           'MD002',
@@ -267,12 +338,17 @@ def _check_links(state):
         continue
       target_fs_path = state.root / PurePosixPath(target_path)
       if target_fs_path.is_dir():
-        state.add(
-          path, link.line, 'MD002', 'local link target is a directory'
+        _add_diagnostic(
+          state,
+          path,
+          link.line,
+          'MD002',
+          'local link target is a directory',
         )
         continue
       if target_path not in state.inventory_set:
-        state.add(
+        _add_diagnostic(
+          state,
           path,
           link.line,
           'MD002',
@@ -289,7 +365,8 @@ def _check_links(state):
             matching_headings[heading.identifier].append(heading)
         matches = matching_headings.get(fragment, [])
         if not matches:
-          state.add(
+          _add_diagnostic(
+            state,
             path,
             link.line,
             'MD002',
@@ -300,7 +377,8 @@ def _check_links(state):
           )
           continue
         if len(matches) > 1:
-          state.add(
+          _add_diagnostic(
+            state,
             path,
             link.line,
             'MD002',
@@ -317,7 +395,8 @@ def _check_links(state):
       first = links[0]
       for link in links[1:]:
         if link.text.casefold() != first.text.casefold():
-          state.add(
+          _add_diagnostic(
+            state,
             path,
             link.line,
             'MD003',
@@ -328,11 +407,11 @@ def _check_links(state):
           )
 
 
-def _is_companion(path):
+def _is_companion(path: str) -> bool:
   return path.endswith('.test.md')
 
 
-def _companion_subject_candidates(path):
+def _companion_subject_candidates(path: str) -> tuple[str, ...]:
   base_path = path.removesuffix('.test.md')
   candidates = [base_path + '.md']
   if not base_path.endswith('.md'):
@@ -340,27 +419,29 @@ def _companion_subject_candidates(path):
   return tuple(candidates)
 
 
-def _direct_children(state, readme_path):
-  readme = PurePosixPath(readme_path)
-  parent = readme.parent
-  children = {
-    path
-    for path in state.markdown_paths
-    if not _is_companion(path)
-    and PurePosixPath(path).parent == parent
-    and path != readme_path
+def _direct_children_by_directory(
+  markdown_paths: Sequence[str],
+) -> dict[PurePosixPath, tuple[str, ...]]:
+  children_by_directory = defaultdict(set)
+  for path in markdown_paths:
+    if _is_companion(path):
+      continue
+    child = PurePosixPath(path)
+    if child.name == 'README.md':
+      if child.parent != PurePosixPath('.'):
+        children_by_directory[child.parent.parent].add(path)
+    else:
+      children_by_directory[child.parent].add(path)
+  return {
+    directory: tuple(sorted(children))
+    for directory, children in children_by_directory.items()
   }
-  children.update(
-    path
-    for path in state.markdown_paths
-    if path.endswith('/README.md')
-    and not _is_companion(path)
-    and PurePosixPath(path).parent.parent == parent
+
+
+def _check_indexes(state: _LintState) -> None:
+  children_by_directory = _direct_children_by_directory(
+    state.markdown_paths
   )
-  return tuple(sorted(children))
-
-
-def _check_indexes(state):
   noncompanions = tuple(
     path for path in state.markdown_paths if not _is_companion(path)
   )
@@ -368,7 +449,8 @@ def _check_indexes(state):
     parent = PurePosixPath(path).parent
     readme_path = (parent / 'README.md').as_posix()
     if readme_path not in state.inventory_set:
-      state.add(
+      _add_diagnostic(
+        state,
         path,
         1,
         'MD004',
@@ -380,13 +462,17 @@ def _check_indexes(state):
   for readme_path in noncompanions:
     if PurePosixPath(readme_path).name != 'README.md':
       continue
-    children = _direct_children(state, readme_path)
+    children = children_by_directory.get(
+      PurePosixPath(readme_path).parent, ()
+    )
     if not children:
       continue
-    document = state.documents[readme_path]
+    document = state.documents.get(readme_path)
+    if document is None:
+      continue
     sections = []
     h2s = [heading for heading in document.headings if heading.level == 2]
-    for index, heading in enumerate(h2s):
+    for heading in h2s:
       next_heading_line = len(document.source.splitlines()) + 1
       for candidate in document.headings:
         if candidate.line > heading.line and candidate.level <= 2:
@@ -413,7 +499,8 @@ def _check_indexes(state):
       ]
       child_links_by_section[heading.line] = child_links
       if len(child_links) != 1:
-        state.add(
+        _add_diagnostic(
+          state,
           readme_path,
           heading.line,
           'MD004',
@@ -423,13 +510,14 @@ def _check_indexes(state):
           ),
         )
     child_sections = defaultdict(list)
-    for heading, links in sections:
+    for heading, _links in sections:
       for link in child_links_by_section[heading.line]:
         child_sections[link.target_path].append((heading, link))
     for child in children:
       matches = child_sections.get(child, [])
       if len(matches) != 1:
-        state.add(
+        _add_diagnostic(
+          state,
           readme_path,
           1,
           'MD004',
@@ -440,7 +528,7 @@ def _check_indexes(state):
         )
 
 
-def _strong_label(inline_token, label):
+def _strong_label(inline_token: Token, label: str) -> bool:
   children = inline_token.children or []
   return (
     len(children) == 5
@@ -455,7 +543,7 @@ def _strong_label(inline_token, label):
   )
 
 
-def _test_sections(document):
+def _test_sections(document: Document) -> list[tuple[int, int]]:
   tokens = document.tokens
   h2_indexes = [
     index
@@ -471,7 +559,7 @@ def _test_sections(document):
   return sections
 
 
-def _check_companions(state):
+def _check_companions(state: _LintState) -> None:
   for path in state.markdown_paths:
     if not _is_companion(path):
       continue
@@ -483,7 +571,8 @@ def _check_companions(state):
     )
     line = 1
     if any(_is_companion(source_path) for source_path in source_paths):
-      state.add(
+      _add_diagnostic(
+        state,
         path,
         line,
         'MD005',
@@ -491,7 +580,8 @@ def _check_companions(state):
       )
       continue
     if not source_paths:
-      state.add(
+      _add_diagnostic(
+        state,
         path,
         line,
         'MD005',
@@ -500,7 +590,8 @@ def _check_companions(state):
       )
       continue
     if len(source_paths) > 1:
-      state.add(
+      _add_diagnostic(
+        state,
         path,
         line,
         'MD005',
@@ -508,33 +599,47 @@ def _check_companions(state):
         + ' and '.join(f"'{source_path}'" for source_path in source_paths),
       )
       continue
-    document = state.documents[path]
+    document = state.documents.get(path)
+    if document is None:
+      continue
     tokens = document.tokens
     h1s = [heading for heading in document.headings if heading.level == 1]
     if len(h1s) != 1 or h1s[0].text != 'Tests':
-      state.add(
+      _add_diagnostic(
+        state,
         path,
         line,
         'MD005',
         "test companion must have exactly one H1 named 'Tests'",
       )
     if any(heading.level not in {1, 2} for heading in document.headings):
-      state.add(
+      _add_diagnostic(
+        state,
         path,
         line,
         'MD005',
         'test companion may contain only H1 and H2 headings',
       )
     h2s = [heading for heading in document.headings if heading.level == 2]
-    names = [heading.text for heading in h2s]
-    for name in sorted({name for name in names if names.count(name) > 1}):
-      heading = next(heading for heading in h2s if heading.text == name)
-      state.add(
-        path, heading.line, 'MD005', f"test name '{name}' is duplicated"
+    first_heading_by_name = {}
+    duplicate_names = set()
+    for heading in h2s:
+      if heading.text in first_heading_by_name:
+        duplicate_names.add(heading.text)
+      else:
+        first_heading_by_name[heading.text] = heading
+    for name in sorted(duplicate_names):
+      heading = first_heading_by_name[name]
+      _add_diagnostic(
+        state,
+        path,
+        heading.line,
+        'MD005',
+        f"test name '{name}' is duplicated",
       )
     sections = _test_sections(document)
     for start, end in sections:
-      heading_line = tokens[start].map[0] + 1
+      heading_line = _token_line(path, tokens[start])
       labels = []
       for token_index in range(start + 2, end):
         token = tokens[token_index]
@@ -544,7 +649,8 @@ def _check_companions(state):
           elif _strong_label(token, 'Assert'):
             labels.append(('Assert', token_index))
       if [label for label, _ in labels] != ['Task', 'Assert']:
-        state.add(
+        _add_diagnostic(
+          state,
           path,
           heading_line,
           'MD005',
@@ -556,12 +662,13 @@ def _check_companions(state):
       assert_index = labels[1][1]
       task_content = tokens[task_index + 1 : assert_index]
       if not _has_content(task_content):
-        state.add(
-          path, heading_line, 'MD005', 'test Task must not be empty'
+        _add_diagnostic(
+          state, path, heading_line, 'MD005', 'test Task must not be empty'
         )
       assert_content = tokens[assert_index + 1 : end]
       if not _has_nonempty_list(assert_content):
-        state.add(
+        _add_diagnostic(
+          state,
           path,
           heading_line,
           'MD005',
@@ -569,7 +676,7 @@ def _check_companions(state):
         )
 
 
-def _has_content(tokens):
+def _has_content(tokens: Sequence[Token]) -> bool:
   for token in tokens:
     if token.type in {'fence', 'code_block'} and token.content.strip():
       return True
@@ -578,7 +685,7 @@ def _has_content(tokens):
   return False
 
 
-def _has_nonempty_list(tokens):
+def _has_nonempty_list(tokens: Sequence[Token]) -> bool:
   in_list = False
   for token in tokens:
     if token.type in {'bullet_list_open', 'ordered_list_open'}:
@@ -598,17 +705,21 @@ def _has_nonempty_list(tokens):
   return False
 
 
-def lint_repository(repository_root):
+def lint_repository(
+  repository_root: str | Path,
+) -> tuple[Diagnostic, ...]:
   root = Path(repository_root).resolve()
   inventory = _git_inventory(root)
-  state = _LintState(root, inventory)
+  state = _new_lint_state(root, inventory)
   for path in state.markdown_paths:
     full_path = root / PurePosixPath(path)
     try:
       source = full_path.read_text(encoding='utf-8')
       state.documents[path] = _parse_document(path, source)
     except (OSError, UnicodeError) as error:
-      state.add(path, 1, 'MD000', f'cannot parse Markdown file: {error}')
+      _add_diagnostic(
+        state, path, 1, 'MD000', f'cannot parse Markdown file: {error}'
+      )
   _check_headings(state)
   _check_links(state)
   _check_indexes(state)
@@ -616,7 +727,7 @@ def lint_repository(repository_root):
   return tuple(sorted(state.diagnostics))
 
 
-def check_documentation(repository_root):
+def check_documentation(repository_root: str | Path) -> None:
   diagnostics = lint_repository(repository_root)
   if diagnostics:
     raise DocumentationLintError(diagnostics)

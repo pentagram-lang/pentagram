@@ -1,3 +1,4 @@
+import os
 import subprocess
 from pathlib import Path
 
@@ -20,7 +21,7 @@ class RepositoryPolicyError(RuntimeError):
   """The repository contains a prohibited ambient agent surface."""
 
 
-def _repository_files(repository_root):
+def _repository_files(repository_root: Path) -> list[Path]:
   try:
     result = subprocess.run(
       [
@@ -34,7 +35,6 @@ def _repository_files(repository_root):
       cwd=repository_root,
       capture_output=True,
       check=False,
-      text=True,
     )
   except OSError as error:
     raise RepositoryPolicyError(
@@ -42,15 +42,19 @@ def _repository_files(repository_root):
     ) from error
 
   if result.returncode != 0:
-    detail = result.stderr.strip() or 'unknown git error'
+    detail = (
+      result.stderr.decode(errors='replace').strip() or 'unknown git error'
+    )
     raise RepositoryPolicyError(
       f'Cannot scan repository with git: {detail}'
     )
 
-  return [Path(path) for path in result.stdout.split('\0') if path]
+  return [
+    Path(os.fsdecode(path)) for path in result.stdout.split(b'\0') if path
+  ]
 
 
-def _violation(path):
+def _violation(path: Path) -> str | None:
   if path.name in BANNED_FILE_NAMES:
     return f"banned file name '{path.name}'"
 
@@ -61,7 +65,7 @@ def _violation(path):
   return None
 
 
-def check_repository_policy(repository_root):
+def check_repository_policy(repository_root: str | Path) -> None:
   """Reject non-ignored ambient agent files and directories."""
   root = Path(repository_root).resolve()
   violations = []

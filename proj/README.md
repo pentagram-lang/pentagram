@@ -10,6 +10,10 @@ A project's **charter** is its stable, project-wide contract. It states the prob
 
 All project text is documentation. The charter, goals, stages, tasks, decisions, logs, evidence, summaries, and handoffs follow the [documentation standards](../doc/README.md). Provisional storage changes durability, not the obligation to keep project text true, clear, and usable.
 
+## Implementation boundaries
+
+`storage.py` owns the SQLite schema, database addressing, connection setup, persisted-state validation, and low-level database creation and archiving. `project.py` owns structured project operations, cross-entity lifecycle transitions, and project-level archive operations. `cli.py` translates `0 proj` commands into service operations and presents their results, including exact goal text and OSC 52 clipboard output; command syntax and presentation do not belong in the service API.
+
 ## Control model
 
 A project compares its desired state with observed state and chooses the next bounded action that most usefully closes the gap.
@@ -83,7 +87,7 @@ The objective, scope, non-goals, constraints, and acceptance-evidence fields are
 
 The charter gives work a stable purpose without prescribing every implementation detail. The project owns its method and may change it when evidence shows that the present path is ineffective.
 
-An update to any charter field after execution has begun is an explicit re-charter. It requires the active task to end and every active or blocked goal to be cancelled. When the goal is also active in the agent harness, end that pursuit before cancelling the project goal. After replacing the charter, establish any replacement goal on both planes and verify their exact match before resuming meaningful work.
+An update to any charter field after execution has begun is an explicit re-charter. It requires the active task to end and every active, pending, or blocked goal to be cancelled. When the goal is also active in the agent harness, end that pursuit before cancelling the project goal. After replacing the charter, establish any replacement goal on both planes and verify their exact match before resuming meaningful work.
 
 Re-chartering preserves the replaced charter in project history and invalidates every current stage achievement in the same transaction. The project then derives as unfinished until current-generation evidence establishes the stage outcomes under the replacement charter. This conservative field boundary avoids treating a fixed goal or evidence for an earlier terminal outcome, scope, authority, or acceptance contract as authority or proof for the replacement. Initial charter construction, before any task starts, does not create replacement history or invalidate achievement. An active or blocked pre-execution goal does not change that boundary: its charter fields can still be completed incrementally.
 
@@ -123,11 +127,11 @@ Goal text is canonical project data. It must contain non-whitespace text, is pre
 
 ### Goal activation
 
-Goal activation is a two-plane transition. It is complete only when the project contains the active canonical goal and the agent harness is pursuing that exact text. `0 proj goal set` establishes the project plane; it does not activate the harness.
+Goal activation is a two-plane transition. It is complete only when the project contains the active canonical goal and the agent harness is pursuing that exact text. `0 proj goal create` establishes the project plane; it does not activate the harness.
 
 Activate a goal in this order:
 
-1. Set and inspect the canonical project goal. Confirm that the applicable tasks, stages, summary, next action, decisions, and relationships are truthful.
+1. Create or activate and inspect the canonical project goal. Confirm that the applicable tasks, stages, summary, next action, decisions, and relationships are truthful.
 2. Read the exact text with `0 proj goal text NAME`.
 3. Activate that exact text in the harness.
 4. Read both goals and verify an exact match before beginning pursuit.
@@ -138,9 +142,11 @@ A missing or different goal on either plane is an activation mismatch. Stop goal
 
 The project control plane owns planning, task sequencing, evidence, blockers, and lifecycle. Goal completion is not project completion. A goal can be achieved while later project work remains.
 
-Goal statuses are `active`, `blocked`, `achieved`, and `cancelled`. At most one goal is active. Goal creation constructs its row and stage set in one transaction and activates that never-before-activated row. The intermediate construction state cannot persist beyond that transaction. Its structured stage set then becomes fixed; later scope changes require a replacement goal. Cancellation is terminal and cannot reactivate the same delegation. Only a blocked goal can reactivate, through blocker recovery.
+Goal statuses are `active`, `pending`, `blocked`, `achieved`, and `cancelled`. At most one goal is active. `pending` means a previously activated goal was deferred without being blocked, cancelled, or achieved; its status reason identifies the goal that displaced it, and reactivation clears that reason. Goal creation constructs its row and stage set in one transaction and activates that never-before-activated row. The intermediate construction state cannot persist beyond that transaction. Its structured stage set then becomes fixed; later scope changes require a replacement goal. Cancellation is terminal. A pending goal can be activated explicitly; a blocked goal can reactivate through `goal reopen` or final-blocker recovery.
 
-An active goal may become achieved only with substantive goal-linked evidence, no active task, and no open goal blocker. Every fixed evidence entry must exist by the achievement time, and an achievement time cannot be in the future or precede the goal's start. The evidence set and achieved lifecycle timing cannot then be changed. Blocking or cancelling a goal also requires its active task to end. Resolving its final blocker reactivates it only when no other goal or incompatible task is active.
+Activating a goal while another is active first returns any active task linked to the old goal to `pending`, records a handoff task log, and returns the old goal to `pending`. A goal-less active task remains active because it is compatible with either goal. `goal create`, `goal activate`, `goal reopen`, and final-blocker recovery use the same handoff. Their project-database changes are atomic: if activation fails, the old goal and task remain active. The command changes only project state; when the goal is also active in the agent harness, follow the two-plane activation procedure above.
+
+An active goal may become achieved only with substantive goal-linked evidence, no active task, and no open goal blocker. Every fixed evidence entry must exist by the achievement time, and an achievement time cannot be in the future or precede the goal's start. The evidence set and achieved lifecycle timing cannot then be changed. Blocking or cancelling a goal also requires its active task to end.
 
 ## Derived lifecycle
 
@@ -156,11 +162,11 @@ Task statuses are:
 - `completed`: its required result has been established; and
 - `cancelled`: intentionally ended without claiming completion.
 
-Only a pending, fully documented task can start. It must have no open blocker, it must belong to a stage, and its stage dependencies must be achieved. A task linked to a goal requires that goal to be active. A goal-less task may run whether or not the project has an active goal.
+Only a pending, fully documented task can be activated. It must have no open blocker, it must belong to a stage, and its stage dependencies must be achieved. A task linked to a goal requires that goal to be active. A goal-less task may run whether or not the project has an active goal.
 
 Completing a task records the contributor's claim that its required result has been established against its `completion_evidence` criterion. That evidence can be an external observation or a project evidence record; the project plane does not evaluate it or require a linked evidence row. Record project evidence when later work must inspect the basis. Stage achievement has the separate named-evidence gate described below.
 
-Starting another task while one is active is rejected. Completing a task requires it to be active. Resolving the final task blocker returns the task to pending. Reopening a completed or cancelled task also returns it to pending. Cancelling a blocked task withdraws its remaining blockers rather than leaving a terminal task blocked.
+Activating another eligible task while one is active returns the old task to `pending` and activates the requested task in one transaction. The handoff appends a task-log entry and preserves the old task's first activation time and history, so it can be resumed later. An unsuccessful activation leaves the current task unchanged. `task ready` can list eligible pending tasks even while another task is active. Completing a task requires it to be active. Resolving the final task blocker returns the task to pending. Reopening a completed or cancelled task also returns it to pending. Cancelling a blocked task withdraws its remaining blockers rather than leaving a terminal task blocked.
 
 Task activation and completion times preserve their causal order. A start time must be positive and no later than the current time. A completion time must be no earlier than the start and no later than the current time. A stage achievement cannot predate the completed task work on which it depends.
 
@@ -204,7 +210,7 @@ An all-superseded project remains active because cancellation alone does not est
 
 A blocker is project state, not completion. Its description and exact decision or capability required must contain non-whitespace text. It also records the condition's impact and attempted resolutions.
 
-Every blocker has one lifecycle target. A blocker with a task relationship targets that task; its stage and goal relationships are context and must agree with the task when present. A task cannot be reassigned while an open blocker's recorded context would disagree with the new relationship. A blocker without a task relationship must target a goal, and any stage context must belong to that goal. Stage-only and targetless blockers are rejected. Creating an open blocker moves only its target to blocked state. Resolving the target's last blocker returns a task to pending. It returns a goal to active only when no competing active goal or incompatible active task prevents reactivation; otherwise resolution is rejected without changing either record. Open blockers cannot be deleted; cancellation withdraws those that no longer govern work.
+Every blocker has one lifecycle target. A blocker with a task relationship targets that task; its stage and goal relationships are context and must agree with the task when present. A task cannot be reassigned while an open blocker's recorded context would disagree with the new relationship. A blocker without a task relationship must target a goal, and any stage context must belong to that goal. Stage-only and targetless blockers are rejected. Creating an open blocker moves only its target to blocked state. Resolving the target's last blocker returns a task to pending. It returns a blocked goal to active using the same handoff as other goal activations: any other active goal and its linked task become pending, while a goal-less active task remains active. Open blockers cannot be deleted; cancellation withdraws those that no longer govern work.
 
 New evidence records substantive observations and their sources and results; its claim must contain non-whitespace text. Stage achievement identifies one supporting evidence entry. Goal achievement fixes the complete set of evidence linked to the goal at that transition. Tests, reviews, diagnostics, and diffs are evidence; none alone proves an outcome outside the contract it actually covers.
 
@@ -260,7 +266,7 @@ The project plane defines substantive text once: Python's Unicode `str.strip()` 
 
 The singleton project and project-state rows and all task, stage, and goal records cannot be deleted. The stored project name is immutable and must equal the database filename stem that addresses every command.
 
-The project plane creates and opens only schema version 6. Opening another version fails without modifying the database; schema conversion is outside the command surface and repository implementation. Before returning a current-schema connection, the project plane checks database integrity, foreign-key relationships, singleton rows, project identity, every required table and index definition, the exact lifecycle-trigger set and definitions, and the current lifecycle relationships and authority claims. A same-named object with a different contract, an additional trigger, an additional index on a canonical table, or a central row contradiction is incompatible rather than sufficient. Additional tables and indexes confined to those tables do not change the lifecycle contract and are not rejected merely for existing.
+The project plane creates schema version 7. On open, it validates and migrates a version 6 database to version 7 in one transaction, preserving its project records, identifiers, relationships, and history while adding the `pending` goal state and activation transitions. An incompatible version 6 database is rejected before migration; a failed migration rolls back. Other schema versions are rejected without modification. Before returning a current-schema connection, the project plane checks database integrity, foreign-key relationships, singleton rows, project identity, every required table and index definition, the exact lifecycle-trigger set and definitions, and the current lifecycle relationships and authority claims. A same-named object with a different contract, an additional trigger, an additional index on a canonical table, or a central row contradiction is incompatible rather than sufficient. Additional tables and indexes confined to those tables do not change the lifecycle contract and are not rejected merely for existing.
 
 Current lifecycle validation covers active cardinality and authorization; post-execution charter completeness; task boundaries and chronology; goal activation, blocking, cancellation, and evidence-backed achievement; open blocker and target agreement; decision and evidence context; stage contracts, generations, and dependency cycles; current stage-achievement relationships and chronology; and the generation order of invalidated achievements. A current-schema goal-construction row cannot survive an open as durable history. Recognized incomplete legacy construction state remains editable. A blocked goal whose final blocker was repaired without its release trigger remains available to `goal reopen`. This validation detects invalid rows left by an external writer that disabled enforcement and later restored the canonical schema. It does not reconstruct historical changes whose resulting rows satisfy the current contract.
 
@@ -289,19 +295,21 @@ The schema has one `project` row and these related records:
 
 ## `0 proj` command surface
 
-Every command names its project because several project databases may coexist.
+Project-specific commands name their project. `list` reports unarchived projects.
+
+The forms below show the command groups and principal arguments. Use `0 proj COMMAND --help` or the relevant nested command's `--help` to see the options exposed for normal use.
 
 ```text
 0 proj create NAME --objective TEXT
 0 proj list
-0 proj status NAME
 0 proj show NAME
 0 proj handoff NAME
 0 proj update NAME
 0 proj archive NAME
 
 0 proj goal list NAME
-0 proj goal set NAME --text TEXT --stage STAGE [--stage STAGE...]
+0 proj goal create NAME --text TEXT --stage STAGE [--stage STAGE...]
+0 proj goal activate NAME GOAL
 0 proj goal show NAME [GOAL]
 0 proj goal text NAME [GOAL]
 0 proj goal copy NAME [GOAL]
@@ -311,52 +319,85 @@ Every command names its project because several project databases may coexist.
 0 proj goal cancel NAME [GOAL]
 
 0 proj stage list NAME
-0 proj stage add NAME STAGE --outcome TEXT
+0 proj stage create NAME STAGE_NAME --outcome TEXT
 0 proj stage update NAME STAGE
 0 proj stage achieve NAME STAGE --evidence EVIDENCE
-0 proj stage depend NAME STAGE DEPENDENCY
-0 proj stage undepend NAME STAGE DEPENDENCY
+0 proj stage add-dependency NAME STAGE DEPENDENCY
+0 proj stage remove-dependency NAME STAGE DEPENDENCY
 
 0 proj task list NAME
 0 proj task ready NAME
-0 proj task add NAME --title TEXT
+0 proj task create NAME --title TEXT
 0 proj task show NAME TASK
-0 proj task logs NAME TASK
-0 proj task start NAME TASK
-0 proj task log NAME TASK MESSAGE
+0 proj task list-logs NAME TASK [--limit LIMIT] [--since UNIX_TIMESTAMP]
+0 proj task activate NAME TASK
+0 proj task add-log NAME TASK MESSAGE
 0 proj task update NAME TASK
 0 proj task complete NAME TASK
 0 proj task block NAME TASK --description TEXT --required TEXT
 0 proj task reopen NAME TASK
 0 proj task cancel NAME TASK
-0 proj task tag NAME TASK TAG...
-0 proj task untag NAME TASK TAG...
+0 proj task add-tag NAME TASK TAG...
+0 proj task remove-tag NAME TASK TAG...
 
-0 proj decision add NAME --summary TEXT
-0 proj decision list NAME [--stage STAGE] [--task TASK] [--goal GOAL] [--no-task]
-0 proj blocker add NAME --description TEXT --required TEXT --task TASK
-0 proj blocker add NAME --description TEXT --required TEXT --goal GOAL
-0 proj blocker list NAME
+0 proj decision create NAME --summary TEXT
+0 proj decision list NAME [--limit LIMIT] [--stage STAGE] [--task TASK] [--goal GOAL] [--no-task]
+0 proj blocker create NAME --description TEXT --required TEXT --task TASK
+0 proj blocker create NAME --description TEXT --required TEXT --goal GOAL
+0 proj blocker list NAME [--status STATUS]
 0 proj blocker resolve NAME BLOCKER --resolution TEXT
-0 proj evidence add NAME --claim TEXT
-0 proj evidence list NAME [--stage STAGE] [--task TASK] [--goal GOAL] [--no-task]
+0 proj evidence create NAME --claim TEXT
+0 proj evidence list NAME [--limit LIMIT] [--stage STAGE] [--task TASK] [--goal GOAL] [--no-task]
 ```
 
-`create` requires a substantive objective and accepts the other charter fields shown by `0 proj create --help`; those fields can be completed through `update` before execution. `stage add` requires a substantive name and outcome.
+### Read output
 
-`task add` and `task update` accept `--purpose`, `--scope`, `--exclusions`, `--result`, and `--completion-evidence`. A task may be created before those fields are complete, but `task start` enforces all of them. `task update --no-goal` removes a task's optional goal relationship; it cannot be combined with `--goal`. `task ready` reports only pending tasks whose project charter, stage contract, task documentation, blockers, goal relationship, stage dependencies, and the absence of another active task permit activation.
+Read commands use a human-readable view by default. The collection commands `list`, `goal list`, `stage list`, `task list`, `task ready`, `task list-logs`, `decision list`, `blocker list`, and `evidence list` render deterministic tables with a header and separator even when there are no rows. `show`, `goal show`, and `task show` render records as labelled fields; related records appear in named sections with their counts. `handoff` renders a compact labelled summary. Each read command that supports JSON documents `--json` in its help; that option emits the full command result as JSON, including fields omitted from a concise human-readable table and handoff retrieval and truncation metadata.
 
-`stage depend` adds a prerequisite edge. `stage undepend` removes an existing edge when the dependent stage has no active task; it rejects a missing edge or an active dependent task without changing the graph.
+Human-readable tables align each column by terminal display width to its longest header or displayed value. Stored text is escaped with JSON string escaping, without surrounding quotes, so embedded line breaks and control characters stay within one cell or field; printable non-ASCII text remains readable. Null and empty values display as `-`; a stored literal `-` is quoted as `"-"` so it remains distinguishable. `goal text` and `goal copy` are deliberate exceptions: they return or copy the exact goal text, including ANSI escape sequences, without table, field, or JSON formatting.
 
-`status` and `handoff` derive the active goal and task from their unique active statuses and derive the active stage from the task. They report no blocked or terminal entity as active. Instead, a bounded recovery projection identifies blocked tasks and goals, every displayed blocker's target and required resolution, and the task or goal whose decisions, evidence, and log entries are relevant. A blocked goal's displayed reason comes from its newest current open blocker rather than a copied historical description.
+Task-log, decision, and evidence reads return at most 20 rows by default; `--limit` sets a different positive maximum. When a human-readable result reaches its limit, it says that more records may exist and how to request a larger result. JSON retains the same command data shape and limit; increase `--limit` when more rows are needed. `blocker list` defaults to open blockers and identifies its status filter in the text output. Pass `--status all` to read every blocker status.
 
-A legacy-incomplete charter, unresolved record context, blank evidence, and blank task titles are visibly marked. Each collection contains at most five rows, reports its total and omissions, and supplies an exact JSON retrieval command for the complete filtered data. Generated commands shell-escape the project address and place every option before `--`, so the name remains one positional argument. Goal-focused decision and evidence commands use `--no-task` to recover the same goal-level set rather than including task-linked history; `--no-task` cannot be combined with `--task`.
+The text handoff limits projected stored values and generated retrieval commands to 1,000 rendered characters. Its escaped text values cannot introduce false lines or fields, and its recovery commands use shell escaping. If a value is shortened, the projection lists its full-value command; handoff JSON keeps the full value and includes the truncation metadata. The handoff limits each related collection to five displayed rows, reports the shown and total counts, and provides a JSON retrieval command when rows are omitted. This bound applies to the handoff projection, not to other collection reads.
 
-Within the text handoff, each projected stored value and generated recovery command contains at most 1,000 rendered characters. Stored values and the displayed repository-relative database path use JSON string escaping without the surrounding quotes, so newlines, tabs, backslashes, quotation marks, and other control characters cannot create false fields or columns. Recovery commands instead use compact one-line shell escaping so they remain directly executable. Human-readable line and table output outside the handoff applies the same JSON string escaping to stored values.
+### Argument types
 
-JSON reads and the exact `goal text` and `goal copy` operations preserve stored values. Handoff JSON records the field path, original character count, and exact command for each value that its text presentation would shorten, but does not shorten that JSON value. The complete authoritative value remains in its ordinary project record. The active-goal projection contains only the goal record rather than its related history.
+Click parses `0 proj` arguments before invoking a project operation. The command help names each positional argument and option exposed for normal use; these domain rules apply wherever that name appears:
 
-Starting, completing, blocking, reopening, or cancelling a task records its transition in the task log. Task-log reads are bounded and may be filtered by a Unix timestamp. Tags remain free-form metadata and do not replace authoritative status, stage, goal, blocker, or evidence records.
+| CLI input                                                      | Parsed domain value                                                                                                              |
+| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `NAME`, `STAGE_NAME`, free-form text, `MESSAGE`, `TAG`, `KIND` | Text (`str`), passed unchanged. Project-name and record validation remain in the project service; `KIND` is not a finite choice. |
+| `TASK`, `BLOCKER`, `EVIDENCE`, `--task`                        | Positive integer ID (`int`).                                                                                                     |
+| `LIMIT`                                                        | Positive integer (`int`).                                                                                                        |
+| `PRIORITY`, `UNIX_TIMESTAMP`                                   | Integer (`int`), including negative values.                                                                                      |
+| `STATUS`                                                       | Exact choice shown by that command's help; `blocker list` also accepts `all`.                                                    |
+| Boolean options such as `--json` and `--no-goal`               | Boolean flag.                                                                                                                    |
+
+`STAGE`, `DEPENDENCY`, and `--stage` accept a stage name or positive numeric ID. Non-numeric text remains a name; a numeric token becomes an integer ID, so a name made only of digits is not addressable by name. `STAGE_NAME` when creating a stage remains text.
+
+`GOAL` and `--goal` accept the exact keyword `active` or a positive numeric ID, passed as an integer. Omitting an optional positional `GOAL` selects the active goal. Omitting an optional `--goal` does not select it: the relationship stays unspecified, or unchanged for `task update`.
+
+Click rejects malformed IDs, numeric values, union references, and finite choices before invoking the project service. Text values remain text; domain-level validation is not replaced by CLI parsing.
+
+The command vocabulary uses `create` for project and entity records, `list` for collections, `show` for detailed project, goal, and task reads, and `update` for editable project, stage, and task data. `activate` selects a pending goal or eligible task. `block`, `cancel`, and `reopen` are shared goal and task lifecycle verbs. The command list above is the inventory for each project noun.
+
+`0 proj create` requires a substantive objective and accepts the other charter fields shown by its help; those fields can be completed through `update` before execution. `goal create` also activates the new goal. Other `create` commands create their documented initial record state. Goals have no `update` command because their text and stage scope are fixed after creation; decisions and evidence are append-only.
+
+`task create` and `task update` accept `--purpose`, `--scope`, `--exclusions`, `--result`, and `--completion-evidence`. A task may be created before those fields are complete, but `task activate` enforces all of them. `task update --no-goal` removes a task's optional goal relationship; it cannot be combined with `--goal`. `task ready` reports pending tasks whose project charter, stage contract, task documentation, blockers, goal relationship, and stage dependencies permit activation, even when another task is active; activating one hands the current task back to pending.
+
+`stage add-dependency` adds a prerequisite edge, and `stage remove-dependency` removes one when the dependent stage has no active task; removal rejects a missing edge or an active dependent task without changing the graph. `task add-tag` and `task remove-tag` add or remove free-form metadata. `task add-log` appends history, while `task list-logs` reads it; task logs are append-only.
+
+`task complete` records a task result claim. `goal achieve` and `stage achieve` record evidence-backed outcomes, so these verbs are not interchangeable. `goal reopen` reactivates a repaired blocked goal, while `task reopen` returns a completed or cancelled task to pending. `goal block` accepts an active goal only when it has no active linked task; `task block` accepts a pending or active task. Each command creates an open blocker and transitions its target to blocked. `blocker create` is the explicit-target form; it can record an additional blocker on a target that is already blocked. `blocker resolve` records its resolution and may reactivate a goal after its final blocker is resolved.
+
+The other specialized verbs also identify distinct results: `task ready` filters eligible tasks, and `goal text` and `goal copy` preserve exact goal text. `handoff` is the bounded current-state and recovery projection; `show` reads the project charter and compact state; `archive` moves an unarchived database. Project status is derived data, not a separate command. `goal create` and goal activation change only project state; when an agent harness also pursues a goal, follow the two-plane activation procedure above.
+
+`handoff` derives the active goal and task from their unique active statuses and derives the active stage from the task. It reports no blocked or terminal entity as active. Instead, a bounded recovery projection identifies blocked tasks and goals, every displayed blocker's target and required resolution, and the task or goal whose decisions, evidence, and log entries are relevant. A blocked goal's displayed reason comes from its newest current open blocker rather than a copied historical description.
+
+A legacy-incomplete charter, unresolved record context, blank evidence, and blank task titles are visibly marked in text and JSON reads. Generated handoff commands shell-escape the project address and place every option before `--`, so the name remains one positional argument. Goal-focused decision and evidence commands use `--no-task` to recover the same goal-level set rather than including task-linked history; `--no-task` cannot be combined with `--task`.
+
+The handoff omits empty related-collection sections. For each non-empty collection, it reports shown and total rows; if rows are omitted, it supplies a complete-data retrieval command. Handoff JSON records each shortened field's path, original character count, and exact command without shortening the JSON value. The complete authoritative value remains in its ordinary project record. The active-goal projection contains the goal record rather than its related history.
+
+Activating, completing, blocking, reopening, or cancelling a task records its transition in the task log. Task-log reads are bounded and may be filtered by a Unix timestamp. Tags remain free-form metadata and do not replace authoritative status, stage, goal, blocker, or evidence records.
 
 ## Invariants
 
@@ -367,7 +408,7 @@ The project workflow preserves these invariants:
 - active identity is derived rather than selected by a second pointer;
 - stage and project statuses are deterministic aggregates;
 - task activation requires both its local boundary and the complete project and stage contracts;
-- project re-chartering preserves the replaced contract, requires active work to end and active or blocked goals to be cancelled, and retires every current stage achievement;
+- project re-chartering preserves the replaced contract, requires active work to end and active, pending, or blocked goals to be cancelled, and retires every current stage achievement;
 - stage achievement depends on substantive, timely, generation-current named evidence and is invalidated when a task or achievement-contract change removes its validity;
 - open blocker context cannot drift from its target, and newly recorded decision and evidence context is complete and immutable;
 - the terminal outcome remains visible while methods adapt;

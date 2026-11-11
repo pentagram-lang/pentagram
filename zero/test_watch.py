@@ -1,0 +1,191 @@
+from collections.abc import Sequence
+from dataclasses import dataclass
+from io import StringIO
+from pathlib import Path
+from queue import Queue
+
+import pytest
+from click.testing import CliRunner
+from pytest import CaptureFixture, MonkeyPatch
+
+from zero import __main__ as command_plane
+from zero import watch
+
+
+@dataclass
+class ProcessDouble:
+  stdout: StringIO
+  stderr: StringIO
+  exit_code: int
+
+  def wait(self) -> int:
+    return self.exit_code
+
+
+@pytest.mark.parametrize(
+  ('files', 'expected'),
+  (
+    ([], []),
+    (['zero/cli.py'], [(['0', 'check', 'ztest'], 'ztest')]),
+    (['proj/cli.py'], [(['0', 'check', 'ptest'], 'ptest')]),
+    (
+      ['zero/watch.py', 'proj/cli.py', 'zero/README.md'],
+      [
+        (['0', 'check', 'ztest'], 'ztest'),
+        (['0', 'check', 'ptest'], 'ptest'),
+      ],
+    ),
+    (['other/module.py'], []),
+  ),
+  ids=('no-python', 'command-plane', 'project', 'both', 'other-root'),
+)
+def test_python_changes_select_the_affected_test_runners(
+  files: list[str], expected: list[tuple[list[str], str]]
+) -> None:
+  assert watch._python_test_commands(files) == expected
+
+
+@pytest.mark.parametrize(
+  ('files', 'runner_name'),
+  (
+    (['zero/cli.py'], 'do_ztest'),
+    (['proj/cli.py'], 'do_ptest'),
+  ),
+  ids=('command-plane', 'project'),
+)
+def test_watch_commands_resolve_to_the_registered_runners(
+  monkeypatch: MonkeyPatch, files: list[str], runner_name: str
+) -> None:
+  calls: list[tuple[object, ...]] = []
+  command, _ = watch._python_test_commands(files)[0]
+  monkeypatch.setattr(
+    command_plane, runner_name, lambda *arguments: calls.append(arguments)
+  )
+
+  result = CliRunner().invoke(command_plane.cli, command[1:])
+
+  assert result.exit_code == 0, result.output
+  assert calls == [(None, None, (), None)]
+
+
+def test_watch_runs_changed_python_suites_and_propagates_failure(
+  monkeypatch: MonkeyPatch,
+  tmp_path: Path,
+  capsys: CaptureFixture[str],
+) -> None:
+  monkeypatch.setattr(watch.pywatchman, 'client', lambda **_kwargs: None)
+  session = watch.WatchSession(tmp_path)
+  commands: Queue[tuple[str, ...]] = Queue()
+
+  def fake_process(
+    command: Sequence[str], **_kwargs: object
+  ) -> ProcessDouble:
+    command_tuple = tuple(command)
+    commands.put(command_tuple)
+    failed = command_tuple == ('0', 'check', 'ptest')
+    return ProcessDouble(
+      stdout=StringIO('project tests failed\n' if failed else ''),
+      stderr=StringIO('assertion detail\n' if failed else ''),
+      exit_code=1 if failed else 0,
+    )
+
+  monkeypatch.setattr(watch.subprocess, 'Popen', fake_process)
+  session._rebuild_and_restart(
+    ['zero/test_main.py', 'proj/test_cli_output.py']
+  )
+  actual_commands = sorted(commands.get_nowait() for _ in range(4))
+  output = capsys.readouterr().out
+
+  assert actual_commands == sorted(
+    (
+      ('0', 'check', 'ztest'),
+      ('0', 'check', 'ptest'),
+      ('ruff', 'check'),
+      ('ruff', 'format', '--check'),
+    )
+  )
+  assert commands.empty()
+  assert '[ptest] project tests failed' in output
+  assert '[ptest] assertion detail' in output
+  assert f'{watch.RED}FAIL{watch.RESET}] ptest (' in output
+  assert f'{watch.RED}FAIL{watch.RESET}] watch-iteration (' in output
+
+
+@pytest.mark.parametrize(
+  ('exit_code', 'status'),
+  ((0, 'PASS'), (1, 'FAIL')),
+  ids=('formatted', 'format-error'),
+)
+def test_watch_expands_nix_paths_and_reports_nixfmt_result(
+  monkeypatch: MonkeyPatch,
+  tmp_path: Path,
+  capsys: CaptureFixture[str],
+  exit_code: int,
+  status: str,
+) -> None:
+  root_nix = tmp_path / 'flake.nix'
+  root_nix.touch()
+  nix_dir = tmp_path / 'nix'
+  nix_dir.mkdir()
+  nested_nix = nix_dir / 'python.nix'
+  nested_nix.touch()
+  (tmp_path / 'ignored.txt').touch()
+  monkeypatch.setattr(watch.pywatchman, 'client', lambda **_kwargs: None)
+  session = watch.WatchSession(tmp_path)
+  commands: Queue[tuple[str, ...]] = Queue()
+
+  def fake_process(
+    command: Sequence[str], **_kwargs: object
+  ) -> ProcessDouble:
+    commands.put(tuple(command))
+    return ProcessDouble(StringIO(), StringIO(), exit_code)
+
+  monkeypatch.setattr(watch.subprocess, 'Popen', fake_process)
+  session._rebuild_and_restart(['flake.nix'])
+  output = capsys.readouterr().out
+
+  assert commands.get_nowait() == (
+    'nixfmt',
+    '--check',
+    str(root_nix),
+    str(nested_nix),
+  )
+  assert commands.empty()
+  expected_colour = watch.GREEN if exit_code == 0 else watch.RED
+  assert f'{expected_colour}{status}{watch.RESET}] nix-fmt (' in output
+  assert (
+    f'{expected_colour}{status}{watch.RESET}] watch-iteration (' in output
+  )
+
+
+def test_watch_reports_a_missing_shell_binary_as_a_rust_failure(
+  monkeypatch: MonkeyPatch,
+  tmp_path: Path,
+  capsys: CaptureFixture[str],
+) -> None:
+  monkeypatch.setattr(watch.pywatchman, 'client', lambda **_kwargs: None)
+
+  def successful_check(
+    _self: watch.WatchSession,
+    _command: Sequence[str],
+    _label: str,
+    _colour: str,
+  ) -> bool:
+    return True
+
+  def successful_build(
+    command: Sequence[str], **_kwargs: object
+  ) -> ProcessDouble:
+    assert tuple(command[:3]) == ('cargo', 'build', '--tests')
+    return ProcessDouble(StringIO(), StringIO(), 0)
+
+  monkeypatch.setattr(watch.WatchSession, '_run_cmd', successful_check)
+  monkeypatch.setattr(watch.subprocess, 'Popen', successful_build)
+  session = watch.WatchSession(tmp_path)
+
+  session._rebuild_and_restart(['src/main.rs'])
+  output = capsys.readouterr().out
+
+  assert 'Could not find boot_shell binary' in output
+  assert f'{watch.RED}FAIL{watch.RESET}] restart-shell (' in output
+  assert f'{watch.RED}FAIL{watch.RESET}] watch-iteration (' in output
