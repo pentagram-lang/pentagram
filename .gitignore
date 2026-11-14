@@ -3,3 +3,4 @@ result
 target
 target-analyzer
 /.tmp/
+/.nix-cache
