@@ -3,12 +3,14 @@ from dataclasses import dataclass
 from io import StringIO
 from pathlib import Path
 from queue import Queue
+from types import SimpleNamespace
 
 import pytest
 from click.testing import CliRunner
 from pytest import CaptureFixture, MonkeyPatch
 
-from zero import __main__ as command_plane
+from zero import cli as command_plane
+from zero import lib as command_plane_lib
 from zero import watch
 
 
@@ -56,16 +58,25 @@ def test_python_changes_select_the_affected_test_runners(
 def test_watch_commands_resolve_to_the_registered_runners(
   monkeypatch: MonkeyPatch, files: list[str], runner_name: str
 ) -> None:
-  calls: list[tuple[object, ...]] = []
+  calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
   command, _ = watch._python_test_commands(files)[0]
-  monkeypatch.setattr(
-    command_plane, runner_name, lambda *arguments: calls.append(arguments)
-  )
+
+  def fake_runner(*arguments: object, **kwargs: object) -> int:
+    calls.append((arguments, kwargs))
+    return 0
+
+  monkeypatch.setattr(command_plane, runner_name, fake_runner)
 
   result = CliRunner().invoke(command_plane.cli, command[1:])
 
-  assert result.exit_code == 0, result.output
-  assert calls == [(None, None, (), None)]
+  assert (result.exit_code, result.output, result.exception) == (
+    0,
+    '',
+    None,
+  )
+  assert calls == [
+    ((None, None, (), None), {'repo_root': command_plane_lib.REPO_ROOT})
+  ]
 
 
 def test_watch_runs_changed_python_suites_and_propagates_failure(
@@ -124,12 +135,14 @@ def test_watch_expands_nix_paths_and_reports_nixfmt_result(
   status: str,
 ) -> None:
   root_nix = tmp_path / 'flake.nix'
-  root_nix.touch()
-  nix_dir = tmp_path / 'nix'
-  nix_dir.mkdir()
-  nested_nix = nix_dir / 'python.nix'
-  nested_nix.touch()
-  (tmp_path / 'ignored.txt').touch()
+  nested_nix = tmp_path / 'nix' / 'python.nix'
+  nix_roots: list[object] = []
+
+  def fake_nix_files(root: object) -> list[str]:
+    nix_roots.append(root)
+    return [str(root_nix), str(nested_nix)]
+
+  monkeypatch.setattr(watch.lib, 'nix_files', fake_nix_files)
   monkeypatch.setattr(watch.pywatchman, 'client', lambda **_kwargs: None)
   session = watch.WatchSession(tmp_path)
   commands: Queue[tuple[str, ...]] = Queue()
@@ -144,9 +157,11 @@ def test_watch_expands_nix_paths_and_reports_nixfmt_result(
   session._rebuild_and_restart(['flake.nix'])
   output = capsys.readouterr().out
 
+  assert nix_roots == [str(tmp_path)]
   assert commands.get_nowait() == (
     'nixfmt',
     '--check',
+    '--',
     str(root_nix),
     str(nested_nix),
   )
@@ -155,6 +170,62 @@ def test_watch_expands_nix_paths_and_reports_nixfmt_result(
   assert f'{expected_colour}{status}{watch.RESET}] nix-fmt (' in output
   assert (
     f'{expected_colour}{status}{watch.RESET}] watch-iteration (' in output
+  )
+
+
+def test_watch_skips_nixfmt_when_no_nix_files_exist(
+  monkeypatch: MonkeyPatch,
+  tmp_path: Path,
+  capsys: CaptureFixture[str],
+) -> None:
+  monkeypatch.setattr(watch.lib, 'nix_files', lambda _root: [])
+  assert watch._nixfmt_check_command(tmp_path) == []
+  monkeypatch.setattr(watch.pywatchman, 'client', lambda **_kwargs: None)
+  monkeypatch.setattr(
+    watch, 'Timer', lambda: SimpleNamespace(duration=lambda: 0.25)
+  )
+  session = watch.WatchSession(tmp_path)
+  commands: Queue[tuple[str, ...]] = Queue()
+
+  def fake_process(
+    command: Sequence[str], **_kwargs: object
+  ) -> ProcessDouble:
+    commands.put(tuple(command))
+    return ProcessDouble(StringIO(), StringIO(), 0)
+
+  monkeypatch.setattr(watch.subprocess, 'Popen', fake_process)
+  session._rebuild_and_restart(['flake.nix'])
+  output = capsys.readouterr().out
+
+  assert commands.empty()
+  assert output == (
+    f'[{watch.GREEN}PASS{watch.RESET}] watch-iteration (0.25s)\n'
+  )
+
+
+def test_watch_reports_nix_discovery_error_without_crashing(
+  monkeypatch: MonkeyPatch,
+  tmp_path: Path,
+  capsys: CaptureFixture[str],
+) -> None:
+  def fail_nix_files(_root: object) -> list[str]:
+    raise RuntimeError('Cannot scan Nix files with git: fatal')
+
+  monkeypatch.setattr(watch.lib, 'nix_files', fail_nix_files)
+  monkeypatch.setattr(watch.pywatchman, 'client', lambda **_kwargs: None)
+  monkeypatch.setattr(
+    watch, 'Timer', lambda: SimpleNamespace(duration=lambda: 0.25)
+  )
+  session = watch.WatchSession(tmp_path)
+
+  session._rebuild_and_restart(['flake.nix'])
+  output = capsys.readouterr().out
+
+  assert output == (
+    f'{watch.RED}[nix-fmt] Cannot scan Nix files with git: fatal'
+    f'{watch.RESET}\n'
+    f'[{watch.RED}FAIL{watch.RESET}] nix-fmt (0.25s)\n'
+    f'[{watch.RED}FAIL{watch.RESET}] watch-iteration (0.25s)\n'
   )
 
 

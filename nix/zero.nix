@@ -4,18 +4,27 @@ final: prev:
   zero =
     let
       launcher = final.writeShellScript "zero" ''
-        current="$PWD"
-        while true; do
-            if [ -f "$current/zero/__main__.py" ]; then
-                cd "$current"
-                exec python3 -m zero "$@"
+        if current=$(pwd -P) && [ -n "$current" ]; then
+          while true; do
+            candidate="''${current%/}/zero/__main__.py"
+            if [ -f "$candidate" ]; then
+              if ! CDPATH="" cd -- "$current"; then
+                echo "Error: failed to enter repository root: $current" >&2
+                exit 1
+              fi
+              exec python3 -m zero "$@"
             fi
-            parent=$(dirname "$current")
-            if [ "$parent" = "$current" ]; then
-                break
+            if [ "$current" = "/" ]; then
+              break
             fi
-            current="$parent"
-        done
+            parent="''${current%/*}"
+            if [ -z "$parent" ]; then
+              current="/"
+            else
+              current="$parent"
+            fi
+          done
+        fi
         echo "Error: zero/__main__.py not found in parent directories." >&2
         exit 1
       '';

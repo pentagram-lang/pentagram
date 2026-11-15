@@ -49,7 +49,7 @@ Every word in documentation and every term in code carries meaning. Respect that
 
 Understand that extending documentation and code adds complexity, and complexity introduces the risk of incorrectness and unclarity. When a more concise formulation is clear and correct, use it instead of a more verbose formulation.
 
-The contribution guide explains how to use the manifesto and what a contribution needs to be accepted. Every contribution must be clearly correct for current the project requirements: it must do what it is supposed to do and be easy to understand. Within the practical limits of the subject matter and resources, a contribution cannot be accepted while anything remains unclear or incorrect.
+The contribution guide explains how to use the manifesto and what a contribution needs to be accepted. Every contribution must be clearly correct for the current project requirements: it must do what it is supposed to do and be easy to understand. Within the practical limits of the subject matter and resources, a contribution cannot be accepted while anything remains unclear or incorrect.
 
 Make sure that project context stays in the project documentation and does not leak into repo documentation or code. Use the project documentation to maintain current requirements, and make sure all meaningful project work is performed within the scope of a properly documented active task.
 
@@ -59,17 +59,17 @@ Handle operator questions literally, and use whatever research is needed to deve
 
 ## Tools
 
-`0` and `zero` are Nix-installed aliases on `PATH` for the command plane in `zero/`. From a checkout, either finds the local `zero/__main__.py`, enters its repository root, and runs the local package. The [command-plane reference](zero/README.md) explains the shared launcher and check surface; the project workflow owns the `0 proj` command reference.
+`0` and `zero` are Nix-installed aliases on `PATH` for the command plane in `zero/`. From a checkout, either finds the local `zero/__main__.py`, enters its repository root, and runs the local package. The [command-plane reference](zero/README.md) explains the shared launcher and check surface; the project workflow owns the `0 proj` command reference. Common `0` commands include:
 
 - `0 fix` formats and applies standard lint fixes.
 - `0 check --skip-commit` runs checks without commit-message or history validation.
-- `0 check` runs the complete check cycle, including history validation (only use this when finalizing a commit for merge).
+- `0 check` runs the complete check cycle, including commit-message and history validation (only use this when finalizing a commit for merge).
 - `0 check fmt` runs formatter checks; `0 check lint` runs Python and Rust static lint.
 - `0 check type` enforces static typing across first-party Python code and tests.
 - `0 check ztest` and `0 check ptest` run the `zero/` and `proj/` Python test suites.
 - `0 check btest` runs Rust bootstrap tests.
 - `0 check test` runs core language tests.
-- `0 check doc` runs documentation lint.
+- `0 check policy` runs repository policy checks; `0 check doc` runs documentation lint.
 - `0 check commit` runs commit-message line-length validation.
 - `0 watch` or `0 --watch` runs incremental checks for supported changes; see the command-plane reference for watched file types and check scope.
 - `0 proj list` identifies unarchived projects.
@@ -93,7 +93,7 @@ After loading required context and project state when starting distinct work or 
 
 The current project's owned mutable subgraph is the authority boundary for history mutation. A remote bookmark records the last pushed graph; it does not make the project's revisions immutable. A later force push remains an external effect that requires operator authority.
 
-Within it, agents are encouraged to create, describe, split, squash, rebase, reorder, abandon, and restore changes to maintain distinct, coherent changes. Use `wip:` descriptions until preparing a final commit message.
+Within that owned subgraph, agents are encouraged to create, describe, split, squash, rebase, reorder, abandon, and restore changes to maintain distinct, coherent changes. Use `wip:` descriptions until preparing a final commit message.
 
 Treat `jj edit` of an earlier change as a temporary history-maintenance position. After the edit and any automatic descendant rewrites, return `@` to the latest intended project tip. Run `jj status`, inspect the graph, and run `jj bookmark list --all` before continuing task work or reporting success. An understood local-and-remote divergence from an intended force push does not make the local state unstable; leaving `@` at an earlier change does.
 

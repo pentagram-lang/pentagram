@@ -6,7 +6,7 @@ import sys
 import threading
 import time
 from collections.abc import Iterable, Sequence
-from pathlib import Path, PurePosixPath
+from pathlib import PurePosixPath
 from typing import IO, TypedDict
 
 import pywatchman
@@ -118,14 +118,8 @@ def _python_test_commands(
 
 
 def _nixfmt_check_command(root: str | os.PathLike[str]) -> list[str]:
-  root_path = Path(root)
-  nix_files = sorted(
-    str(path)
-    for pattern in ('*.nix', 'nix/*.nix')
-    for path in root_path.glob(pattern)
-    if path.is_file()
-  )
-  return ['nixfmt', '--check', *nix_files]
+  nix_paths = lib.nix_files(root)
+  return ['nixfmt', '--check', '--', *nix_paths] if nix_paths else []
 
 
 class WatchSession:
@@ -249,14 +243,7 @@ class WatchSession:
         ] = 'dprint'
 
       if is_nix:
-        futures[
-          executor.submit(
-            self._run_cmd,
-            _nixfmt_check_command(self.root),
-            'nix-fmt',
-            CYAN,
-          )
-        ] = 'nix-fmt'
+        futures[executor.submit(self._run_nix_check)] = 'nix-fmt'
 
       # 2. Rust Build Pipeline (The heavy lifter)
       if is_rust:
@@ -445,6 +432,18 @@ class WatchSession:
     except ValueError:
       pass
 
+  def _run_nix_check(self) -> bool:
+    t = Timer()
+    try:
+      nix_cmd = _nixfmt_check_command(self.root)
+    except RuntimeError as error:
+      print(f'{RED}[nix-fmt] {lib.sanitize_text(str(error))}{RESET}')
+      status('nix-fmt', t.duration(), False)
+      return False
+    if not nix_cmd:
+      return True
+    return self._run_cmd(nix_cmd, 'nix-fmt', CYAN)
+
   def _run_cmd(self, cmd: Sequence[str], label: str, colour: str) -> bool:
     print(f'{colour}Running {label}...{RESET}')
     t = Timer()
@@ -454,6 +453,7 @@ class WatchSession:
       stderr=subprocess.PIPE,
       bufsize=1,
       text=True,
+      errors='replace',
     )
 
     stdout_thread = StreamPrefixer(proc.stdout, label, colour)
@@ -504,8 +504,8 @@ class WatchSession:
       self.child_process.terminate()
 
 
-def run_watch() -> None:
-  session = WatchSession(os.getcwd())
+def run_watch(root: str | os.PathLike[str] | None = None) -> None:
+  session = WatchSession(os.getcwd() if root is None else root)
   try:
     session.start()
   except KeyboardInterrupt:
