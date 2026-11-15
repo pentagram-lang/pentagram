@@ -6,7 +6,7 @@ The command plane provides the repository's operational commands for formatting,
 
 `zero/` is the command-plane Python package, `zero/__main__.py` is the thin package entrypoint, and `zero/cli.py` is the Click CLI composition root. The Nix profile exposes the entrypoint as both `zero` and `0`; both names execute the same command plane, and `0` is the working command name used across repository documentation, automation, and `--help`.
 
-Within the package, `zero/lib.py` owns command execution, timed status lines, command aliasing, Git-backed Nix-file discovery, and Cargo argument builders. `zero.agent.launch` is the configured-agent API; `zero/agent/dispatch.py` selects a configured provider; `zero/agent/codex.py`, `zero/agent/claude.py`, and `zero/agent/agy.py` own provider-specific preflight and launch behaviour; and `zero/agent/common.py` holds shared agent filesystem and JSON helpers.
+Within the package, `zero/lib.py` owns command execution, timed status lines, command aliasing, Git-backed Nix-file discovery, and Cargo argument builders; `zero/boot.py` launches `boot_shell` for `0 run`; `zero/watch.py` implements Watchman-driven incremental checks (`0 watch`); `zero/doc_lint.py` enforces documentation lint (`0 check doc`); `zero/commit_message.py` validates commit-message line lengths (`0 check commit`); `zero/repo_policy.py` implements the repository-policy scan (`0 check policy`); `zero/telemetry.py` owns CI test-telemetry SQLite recording and `/proc` observation; `zero/telemetry_ci.py` runs instrumented CI checks; and `zero/telemetry_plugin.py` is the pytest plugin. The CLI contract, subprocess environment boundary, `/proc` resource sampling, and SQLite schema across `zero/telemetry.py`, `zero/telemetry_ci.py`, and `zero/telemetry_plugin.py` are documented in [Buildkite CI: test telemetry](../.buildkite/README.md#test-telemetry). `zero.agent.launch` is the configured-agent API; `zero/agent/dispatch.py` selects a configured provider; `zero/agent/codex.py`, `zero/agent/claude.py`, and `zero/agent/agy.py` own provider-specific preflight and launch behaviour; and `zero/agent/common.py` holds shared agent filesystem and JSON helpers.
 
 ## Launcher contract
 
@@ -32,13 +32,15 @@ Launcher preflights inspect only the home, registered, repository, and fixed man
 
 ## Formatting and boot shell
 
+`0` commands never invoke `jj`. Before running `0 fix` or `0 fix fmt`, contributors and agents run `jj status` under the [source-control document](../source-control.md) so Jujutsu snapshots the working copy and exports the Git index used to discover repository `.nix` files.
+
 `0 fix` (`0 f`) formats the codebase and applies standard lint fixes by running `0 fix fmt` followed by `0 fix lint`. `0 fix fmt` (`0 f f`) runs `cargo fmt`, `ruff format`, and `dprint fmt`, plus `nixfmt` across non-ignored repository `.nix` files when any exist. `0 fix lint [PACKAGE]` (`0 f l`) runs `ruff check --fix` across Python and `cargo fixit` plus `cargo clippy` (optionally scoped to Cargo crate `PACKAGE`). In these `0 fix` commands, each underlying command emits a timed `[PASS]` or `[FAIL]` status line and aborts on the first failure; when all steps succeed, the command emits `[PASS] fix-fmt`, `[PASS] fix-lint`, or `[PASS] fix`.
 
 `0 run [ARGS]...` (`0 r`) forwards unprocessed arguments unchanged to `boot_shell`.
 
 ## Checks
 
-Every `0 check` command (standalone and grouped) emits a timed `[PASS]` or `[FAIL]` status summary line.
+Every `0 check` command (standalone and grouped) emits a timed `[PASS]` or `[FAIL]` status summary line. `0` commands never invoke `jj`, so before running grouped `0 check` (with or without `--skip-commit`) or any Git-backed check subcommand (`0 check fmt`, `0 check policy`, `0 check doc`, `0 check commit`, `0 check history`, or `0 check changelog`), contributors and agents run `jj status` under the [source-control document](../source-control.md) so Jujutsu snapshots the working copy and exports the Git index and `HEAD`.
 
 Standalone `0 check` (`0 c`) subcommands cover individual validation tools:
 
@@ -54,7 +56,7 @@ Standalone `0 check` (`0 c`) subcommands cover individual validation tools:
 - `0 check history` (`0 c h`) runs `cog check` against exported Git history.
 - `0 check changelog` (`0 c ch`) runs `git cliff` through the Git interoperability surface.
 
-For `commit`, `history`, and `changelog`, contributors invoke the `0` commands rather than direct Git commands, and during final publication validation the [source-control publication sequence](../source-control.md#publish-a-branch) places an empty `@` above the bookmarked final change so Git `HEAD` names the commit checked by `0 check commit` and `0 check history`.
+For `commit`, `history`, and `changelog`, contributors invoke the `0` commands rather than direct Git commands, and during final publication validation the [source-control publication sequence](../source-control.md#publish-a-branch) places an empty `@` above the bookmarked final change and runs `jj status` so exported Git `HEAD` names the commit checked by `0 check commit` and `0 check history`.
 
 The grouped `0 check` command executes `fmt`, `lint`, `type`, `policy`, `doc`, `ztest`, `ptest`, `btest`, and `test` without aborting on the first failure, and then runs `commit` and `history` last (unless `-s` / `--skip-commit` is passed) before reporting overall `check` status. `--skip-commit` cannot be combined with a subcommand.
 
@@ -66,7 +68,7 @@ Run Python checks in the repository package environment, which supplies pytest a
 
 ```sh
 nix shell .#default -c 0 check ztest -k telemetry
-nix shell .#default -c 0 check ztest --nodeid test_telemetry.py::test_process_io_requires_both_valid_counters
+nix shell .#default -c 0 check ztest --nodeid telemetry_test.py::test_process_io_requires_both_valid_counters
 nix shell .#default -c 0 check ptest -k goal_lifecycle
 ```
 
@@ -76,13 +78,13 @@ Both test commands accept `-k` keyword expressions, `-m` marker expressions, rep
 
 `0 watch` (`0 w`) and `0 --watch` (`0 -w`, which cannot be combined with a subcommand) monitor changes through Watchman. Changes to `.rs`, `.py`, `.md`, `.json`, `.nix`, or `.toml` files, plus `Cargo.toml` and `Cargo.lock`, trigger checks while other file types do not start a parent watch iteration.
 
-Python changes run Ruff formatting and lint checks, plus `0 check ztest` (`zero/`) or `0 check ptest` (`proj/`). Rust changes (`.rs`, `Cargo.toml`, and `Cargo.lock`) run Rust formatting and the Rust build and test pipeline; `Cargo.toml` changes also run `dprint` as a `.toml` file. Markdown, JSON, and TOML changes run `dprint`, and Nix changes run `nixfmt` across non-ignored repository `.nix` files when any exist. Independent checks run concurrently; use `0 check --skip-commit` for full non-watch validation.
+Python changes run Ruff formatting and lint checks, plus `0 check ztest` (`zero/`) or `0 check ptest` (`proj/`). Rust changes (`.rs`, `Cargo.toml`, and `Cargo.lock`) run Rust formatting and the Rust build and test pipeline; `Cargo.toml` changes also run `dprint` as a `.toml` file. Markdown, JSON, and TOML changes run `dprint`, and Nix changes run `nixfmt` across non-ignored repository `.nix` files discovered from the exported Git file list updated by `jj status`. Independent checks run concurrently; use `0 check --skip-commit` for full non-watch validation.
 
 When started or restarted, the `boot_shell` core-test watcher separately watches `.penta` files under `core/` and emits per-test `PASS` / `FAIL` lines. Those child-watch results are not included in the parent `watch-iteration` status, and core `.penta` changes trigger the child watcher rather than a parent iteration.
 
 ## Repository policy
 
-`zero/repo_policy.py` scans Git-tracked files and untracked files not excluded by Git's standard ignore rules, using automated Git interoperability under the [source-control document](../source-control.md) after `jj status` snapshots and exports the working copy while contributors continue using `jj` directly.
+`zero/repo_policy.py` scans Git-tracked files and untracked files not excluded by Git's standard ignore rules, using automated Git interoperability under the [source-control document](../source-control.md) after a contributor or agent runs `jj status` to snapshot and export the working copy while continuing to use `jj` directly.
 
 Using Git's inventory prevents `.ignore` and `.rgignore` from hiding prohibited paths, excludes the `.git` tree, and includes tracked and untracked symbolic links. The scan rejects the file basenames `AGENTS.md`, `AGENTS.override.md`, `CLAUDE.md`, `CLAUDE.local.md`, and `GEMINI.md`, plus any path containing an `.agents`, `.claude`, `.codex`, or `.gemini` component. These broad path rules cover nested skill, agent, rule, and command surfaces without banning generic names such as `SKILL.md`, `skills`, `agents`, or `rules` elsewhere. Harnesses can be configured with arbitrary alternate instruction filenames; this fixed-name repository scan does not attempt to infer those operator-specific names.
 

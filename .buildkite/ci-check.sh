@@ -73,17 +73,18 @@ echo "--- :nix: Cache size after sync"
 report_cache_size
 
 echo "+++ :pentagram: Running 0 check"
-if [[ ${BUILDKITE_BUILD_ID:-} =~ ^[[:alnum:]-]+$ &&
-      ${BUILDKITE_JOB_ID:-} =~ ^[[:alnum:]-]+$ &&
+if [[ ${BUILDKITE_BUILD_ID:-} =~ ^[[:alnum:]][[:alnum:]-]*$ &&
+      ${BUILDKITE_JOB_ID:-} =~ ^[[:alnum:]][[:alnum:]-]*$ &&
       -n ${BUILDKITE_COMMIT:-} ]]; then
   if mkdir -p .tmp && \
-    telemetry_dir="$(mktemp -d .tmp/ci-test-telemetry.XXXXXXXX)"; then
+    telemetry_dir="$(mktemp -d .tmp/ci-test-telemetry.XXXXXXXX)" && \
+    nix shell .#default --command python -c 'import zero.telemetry_ci' >/dev/null; then
     telemetry_db="$telemetry_dir/test-telemetry/$BUILDKITE_BUILD_ID/$BUILDKITE_JOB_ID.sqlite3"
-    if nix shell .#default --command python -m zero.ci_telemetry \
-      --database "$telemetry_db" \
-      --build-id "$BUILDKITE_BUILD_ID" \
-      --job-id "$BUILDKITE_JOB_ID" \
-      --revision "$BUILDKITE_COMMIT" \
+    if nix shell .#default --command python -m zero.telemetry_ci \
+      --database="$telemetry_db" \
+      --build-id="$BUILDKITE_BUILD_ID" \
+      --job-id="$BUILDKITE_JOB_ID" \
+      --revision="$BUILDKITE_COMMIT" \
       -- 0 check; then
       check_status=0
     else
