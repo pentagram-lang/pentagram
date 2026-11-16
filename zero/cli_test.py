@@ -12,7 +12,7 @@ import pytest
 from click.testing import CliRunner
 from pytest import MonkeyPatch
 
-from zero import cli, lib
+from zero import cli
 
 _CLI_NODEID = (
   'cli_test.py::test_standalone_check_cmd_subcommands_propagate_exit_codes'
@@ -22,6 +22,14 @@ _PROJ_NODEID = (
   'test_stage_dependencies_gate_activation_and_reject_cycles'
 )
 _RUNNER = CliRunner()
+
+
+@pytest.fixture(autouse=True)
+def _isolate_click_environment(monkeypatch: MonkeyPatch) -> None:
+  monkeypatch.setenv('COLUMNS', '80')
+  for key in list(os.environ):
+    if key.startswith('_') and key.endswith('_COMPLETE'):
+      monkeypatch.delenv(key, raising=False)
 
 
 class PythonTestOptions(TypedDict, total=False):
@@ -62,16 +70,12 @@ def _stub_virtual_fs(
 
   def fake_resolve(self: Path, strict: bool = False) -> Path:
     target = resolved_map.get(self, self)
-    if strict and (
-      files.isdisjoint((target,)) and dirs.isdisjoint((target,))
-    ):
+    if strict and (target not in files and target not in dirs):
       raise FileNotFoundError(target)
     return target
 
   monkeypatch.setattr(cli.Path, 'resolve', fake_resolve)
-  monkeypatch.setattr(
-    cli.Path, 'is_file', lambda self: not files.isdisjoint((self,))
-  )
+  monkeypatch.setattr(cli.Path, 'is_file', lambda self: self in files)
 
 
 def _record_run_cmd(monkeypatch: MonkeyPatch) -> list[RunCmdCall]:
@@ -167,8 +171,13 @@ def test_importing_cli_and_entrypoint_does_not_chdir(
   assert chdir_calls == []
 
 
-def test_resolve_repo_root_finds_ancestor_and_fails_outside_checkout(
-  monkeypatch: MonkeyPatch,
+@pytest.mark.parametrize(
+  'cwd',
+  [Path('/worktree/checkout/zero/agent'), Path('/symlink/agent')],
+  ids=('nested', 'symlink'),
+)
+def test_resolve_repo_root_finds_nested_and_symlinked_checkouts(
+  monkeypatch: MonkeyPatch, cwd: Path
 ) -> None:
   _stub_virtual_fs(
     monkeypatch,
@@ -177,98 +186,133 @@ def test_resolve_repo_root_finds_ancestor_and_fails_outside_checkout(
       Path('/symlink/agent'): Path('/worktree/checkout/zero/agent')
     },
   )
+  monkeypatch.setattr(cli.Path, 'cwd', lambda: cwd)
 
-  assert cli.resolve_repo_root(
-    Path('/worktree/checkout/zero/agent')
-  ) == Path('/worktree/checkout')
-  assert cli.resolve_repo_root(Path('/symlink/agent')) == Path(
-    '/worktree/checkout'
-  )
-
-  monkeypatch.setattr(
-    cli.Path,
-    'cwd',
-    lambda: Path('/worktree/checkout/zero/agent'),
-  )
-  assert cli.resolve_repo_root() == Path('/worktree/checkout')
-
-  with pytest.raises(click.ClickException) as outside_error:
-    cli.resolve_repo_root(Path('/outside/worktree'))
-  assert outside_error.value.message == (
-    'zero/__main__.py not found in parent directories.'
-  )
-
-  def missing_cwd() -> Path:
-    raise FileNotFoundError(2, 'No such file or directory')
-
-  monkeypatch.setattr(cli.Path, 'cwd', missing_cwd)
-  with pytest.raises(click.ClickException) as unlinked_error:
-    cli.resolve_repo_root()
-  assert unlinked_error.value.message == (
-    'zero/__main__.py not found in parent directories.'
-  )
+  assert cli._resolve_repo_root() == (cwd, Path('/worktree/checkout'))
 
 
-@pytest.mark.parametrize(
-  ('argv', 'cli_error', 'expected_exit'),
-  [
-    (['check', '--skip-commit'], None, 0),
-    (None, SystemExit(3), 3),
-  ],
-  ids=('normal-return', 'restores-on-exit'),
-)
-def test_main_passes_repo_root_and_restores_cwd(
+def test_resolve_repo_root_fails_outside_checkout_unlinked_and_eperm(
   monkeypatch: MonkeyPatch,
-  argv: list[str] | None,
-  cli_error: SystemExit | None,
-  expected_exit: int,
+) -> None:
+  with monkeypatch.context() as mp:
+    _stub_virtual_fs(
+      mp, files=frozenset({Path('/worktree/checkout/zero/__main__.py')})
+    )
+    mp.setattr(cli.Path, 'cwd', lambda: Path('/outside/worktree'))
+    with pytest.raises(click.ClickException) as outside_error:
+      cli._resolve_repo_root()
+    assert outside_error.value.message == (
+      'zero/__main__.py not found in parent directories.'
+    )
+
+  with monkeypatch.context() as mp:
+    mp.setattr(
+      cli.Path,
+      'cwd',
+      lambda: (_ for _ in ()).throw(
+        FileNotFoundError(2, 'No such file or directory')
+      ),
+    )
+    with pytest.raises(click.ClickException) as unlinked_error:
+      cli._resolve_repo_root()
+    assert unlinked_error.value.message == (
+      'zero/__main__.py not found in parent directories.'
+    )
+
+  with monkeypatch.context() as mp:
+    mp.setattr(cli.Path, 'cwd', lambda: Path('/worktree/checkout/zero'))
+    mp.setattr(
+      cli.Path, 'resolve', lambda self: Path('/worktree/checkout/zero')
+    )
+    mp.setattr(
+      cli.Path,
+      'is_file',
+      lambda _self: (_ for _ in ()).throw(PermissionError(13, 'denied')),
+    )
+    with pytest.raises(click.ClickException) as perm_error:
+      cli._resolve_repo_root()
+    assert perm_error.value.message == (
+      'zero/__main__.py not found in parent directories.'
+    )
+
+
+def test_main_runs_cli_and_restores_cwd_on_return(
+  monkeypatch: MonkeyPatch,
 ) -> None:
   events: list[tuple[object, ...]] = []
   previous_cwd = Path('/caller/dir')
   expected_root = Path('/worktree/checkout')
-  monkeypatch.setattr(cli, 'resolve_repo_root', lambda: expected_root)
-  monkeypatch.setattr(cli.Path, 'cwd', lambda: previous_cwd)
+  monkeypatch.setattr(
+    cli, '_resolve_repo_root', lambda: (previous_cwd, expected_root)
+  )
   monkeypatch.setattr(
     cli.os, 'chdir', lambda path: events.append(('chdir', path))
   )
+  monkeypatch.setattr(
+    cli,
+    'cli',
+    lambda *, args, prog_name, obj: events.append(
+      ('cli', args, prog_name, obj)
+    ),
+  )
 
-  def fake_cli(
-    *, args: list[str] | None, prog_name: str, obj: Path
-  ) -> None:
-    events.append(('cli', args, prog_name, obj))
-    if cli_error is not None:
-      raise cli_error
-
-  monkeypatch.setattr(cli, 'cli', fake_cli)
-
-  if cli_error is None:
-    cli.main(argv)
-  else:
-    with pytest.raises(SystemExit) as error:
-      cli.main(argv)
-    assert error.value.code == expected_exit
-
+  cli.main(['check', '--skip-commit'])
   assert events == [
     ('chdir', expected_root),
-    ('cli', argv, '0', expected_root),
+    ('cli', ['check', '--skip-commit'], '0', expected_root),
     ('chdir', previous_cwd),
   ]
 
 
-def test_main_tolerates_unlinked_cwd_and_missing_repo_root(
-  monkeypatch: MonkeyPatch, capsys: pytest.CaptureFixture[str]
+def test_main_restores_cwd_on_system_exit(
+  monkeypatch: MonkeyPatch,
 ) -> None:
   events: list[tuple[object, ...]] = []
+  previous_cwd = Path('/caller/dir')
   expected_root = Path('/worktree/checkout')
-
-  def missing_cwd() -> Path:
-    raise FileNotFoundError(2, 'No such file or directory')
-
-  monkeypatch.setattr(cli, 'resolve_repo_root', lambda: expected_root)
-  monkeypatch.setattr(cli.Path, 'cwd', missing_cwd)
+  monkeypatch.setattr(
+    cli, '_resolve_repo_root', lambda: (previous_cwd, expected_root)
+  )
   monkeypatch.setattr(
     cli.os, 'chdir', lambda path: events.append(('chdir', path))
   )
+
+  def exit_cli(
+    *, args: list[str] | None, prog_name: str, obj: Path
+  ) -> None:
+    events.append(('cli', args, prog_name, obj))
+    raise SystemExit(3)
+
+  monkeypatch.setattr(cli, 'cli', exit_cli)
+
+  with pytest.raises(SystemExit) as error:
+    cli.main(None)
+  assert (error.value.code, events) == (
+    3,
+    [
+      ('chdir', expected_root),
+      ('cli', None, '0', expected_root),
+      ('chdir', previous_cwd),
+    ],
+  )
+
+
+def test_main_tolerates_unlinked_previous_cwd_on_restore(
+  monkeypatch: MonkeyPatch,
+) -> None:
+  events: list[tuple[object, ...]] = []
+  previous_cwd = Path('/deleted/dir')
+  expected_root = Path('/worktree/checkout')
+  monkeypatch.setattr(
+    cli, '_resolve_repo_root', lambda: (previous_cwd, expected_root)
+  )
+
+  def fake_chdir(path: Path) -> None:
+    events.append(('chdir', path))
+    if path == previous_cwd:
+      raise FileNotFoundError(2, 'No such file or directory')
+
+  monkeypatch.setattr(cli.os, 'chdir', fake_chdir)
   monkeypatch.setattr(
     cli,
     'cli',
@@ -281,20 +325,172 @@ def test_main_tolerates_unlinked_cwd_and_missing_repo_root(
   assert events == [
     ('chdir', expected_root),
     ('cli', ['check'], '0', expected_root),
+    ('chdir', previous_cwd),
   ]
 
-  def fail_resolve() -> Path:
-    raise click.ClickException(
-      'zero/__main__.py not found in parent directories.'
+
+def test_main_exits_one_on_missing_root_or_chdir_failure(
+  monkeypatch: MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+  expected_root = Path('/worktree/checkout')
+
+  with monkeypatch.context() as mp:
+    mp.setattr(
+      cli,
+      '_resolve_repo_root',
+      lambda: (_ for _ in ()).throw(
+        click.ClickException(
+          'zero/__main__.py not found in parent directories.'
+        )
+      ),
+    )
+    with pytest.raises(SystemExit) as missing_error:
+      cli.main(['check'])
+    captured = capsys.readouterr()
+    assert (missing_error.value.code, captured.out, captured.err) == (
+      1,
+      '',
+      'Error: zero/__main__.py not found in parent directories.\n',
     )
 
-  monkeypatch.setattr(cli, 'resolve_repo_root', fail_resolve)
-  with pytest.raises(SystemExit) as error:
-    cli.main(['check'])
+  with monkeypatch.context() as mp:
+    mp.setattr(
+      cli,
+      '_resolve_repo_root',
+      lambda: (Path('/caller/dir'), expected_root),
+    )
+    mp.setattr(
+      cli.os,
+      'chdir',
+      lambda _path: (_ for _ in ()).throw(OSError('permission denied')),
+    )
+    with pytest.raises(SystemExit) as chdir_error:
+      cli.main(['check'])
+    captured = capsys.readouterr()
+    assert (chdir_error.value.code, captured.out, captured.err) == (
+      1,
+      '',
+      f'Error: failed to enter repository root: {expected_root}: '
+      'permission denied\n',
+    )
 
-  assert error.value.code == 1
-  assert capsys.readouterr().err == (
-    'Error: zero/__main__.py not found in parent directories.\n'
+
+_ROOT_HELP = (
+  'Usage: 0 [OPTIONS] [COMMAND] [ARGS]...\n\n'
+  '  Pentagram task runner.\n\n'
+  'Options:\n'
+  '  -w, --watch  Run standalone watch mode (cannot be combined with a '
+  'subcommand).\n'
+  '  --help       Show this message and exit.\n\n'
+  'Commands:\n'
+  '  agent  Launch a Pentagram-configured coding agent.\n'
+  '  check  Format, lint, test, and validate history.\n'
+  '  fix    Format and lint the codebase.\n'
+  '  help   Show root command-plane help and exit.\n'
+  '  proj   Manage provisional SQLite project control planes.\n'
+  '  run    Run the boot_shell (boot/shell).\n'
+  '  watch  Watch for changes and run incremental checks.\n'
+)
+_MAIN_ROOT_HELP = _ROOT_HELP.replace(
+  '  -w, --watch  Run standalone watch mode (cannot be combined with a '
+  'subcommand).\n',
+  '  -w, --watch  Run standalone watch mode (cannot be combined with a\n'
+  '               subcommand).\n',
+)
+
+
+@pytest.mark.parametrize(
+  'argv',
+  ([], ['help'], ['--help']),
+  ids=('bare-root', 'help-subcommand', 'help-flag'),
+)
+def test_root_help_invocations_emit_identical_help(
+  monkeypatch: MonkeyPatch,
+  capsys: pytest.CaptureFixture[str],
+  argv: list[str],
+) -> None:
+  result = _RUNNER.invoke(cli.cli, argv)
+  assert (result.exit_code, result.output) == (0, _ROOT_HELP)
+
+  with monkeypatch.context() as mp:
+    mp.setattr(
+      cli, '_resolve_repo_root', lambda: (Path('/caller'), Path('/repo'))
+    )
+    mp.setattr(cli.os, 'chdir', lambda _path: None)
+    with pytest.raises(SystemExit) as error:
+      cli.main(argv)
+  captured = capsys.readouterr()
+  assert (error.value.code, captured.out, captured.err) == (
+    0,
+    _MAIN_ROOT_HELP,
+    '',
+  )
+
+
+def test_help_cmd_requires_parent_context() -> None:
+  with pytest.raises(
+    RuntimeError, match=r'^help command requires root CLI context$'
+  ):
+    cli.help_cmd.main([], standalone_mode=False)
+
+
+def test_root_help_subcommand_help_output() -> None:
+  help_result = _RUNNER.invoke(cli.cli, ['help', '--help'])
+  assert (help_result.exit_code, help_result.output) == (
+    0,
+    'Usage: 0 help [OPTIONS]\n\n'
+    '  Show root command-plane help and exit.\n\n'
+    "  Run '0 <command> --help' for subcommand options (except "
+    'pass-through commands\n'
+    "  '0 run' and '0 agent <target>').\n\n"
+    'Options:\n'
+    '  --help  Show this message and exit.\n',
+  )
+
+
+@pytest.mark.parametrize(
+  'argv',
+  [
+    ['help', 'check'],
+    ['help', 'check', 'fmt'],
+    ['help', 'bogus'],
+    ['help', ''],
+    ['help', '--', '-v'],
+  ],
+  ids=(
+    'single-command',
+    'multi-token',
+    'unknown-command',
+    'empty-arg',
+    'escaped-option',
+  ),
+)
+def test_root_help_subcommand_rejects_extra_arguments(
+  argv: list[str],
+) -> None:
+  result = _RUNNER.invoke(cli.cli, argv)
+  assert (result.exit_code, result.output) == (
+    2,
+    'Usage: 0 help [OPTIONS]\n'
+    "Try '0 help --help' for help.\n\n"
+    "Error: 0 help takes no arguments; run '0 <command> --help' for "
+    "subcommand options (except pass-through commands '0 run' and "
+    "'0 agent <target>').\n",
+  )
+
+
+def test_fix_help_uses_optional_command_metavar() -> None:
+  result = _RUNNER.invoke(cli.cli, ['fix', '--help'])
+  assert (result.exit_code, result.output) == (
+    0,
+    'Usage: 0 fix [OPTIONS] [COMMAND] [ARGS]...\n\n'
+    '  Format and lint the codebase.\n\n'
+    'Options:\n'
+    '  --help  Show this message and exit.\n\n'
+    'Commands:\n'
+    '  fmt   Run Cargo, Ruff, dprint, and nixfmt formatters.\n'
+    '  lint  Run ruff check --fix across Python and cargo '
+    'fixit/clippy...\n',
   )
 
 
@@ -303,38 +499,52 @@ def test_main_tolerates_unlinked_cwd_and_missing_repo_root(
   [
     (
       ['-w', 'check'],
-      'Usage: cli [OPTIONS] COMMAND [ARGS]...\n'
-      "Try 'cli --help' for help.\n\n"
+      'Usage: 0 [OPTIONS] [COMMAND] [ARGS]...\n'
+      "Try '0 --help' for help.\n\n"
       'Error: --watch cannot be combined with a subcommand.\n',
     ),
     (
       ['--watch', 'fix'],
-      'Usage: cli [OPTIONS] COMMAND [ARGS]...\n'
-      "Try 'cli --help' for help.\n\n"
+      'Usage: 0 [OPTIONS] [COMMAND] [ARGS]...\n'
+      "Try '0 --help' for help.\n\n"
+      'Error: --watch cannot be combined with a subcommand.\n',
+    ),
+    (
+      ['-w', 'help'],
+      'Usage: 0 [OPTIONS] [COMMAND] [ARGS]...\n'
+      "Try '0 --help' for help.\n\n"
+      'Error: --watch cannot be combined with a subcommand.\n',
+    ),
+    (
+      ['--watch', 'help'],
+      'Usage: 0 [OPTIONS] [COMMAND] [ARGS]...\n'
+      "Try '0 --help' for help.\n\n"
       'Error: --watch cannot be combined with a subcommand.\n',
     ),
     (
       ['--watch', 'fmt'],
-      'Usage: cli [OPTIONS] COMMAND [ARGS]...\n'
-      "Try 'cli --help' for help.\n\n"
+      'Usage: 0 [OPTIONS] [COMMAND] [ARGS]...\n'
+      "Try '0 --help' for help.\n\n"
       "Error: No such command 'fmt'.\n",
     ),
     (
       ['check', '--skip-commit', 'lint'],
-      'Usage: cli check [OPTIONS] COMMAND [ARGS]...\n'
-      "Try 'cli check --help' for help.\n\n"
+      'Usage: 0 check [OPTIONS] [COMMAND] [ARGS]...\n'
+      "Try '0 check --help' for help.\n\n"
       'Error: --skip-commit cannot be combined with a subcommand.\n',
     ),
     (
       ['c', '-s', 'fmt'],
-      'Usage: cli c [OPTIONS] COMMAND [ARGS]...\n'
-      "Try 'cli c --help' for help.\n\n"
+      'Usage: 0 c [OPTIONS] [COMMAND] [ARGS]...\n'
+      "Try '0 c --help' for help.\n\n"
       'Error: --skip-commit cannot be combined with a subcommand.\n',
     ),
   ],
   ids=(
     'watch-short',
     'watch-long',
+    'watch-short-help',
+    'watch-long-help',
     'watch-unknown',
     'skip-commit-long',
     'skip-commit-short',
@@ -357,11 +567,9 @@ def test_watch_invocations_call_run_watch(
   monkeypatch: MonkeyPatch, argv: list[str]
 ) -> None:
   calls: list[Path] = []
-  monkeypatch.setattr(
-    cli.watch, 'run_watch', lambda root: calls.append(root)
-  )
-
-  result = _RUNNER.invoke(cli.cli, argv, obj=Path('/repo'))
+  with monkeypatch.context() as mp:
+    mp.setattr(cli.watch, 'run_watch', lambda root: calls.append(root))
+    result = _RUNNER.invoke(cli.cli, argv, obj=Path('/repo'))
 
   assert (result.exit_code, result.output, calls) == (
     0,
@@ -385,7 +593,7 @@ def test_formatter_help_names_each_repository_formatter(
 
   assert (result.exit_code, result.output) == (
     0,
-    f'Usage: cli {command} fmt [OPTIONS]\n\n'
+    f'Usage: 0 {command} fmt [OPTIONS]\n\n'
     f'  {expected_summary}\n\n'
     'Options:\n'
     '  --help  Show this message and exit.\n',
@@ -619,8 +827,8 @@ def test_fix_lint_rejects_unknown_options() -> None:
 
   assert (result.exit_code, result.output) == (
     2,
-    'Usage: cli fix lint [OPTIONS] [PACKAGE]\n'
-    "Try 'cli fix lint --help' for help.\n\n"
+    'Usage: 0 fix lint [OPTIONS] [PACKAGE]\n'
+    "Try '0 fix lint --help' for help.\n\n"
     'Error: No such option: --bogus\n',
   )
 
@@ -900,8 +1108,8 @@ def test_check_lint_rejects_unknown_options() -> None:
 
   assert (result.exit_code, result.output) == (
     2,
-    'Usage: cli check lint [OPTIONS] [PACKAGE]\n'
-    "Try 'cli check lint --help' for help.\n\n"
+    'Usage: 0 check lint [OPTIONS] [PACKAGE]\n'
+    "Try '0 check lint --help' for help.\n\n"
     'Error: No such option: --bogus\n',
   )
 
@@ -963,23 +1171,23 @@ def test_check_runs_each_step_once_and_skips_only_commit_validation(
 ) -> None:
   calls: list[tuple[str, Path]] = []
   steps = (
-    ('do_check_fmt', 'format'),
-    ('do_check_lint', 'lint'),
-    ('do_check_type', 'type'),
-    ('do_check_repo_policy', 'policy'),
-    ('do_check_doc_lint', 'docs'),
-    ('do_ztest', 'ztest'),
-    ('do_ptest', 'ptest'),
-    ('do_btest', 'btest'),
-    ('do_test', 'language-test'),
-    ('do_check_commit_message', 'commit'),
-    ('do_check_history', 'history'),
+    ('_do_check_fmt', 'format'),
+    ('_do_check_lint', 'lint'),
+    ('_do_check_type', 'type'),
+    ('_do_check_repo_policy', 'policy'),
+    ('_do_check_doc_lint', 'docs'),
+    ('_do_ztest', 'ztest'),
+    ('_do_ptest', 'ptest'),
+    ('_do_btest', 'btest'),
+    ('_do_test', 'language-test'),
+    ('_do_check_commit_message', 'commit'),
+    ('_do_check_history', 'history'),
   )
   for name, label in steps:
 
     def make_step(step_label: str = label) -> Callable[..., int]:
-      def step(*args: Path, repo_root: Path = lib.REPO_ROOT) -> int:
-        calls.append((step_label, args[0] if args else repo_root))
+      def step(repo_root: Path) -> int:
+        calls.append((step_label, repo_root))
         return 0
 
       return step
@@ -1013,17 +1221,17 @@ def test_check_runs_all_steps_without_short_circuiting_on_failure(
     return step
 
   steps = (
-    ('do_check_fmt', 'format', 3, None),
-    ('do_check_lint', 'lint', 0, None),
-    ('do_check_type', 'type', 0, None),
-    ('do_check_repo_policy', 'policy', 1, 'policy error'),
-    ('do_check_doc_lint', 'docs', 0, None),
-    ('do_ztest', 'ztest', 0, None),
-    ('do_ptest', 'ptest', 0, None),
-    ('do_btest', 'btest', 0, None),
-    ('do_test', 'language-test', 0, None),
-    ('do_check_commit_message', 'commit', 1, 'commit error'),
-    ('do_check_history', 'history', 0, None),
+    ('_do_check_fmt', 'format', 3, None),
+    ('_do_check_lint', 'lint', 0, None),
+    ('_do_check_type', 'type', 0, None),
+    ('_do_check_repo_policy', 'policy', 1, 'policy error'),
+    ('_do_check_doc_lint', 'docs', 0, None),
+    ('_do_ztest', 'ztest', 0, None),
+    ('_do_ptest', 'ptest', 0, None),
+    ('_do_btest', 'btest', 0, None),
+    ('_do_test', 'language-test', 0, None),
+    ('_do_check_commit_message', 'commit', 1, 'commit error'),
+    ('_do_check_history', 'history', 0, None),
   )
   for name, label, code, message in steps:
     monkeypatch.setattr(cli, name, make_step(label, code, message))
@@ -1113,7 +1321,7 @@ def test_standalone_validators_report_timed_status_on_pass_and_fail(
   label: str,
   failure: Exception,
 ) -> None:
-  calls: list[str] = []
+  calls: list[Path] = []
   _stub_timer(monkeypatch, duration=0.75)
 
   monkeypatch.setattr(module, fn_name, lambda root: calls.append(root))
@@ -1123,7 +1331,7 @@ def test_standalone_validators_report_timed_status_on_pass_and_fail(
     f'[PASS] {label} (0.75s)\n',
   )
 
-  def fail_check(root: str) -> None:
+  def fail_check(root: Path) -> None:
     calls.append(root)
     raise failure
 
@@ -1133,7 +1341,7 @@ def test_standalone_validators_report_timed_status_on_pass_and_fail(
     1,
     f'Error: {failure}\n[FAIL] {label} (0.75s)\n',
   )
-  assert calls == ['/repo/root', '/repo/root']
+  assert calls == [Path('/repo/root'), Path('/repo/root')]
 
 
 @pytest.mark.parametrize(
@@ -1295,8 +1503,8 @@ def test_btest_rejects_unknown_options() -> None:
 
   assert (result.exit_code, result.output) == (
     2,
-    'Usage: cli check btest [OPTIONS] [PACKAGE] [TEST_NAME]\n'
-    "Try 'cli check btest --help' for help.\n\n"
+    'Usage: 0 check btest [OPTIONS] [PACKAGE] [TEST_NAME]\n'
+    "Try '0 check btest --help' for help.\n\n"
     'Error: No such option: --bogus\n',
   )
 
@@ -1372,15 +1580,16 @@ def test_ztest_composes_filters_and_parallelism(
   fake_root = _stub_nodeid_fs(monkeypatch)
   calls = _record_check_cmd(monkeypatch)
 
-  assert cli.do_ztest(**filters, repo_root=fake_root) == 0
+  assert cli._do_ztest(fake_root, **filters) == 0
   assert calls == [RunCmdCall(expected, 'command-plane-test', fake_root)]
 
 
 @pytest.mark.parametrize(
-  ('argv', 'expected_command'),
+  ('argv', 'expected_label', 'expected_command'),
   [
     (
       ['check', 'ztest', '--parallel', '-k', 'telemetry'],
+      'command-plane-test',
       [
         sys.executable,
         '-m',
@@ -1395,6 +1604,7 @@ def test_ztest_composes_filters_and_parallelism(
     ),
     (
       ['check', 'ptest'],
+      'project-test',
       [
         sys.executable,
         '-m',
@@ -1415,6 +1625,7 @@ def test_ztest_composes_filters_and_parallelism(
         _PROJ_NODEID,
         '--no-parallel',
       ],
+      'project-test',
       [
         sys.executable,
         '-m',
@@ -1432,6 +1643,7 @@ def test_ztest_composes_filters_and_parallelism(
 def test_python_test_cli_dispatches_pytest_argv(
   monkeypatch: MonkeyPatch,
   argv: list[str],
+  expected_label: str,
   expected_command: list[str],
 ) -> None:
   fake_root = _stub_nodeid_fs(monkeypatch)
@@ -1439,9 +1651,6 @@ def test_python_test_cli_dispatches_pytest_argv(
 
   result = _RUNNER.invoke(cli.cli, argv, obj=fake_root)
 
-  expected_label = (
-    'command-plane-test' if argv[1] == 'ztest' else 'project-test'
-  )
   assert (result.exit_code, result.output, calls) == (
     0,
     '',
@@ -1466,9 +1675,7 @@ def test_validate_test_nodeid_accepts_valid_selectors(
 ) -> None:
   fake_root = _stub_nodeid_fs(monkeypatch)
 
-  assert cli.validate_test_nodeid('zero', nodeid, repo_root=fake_root) == (
-    expected
-  )
+  assert cli._validate_test_nodeid(fake_root, 'zero', nodeid) == expected
 
 
 @pytest.mark.parametrize(
@@ -1559,11 +1766,37 @@ def test_python_test_command_rejects_invalid_node_ids(
   fake_root = _stub_nodeid_fs(monkeypatch)
   calls = _record_check_cmd(monkeypatch)
 
-  with pytest.raises(click.BadParameter) as error:
-    cli.do_ztest(nodeids=(nodeid,), repo_root=fake_root)
+  result = _RUNNER.invoke(
+    cli.cli, ['check', 'ztest', '--nodeid', nodeid], obj=fake_root
+  )
 
-  assert error.value.message == expected_message
-  assert calls == []
+  assert (result.exit_code, result.output, calls) == (
+    2,
+    'Usage: 0 check ztest [OPTIONS]\n'
+    "Try '0 check ztest --help' for help.\n\n"
+    f"Error: Invalid value for '--nodeid': {expected_message}\n",
+    [],
+  )
+
+
+def test_ptest_rejects_invalid_node_id_with_proj_prefix(
+  monkeypatch: MonkeyPatch,
+) -> None:
+  fake_root = _stub_nodeid_fs(monkeypatch)
+  calls = _record_check_cmd(monkeypatch)
+
+  result = _RUNNER.invoke(
+    cli.cli, ['check', 'ptest', '--nodeid', 'bad'], obj=fake_root
+  )
+
+  assert (result.exit_code, result.output, calls) == (
+    2,
+    'Usage: 0 check ptest [OPTIONS]\n'
+    "Try '0 check ptest --help' for help.\n\n"
+    "Error: Invalid value for '--nodeid': "
+    'expected a proj/-relative Python test selector FILE::TEST\n',
+    [],
+  )
 
 
 @pytest.mark.parametrize(
@@ -1591,6 +1824,10 @@ def test_run_command_forwards_unprocessed_args(
 
 
 @pytest.mark.parametrize(
+  'invocation_kind',
+  ('canonical', 'alias', 'help-passthrough'),
+)
+@pytest.mark.parametrize(
   ('alias', 'configured_name'),
   [
     ('luna', 'codex-luna-yolo'),
@@ -1603,9 +1840,26 @@ def test_run_command_forwards_unprocessed_args(
     ('carbon', 'agy-carbon-yolo'),
   ],
 )
-def test_agent_aliases_forward_configured_agent_and_arguments(
-  monkeypatch: MonkeyPatch, alias: str, configured_name: str
+def test_agent_commands_forward_canonical_alias_and_help_flag(
+  monkeypatch: MonkeyPatch,
+  alias: str,
+  configured_name: str,
+  invocation_kind: str,
 ) -> None:
+  argv, expected_args = {
+    'canonical': (
+      ['agent', configured_name, '--resume', 'session'],
+      ('--resume', 'session'),
+    ),
+    'alias': (
+      ['a', alias, '--resume', 'session'],
+      ('--resume', 'session'),
+    ),
+    'help-passthrough': (
+      ['agent', configured_name, '--help'],
+      ('--help',),
+    ),
+  }[invocation_kind]
   calls: list[tuple[str, tuple[str, ...]]] = []
   monkeypatch.setattr(
     cli.agent_runner,
@@ -1613,32 +1867,40 @@ def test_agent_aliases_forward_configured_agent_and_arguments(
     lambda name, arguments: calls.append((name, arguments)),
   )
 
-  result = _RUNNER.invoke(cli.cli, ['a', alias, '--resume', 'session'])
-
+  result = _RUNNER.invoke(cli.cli, argv)
   assert (result.exit_code, result.output, calls) == (
     0,
     '',
-    [(configured_name, ('--resume', 'session'))],
+    [(configured_name, expected_args)],
   )
 
 
-def test_agy_command_help_uses_system_prompt_wording() -> None:
-  agent_group = cli.cli.commands['agent']
-  assert isinstance(agent_group, click.Group)
-  assert {
-    name: agent_group.commands[name].help
-    for name in ('agy-flash-yolo', 'agy-argon-yolo', 'agy-carbon-yolo')
-  } == {
-    'agy-flash-yolo': (
-      'Launch Antigravity Flash with the Pentagram system prompt.'
-    ),
-    'agy-argon-yolo': (
-      'Launch Antigravity Argon with the Pentagram system prompt.'
-    ),
-    'agy-carbon-yolo': (
-      'Launch Antigravity Carbon with the Pentagram system prompt.'
-    ),
-  }
+def test_agent_help_lists_all_configured_agents() -> None:
+  result = _RUNNER.invoke(cli.cli, ['agent', '--help'])
+  assert (result.exit_code, result.output) == (
+    0,
+    'Usage: 0 agent [OPTIONS] COMMAND [ARGS]...\n\n'
+    '  Launch a Pentagram-configured coding agent.\n\n'
+    'Options:\n'
+    '  --help  Show this message and exit.\n\n'
+    'Commands:\n'
+    '  agy-argon-yolo      Launch Antigravity Argon with the Pentagram '
+    'system...\n'
+    '  agy-carbon-yolo     Launch Antigravity Carbon with the Pentagram '
+    'system...\n'
+    '  agy-flash-yolo      Launch Antigravity Flash with the Pentagram '
+    'system...\n'
+    '  claude-fable-yolo   Launch Claude Fable with the Pentagram system '
+    'prompt.\n'
+    '  claude-sonnet-yolo  Launch Claude Sonnet with the Pentagram system '
+    'prompt.\n'
+    '  codex-astra-yolo    Launch Codex Astra with the Pentagram system '
+    'prompt.\n'
+    '  codex-luna-yolo     Launch Codex Luna with the Pentagram system '
+    'prompt.\n'
+    '  codex-sol-yolo      Launch Codex Sol with the Pentagram system '
+    'prompt.\n',
+  )
 
 
 def test_project_command_is_registered_on_the_root_cli() -> None:
@@ -1651,7 +1913,7 @@ def test_project_command_is_registered_on_the_root_cli() -> None:
 
   result = _RUNNER.invoke(cli.cli, ['proj', '--help'])
   expected = _RUNNER.invoke(
-    cli.project_runner.project_group, ['--help'], prog_name='cli proj'
+    cli.project_runner.project_group, ['--help'], prog_name='0 proj'
   )
 
   assert (result.exit_code, result.output) == (0, expected.output)

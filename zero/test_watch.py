@@ -50,8 +50,8 @@ def test_python_changes_select_the_affected_test_runners(
 @pytest.mark.parametrize(
   ('files', 'runner_name'),
   (
-    (['zero/cli.py'], 'do_ztest'),
-    (['proj/cli.py'], 'do_ptest'),
+    (['zero/cli.py'], '_do_ztest'),
+    (['proj/cli.py'], '_do_ptest'),
   ),
   ids=('command-plane', 'project'),
 )
@@ -75,7 +75,7 @@ def test_watch_commands_resolve_to_the_registered_runners(
     None,
   )
   assert calls == [
-    ((None, None, (), None), {'repo_root': command_plane_lib.REPO_ROOT})
+    ((command_plane_lib.REPO_ROOT, None, None, (), None), {})
   ]
 
 
