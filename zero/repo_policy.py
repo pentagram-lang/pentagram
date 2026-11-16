@@ -1,6 +1,10 @@
-import os
-import subprocess
+from __future__ import annotations
+
+from collections.abc import Iterable
+from dataclasses import dataclass
 from pathlib import Path
+
+from zero.lib import git_ls_files
 
 BANNED_FILE_NAMES = frozenset(
   {
@@ -21,40 +25,32 @@ class RepositoryPolicyError(RuntimeError):
   """The repository contains a prohibited ambient agent surface."""
 
 
-def _repository_files(repository_root: Path) -> list[Path]:
+@dataclass(frozen=True, slots=True, order=True)
+class PolicyViolation:
+  """One repository policy violation at a relative path."""
+
+  path: Path
+  reason: str
+
+
+def repository_files(repository_root: str | Path) -> tuple[Path, ...]:
+  """List tracked and non-ignored files in a Git repository."""
   try:
-    result = subprocess.run(
-      [
-        'git',
-        'ls-files',
-        '--cached',
-        '--others',
-        '--exclude-standard',
-        '-z',
-      ],
-      cwd=repository_root,
-      capture_output=True,
-      check=False,
-    )
+    root = Path(repository_root).resolve()
   except OSError as error:
     raise RepositoryPolicyError(
       f'Cannot scan repository with git: {error}'
     ) from error
-
-  if result.returncode != 0:
-    detail = (
-      result.stderr.decode(errors='replace').strip() or 'unknown git error'
+  try:
+    return git_ls_files(
+      root, error_prefix='Cannot scan repository with git'
     )
-    raise RepositoryPolicyError(
-      f'Cannot scan repository with git: {detail}'
-    )
-
-  return [
-    Path(os.fsdecode(path)) for path in result.stdout.split(b'\0') if path
-  ]
+  except RuntimeError as error:
+    raise RepositoryPolicyError(str(error)) from error
 
 
-def _violation(path: Path) -> str | None:
+def path_violation(path: Path) -> str | None:
+  """Return the policy violation reason for a path, or None if allowed."""
   if path.name in BANNED_FILE_NAMES:
     return f"banned file name '{path.name}'"
 
@@ -65,20 +61,29 @@ def _violation(path: Path) -> str | None:
   return None
 
 
+def evaluate_repository_policy(
+  paths: Iterable[Path],
+) -> tuple[PolicyViolation, ...]:
+  """Evaluate repository policy across unique relative paths."""
+  violations: list[PolicyViolation] = []
+  for path in dict.fromkeys(paths):
+    reason = path_violation(path)
+    if reason is not None:
+      violations.append(PolicyViolation(path, reason))
+  return tuple(sorted(violations))
+
+
 def check_repository_policy(repository_root: str | Path) -> None:
   """Reject non-ignored ambient agent files and directories."""
-  root = Path(repository_root).resolve()
-  violations = []
-  for path in _repository_files(root):
-    reason = _violation(path)
-    if reason:
-      violations.append((path, reason))
+  violations = evaluate_repository_policy(
+    repository_files(repository_root)
+  )
 
   if not violations:
     return
 
   details = '\n'.join(
-    f'  - {path}: {reason}' for path, reason in violations
+    f'  - {violation.path}: {violation.reason}' for violation in violations
   )
   raise RepositoryPolicyError(
     'Repository policy violations found:\n' + details

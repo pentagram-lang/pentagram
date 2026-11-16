@@ -11,13 +11,16 @@ MAX_LINE_LENGTH = 72
 _COMMAND = re.compile(r'^\$ \S(?:.*\S)?$')
 _QUOTED = re.compile(r"^(?:`[^`\r\n]+`|'[^'\r\n]+'|\"[^\"\r\n]+\")$")
 _URI = re.compile(r'^[A-Za-z][A-Za-z0-9+.-]*://\S+$')
-_PATH = re.compile(r'^(?:~?/|\.{1,2}/|/)[A-Za-z0-9_./:@%+=~-]+$')
+_PATH = re.compile(
+  r'^(?:~?/|\.{1,2}/)[A-Za-z0-9_./:@%+=~-]+$'
+  r'|^[A-Za-z0-9_.][A-Za-z0-9_.:@%+=~-]*/[A-Za-z0-9_./:@%+=~-]+$'
+)
 _IDENTIFIER = re.compile(
   r'^[A-Za-z_][A-Za-z0-9_]*[./:@%+=~-][A-Za-z0-9_./:@%+=~-]*$'
 )
 
 
-@dataclass(frozen=True, order=True)
+@dataclass(frozen=True, slots=True, order=True)
 class Diagnostic:
   line: int
   length: int
@@ -37,14 +40,15 @@ class CommitMessageLintError(RuntimeError):
     super().__init__('Commit message lint violations:\n' + details)
 
 
-def _read_message(repository_root: Path) -> str:
+def read_head_message(repository_root: str | Path) -> str:
+  """Read the HEAD commit message body from Git."""
   try:
+    root = Path(repository_root).resolve()
     result = subprocess.run(
       ['git', 'show', '-s', '--format=%B', 'HEAD'],
-      cwd=repository_root,
+      cwd=root,
       capture_output=True,
       check=False,
-      text=True,
     )
   except OSError as error:
     raise RuntimeError(
@@ -52,12 +56,20 @@ def _read_message(repository_root: Path) -> str:
     ) from error
 
   if result.returncode != 0:
-    detail = result.stderr.strip() or 'unknown git error'
+    detail = (
+      result.stderr.decode(encoding='utf-8', errors='replace').strip()
+      or 'unknown git error'
+    )
     raise RuntimeError(
       f'Cannot read the commit message with git: {detail}'
     )
 
-  return result.stdout
+  try:
+    return result.stdout.decode(encoding='utf-8')
+  except UnicodeDecodeError as error:
+    raise RuntimeError(
+      f'Cannot read the commit message with git: {error}'
+    ) from error
 
 
 def _is_exact_literal(line: str) -> bool:
@@ -71,6 +83,7 @@ def _is_exact_literal(line: str) -> bool:
 
 
 def lint_message(message: str) -> tuple[Diagnostic, ...]:
+  """Lint a commit message against line-length and literal rules."""
   lines = message.splitlines()
   diagnostics = []
   if lines and len(lines[0]) > MAX_LINE_LENGTH:
@@ -103,11 +116,13 @@ def lint_message(message: str) -> tuple[Diagnostic, ...]:
 def lint_commit_message(
   repository_root: str | Path,
 ) -> tuple[Diagnostic, ...]:
-  message = _read_message(Path(repository_root).resolve())
+  """Read and lint the HEAD commit message."""
+  message = read_head_message(repository_root)
   return lint_message(message)
 
 
 def check_commit_message(repository_root: str | Path) -> None:
+  """Raise CommitMessageLintError if HEAD commit message has violations."""
   diagnostics = lint_commit_message(repository_root)
   if diagnostics:
     raise CommitMessageLintError(diagnostics)

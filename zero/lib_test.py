@@ -10,6 +10,47 @@ from pytest import CaptureFixture, MonkeyPatch
 from zero import lib
 
 
+def test_parse_git_ls_files_and_git_ls_files(
+  monkeypatch: MonkeyPatch,
+) -> None:
+  assert lib.parse_git_ls_files(b'') == ()
+  assert lib.parse_git_ls_files(
+    b'README.md\0\0nix/\xffbad.nix\0README.md\0sub/file.py\0'
+  ) == (
+    Path('README.md'),
+    Path(os.fsdecode(b'nix/\xffbad.nix')),
+    Path('sub/file.py'),
+  )
+
+  calls: list[list[str]] = []
+
+  def fake_run(argv: list[str], **_kwargs: object) -> SimpleNamespace:
+    calls.append(argv)
+    return SimpleNamespace(
+      returncode=0,
+      stdout=b'README.md\0README.md\0zero/cli.py\0',
+      stderr=b'',
+    )
+
+  monkeypatch.setattr(lib.subprocess, 'run', fake_run)
+  assert lib.git_ls_files(Path('/repo')) == (
+    Path('README.md'),
+    Path('zero/cli.py'),
+  )
+  assert calls == [
+    [
+      'git',
+      '-C',
+      '/repo',
+      'ls-files',
+      '--cached',
+      '--others',
+      '--exclude-standard',
+      '-z',
+    ]
+  ]
+
+
 def test_repo_root_points_to_checkout_root() -> None:
   assert lib.REPO_ROOT == Path(__file__).resolve().parent.parent
 
@@ -628,3 +669,46 @@ def test_cargo_test_command_builder_preserves_arguments(
     )
     == expected
   )
+
+
+@pytest.mark.parametrize(
+  ('value', 'expected'),
+  [
+    ({'a': 1, 'b': 'two'}, {'a': 1, 'b': 'two'}),
+    ({}, {}),
+    ({1: 'non-string-key'}, None),
+    (['not', 'a', 'mapping'], None),
+    ('string', None),
+    (None, None),
+  ],
+  ids=(
+    'object',
+    'empty',
+    'non-string-key',
+    'list',
+    'string',
+    'none',
+  ),
+)
+def test_json_object_narrows_string_keyed_mappings(
+  value: object, expected: dict[str, object] | None
+) -> None:
+  assert lib.json_object(value) == expected
+
+
+@pytest.mark.parametrize(
+  ('value', 'expected'),
+  [
+    (['a', 'b'], ['a', 'b']),
+    ([], []),
+    (['a', 1], None),
+    (('a', 'b'), None),
+    ('ab', None),
+    (None, None),
+  ],
+  ids=('strings', 'empty', 'mixed-item', 'tuple', 'string', 'none'),
+)
+def test_string_list_narrows_lists_of_strings(
+  value: object, expected: list[str] | None
+) -> None:
+  assert lib.string_list(value) == expected

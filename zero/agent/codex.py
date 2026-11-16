@@ -1,157 +1,99 @@
 import json
 import os
+import posixpath
+import re
 import tomllib
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
+from types import MappingProxyType
 
 import click
 
-from .common import _exec_agent, _is_under
+from zero.lib import json_object
+
+from .common import (
+  exec_agent,
+  is_under,
+  read_regular_text,
+  scan_ambient_files,
+)
 
 type CodexConfig = dict[str, object]
 type CodexConfigEntry = tuple[Path, CodexConfig]
 
-
-def _string_keyed_object(value: object) -> CodexConfig | None:
-  if not isinstance(value, dict):
-    return None
-  result: CodexConfig = {}
-  for key, item in value.items():
-    if not isinstance(key, str):
-      return None
-    result[key] = item
-  return result
+_ENV_VAR_PATTERN = re.compile(r'\$(?:(\w+)|\{([^}]+)\})')
 
 
-def _codex_home() -> Path:
-  return Path.home() / '.codex'
+@dataclass(frozen=True, slots=True)
+class CodexState:
+  home: Path
+  codex_home: Path
+  configs: tuple[CodexConfigEntry, ...]
+  memory_files: tuple[Path, ...]
+  skill_files: tuple[Path, ...]
+  environ: Mapping[str, str]
+  skill_path_resolutions: tuple[tuple[Path, Path], ...] = ()
+  read_findings: tuple[str, ...] = ()
 
 
-def _codex_config_paths(project_root: Path) -> list[Path]:
-  paths = [_codex_home() / 'config.toml']
-  project_config = project_root / '.codex' / 'config.toml'
-  paths.append(project_config)
-
-  user_config = paths[0]
-  if user_config.is_file():
-    try:
-      config = _string_keyed_object(tomllib.loads(user_config.read_text()))
-    except (OSError, tomllib.TOMLDecodeError):
-      config = None
-    profile = config.get('profile') if config is not None else None
-    if profile:
-      paths.append(_codex_home() / f'{profile}.config.toml')
-
-  unique_paths = []
-  seen = set()
-  for path in paths:
-    resolved = path.expanduser().resolve()
-    if resolved not in seen:
-      seen.add(resolved)
-      unique_paths.append(resolved)
-  return unique_paths
+def parse_toml_config(
+  raw: str, path: Path
+) -> tuple[CodexConfig | None, str | None]:
+  """Parse TOML text as a table, returning (config, error)."""
+  try:
+    loaded = tomllib.loads(raw)
+  except tomllib.TOMLDecodeError as error:
+    return None, f'Cannot read Codex config {path}: {error}'
+  config = json_object(loaded)
+  if config is None:
+    return None, f'Invalid Codex config table: {path}'
+  return config, None
 
 
-def _read_codex_configs(
-  project_root: Path,
-) -> tuple[list[CodexConfigEntry], list[str]]:
-  configs: list[CodexConfigEntry] = []
-  findings: list[str] = []
-  for path in _codex_config_paths(project_root):
-    if not path.exists():
-      continue
-    if not path.is_file():
-      findings.append(f'Codex config path is not a file: {path}')
-      continue
-    try:
-      config = _string_keyed_object(tomllib.loads(path.read_text()))
-      if config is None:
-        findings.append(f'Invalid Codex config table: {path}')
-      else:
-        configs.append((path, config))
-    except (OSError, tomllib.TOMLDecodeError) as error:
-      findings.append(f'Cannot read Codex config {path}: {error}')
-  return configs, findings
+def _read_toml_file(path: Path) -> tuple[CodexConfig | None, str | None]:
+  raw, error = read_regular_text(path, 'Codex config')
+  if raw is None:
+    return None, error
+  return parse_toml_config(raw, path)
 
 
-def _codex_plugin_roots() -> tuple[Path, Path]:
-  codex_home = _codex_home()
-  return (
-    (codex_home / 'plugins').expanduser().resolve(),
-    (codex_home / '.tmp' / 'plugins').expanduser().resolve(),
+def _expand_skill_raw_path(
+  raw_path: str, home: Path, environ: Mapping[str, str]
+) -> Path:
+  expanded = _ENV_VAR_PATTERN.sub(
+    lambda match: environ.get(
+      match.group(1) or match.group(2), match.group(0)
+    ),
+    raw_path,
   )
+  if expanded == '~':
+    return home
+  if expanded.startswith('~/'):
+    return home / expanded[2:]
+  return Path(expanded)
 
 
-def _codex_skill_files() -> list[Path]:
-  roots = [_codex_home() / 'skills']
-  plugin_roots = _codex_plugin_roots()
-  skill_files = []
-  seen_roots: set[Path] = set()
-  seen_files: set[Path] = set()
-  for root in roots:
-    root = root.expanduser().resolve()
-    if root in seen_roots or not root.exists():
-      continue
-    seen_roots.add(root)
-    if root.is_file() and root.name == 'SKILL.md':
-      candidates = [root]
-    elif root.is_dir():
-      try:
-        candidates = root.rglob('SKILL.md')
-      except OSError:
-        candidates = ()
-    else:
-      candidates = ()
-    for candidate in candidates:
-      try:
-        resolved = candidate.resolve()
-      except OSError:
-        continue
-      if any(
-        _is_under(resolved, plugin_root) for plugin_root in plugin_roots
-      ):
-        continue
-      if resolved not in seen_files:
-        seen_files.add(resolved)
-        skill_files.append(resolved)
-  return sorted(skill_files)
-
-
-def _codex_memory_files() -> list[Path]:
-  files: list[Path] = []
-  for root in (_codex_home() / 'memories',):
-    root = root.expanduser().resolve()
-    if not root.is_dir():
-      continue
-    try:
-      candidates = root.rglob('*')
-    except OSError:
-      candidates = ()
-    for candidate in candidates:
-      try:
-        resolved = candidate.resolve()
-      except OSError:
-        continue
-      if resolved.is_file():
-        files.append(resolved)
-  return sorted(set(files))
-
-
-def _skill_config_path(raw_path: str, config_path: Path) -> Path:
-  path = Path(os.path.expandvars(raw_path)).expanduser()
+def _skill_config_path(
+  raw_path: str, config_path: Path, home: Path, environ: Mapping[str, str]
+) -> Path:
+  path = _expand_skill_raw_path(raw_path, home, environ)
   if not path.is_absolute():
     path = config_path.parent / path
   if path.name != 'SKILL.md':
-    path /= 'SKILL.md'
-  return path.resolve()
+    path = path / 'SKILL.md'
+  return Path(posixpath.normpath(str(path)))
 
 
 def _codex_skill_overrides(
-  configs: Sequence[CodexConfigEntry], findings: list[str]
-) -> list[tuple[Path, bool, Path]]:
-  overrides: list[tuple[Path, bool, Path]] = []
+  configs: Sequence[CodexConfigEntry],
+  home: Path,
+  environ: Mapping[str, str],
+) -> tuple[list[tuple[Path, bool]], list[str]]:
+  overrides: list[tuple[Path, bool]] = []
+  findings: list[str] = []
   for config_path, config in configs:
-    skills = _string_keyed_object(config.get('skills', {}))
+    skills = json_object(config.get('skills', {}))
     if skills is None:
       findings.append(
         f'Invalid skills table in Codex config {config_path}'
@@ -163,8 +105,8 @@ def _codex_skill_overrides(
         f'Invalid skills.config value in Codex config {config_path}'
       )
       continue
-    for index, entry in enumerate(entries):
-      entry = _string_keyed_object(entry)
+    for index, raw_entry in enumerate(entries):
+      entry = json_object(raw_entry)
       if entry is None:
         findings.append(
           f'Invalid skills.config entry {index} in Codex config '
@@ -178,21 +120,128 @@ def _codex_skill_overrides(
           f'{config_path}'
         )
         continue
-      overrides.append(
-        (
-          _skill_config_path(raw_path, config_path),
-          entry.get('enabled') is False,
-          config_path,
+      skill_path = _skill_config_path(raw_path, config_path, home, environ)
+      enabled = entry.get('enabled')
+      if not isinstance(enabled, bool):
+        findings.append(
+          f'Invalid skills.config entry {index} in Codex config '
+          f'{config_path}'
         )
-      )
-  return overrides
+        overrides.append((skill_path, False))
+        continue
+      overrides.append((skill_path, enabled is False))
+  return overrides, findings
 
 
-def _codex_feature_remediation(
-  setting: str, config_path: Path | None = None
-) -> str:
+def _codex_skill_files(
+  codex_home: Path, findings: list[str]
+) -> tuple[Path, ...]:
+  plugin_roots: list[Path] = []
+  for candidate in (
+    codex_home / 'plugins',
+    codex_home / '.tmp' / 'plugins',
+  ):
+    try:
+      plugin_roots.append(candidate.resolve())
+    except OSError:
+      plugin_roots.append(candidate)
+
+  scanned, scan_findings = scan_ambient_files(
+    codex_home / 'skills',
+    label='Codex skills',
+    match_name='SKILL.md',
+    allow_single_file=True,
+  )
+  findings.extend(scan_findings)
+  return tuple(
+    resolved
+    for resolved in scanned
+    if not any(is_under(resolved, root) for root in plugin_roots)
+  )
+
+
+def _codex_memory_files(
+  codex_home: Path, findings: list[str]
+) -> tuple[Path, ...]:
+  scanned, scan_findings = scan_ambient_files(
+    codex_home / 'memories', label='Codex memories'
+  )
+  findings.extend(scan_findings)
+  return scanned
+
+
+def _collect_codex_state(project_root: Path) -> CodexState:
+  home = Path.home().resolve()
+  codex_home = (home / '.codex').resolve()
+  resolved_root = project_root.resolve()
+  environ = MappingProxyType(dict(os.environ))
+  findings: list[str] = []
+  configs: list[CodexConfigEntry] = []
+  seen_paths: set[Path] = set()
+
+  user_candidate = codex_home / 'config.toml'
+  user_config: CodexConfig | None = None
+  try:
+    user_config_path = user_candidate.resolve()
+  except OSError as error:
+    findings.append(f'Cannot read Codex config {user_candidate}: {error}')
+  else:
+    seen_paths.add(user_config_path)
+    user_config, err = _read_toml_file(user_config_path)
+    if err is not None:
+      findings.append(err)
+    elif user_config is not None:
+      configs.append((user_config_path, user_config))
+
+  extra_candidates = [resolved_root / '.codex' / 'config.toml']
+  profile = user_config.get('profile') if user_config is not None else None
+  if isinstance(profile, str) and profile:
+    extra_candidates.append(codex_home / f'{profile}.config.toml')
+
+  for candidate in extra_candidates:
+    try:
+      resolved = candidate.resolve()
+    except OSError as error:
+      findings.append(f'Cannot read Codex config {candidate}: {error}')
+      continue
+    if resolved in seen_paths:
+      continue
+    seen_paths.add(resolved)
+    config, err = _read_toml_file(resolved)
+    if err is not None:
+      findings.append(err)
+    elif config is not None:
+      configs.append((resolved, config))
+
+  memory_files = _codex_memory_files(codex_home, findings)
+  skill_files = _codex_skill_files(codex_home, findings)
+
+  overrides, _ = _codex_skill_overrides(configs, home, environ)
+  resolutions: dict[Path, Path] = {}
+  for skill_path, _ in overrides:
+    if skill_path in resolutions:
+      continue
+    try:
+      resolved_skill = skill_path.resolve()
+    except OSError:
+      continue
+    if resolved_skill != skill_path:
+      resolutions[skill_path] = resolved_skill
+
+  return CodexState(
+    home=home,
+    codex_home=codex_home,
+    configs=tuple(configs),
+    memory_files=memory_files,
+    skill_files=skill_files,
+    environ=environ,
+    skill_path_resolutions=tuple(sorted(resolutions.items())),
+    read_findings=tuple(findings),
+  )
+
+
+def _codex_feature_remediation(setting: str, config_path: Path) -> str:
   _, name = setting.split('.', 1)
-  config_path = config_path or (_codex_home() / 'config.toml')
   return (
     f'run codex features disable {name}; this persists the disabled '
     f'state in {config_path}'
@@ -206,28 +255,22 @@ def _codex_mcp_remediation(name: str, config_path: Path) -> str:
   )
 
 
-def _codex_skill_remediation(skill_file: Path) -> str:
-  return f'run /skills and disable {skill_file}'
-
-
-def _codex_mcp_findings(
-  configs: Sequence[CodexConfigEntry],
-) -> list[str]:
+def _codex_mcp_findings(configs: Sequence[CodexConfigEntry]) -> list[str]:
   findings: list[str] = []
   for config_path, config in configs:
-    servers = _string_keyed_object(config.get('mcp_servers', {}))
+    servers = json_object(config.get('mcp_servers', {}))
     if servers is None:
       findings.append(
         f'Invalid mcp_servers table in Codex config {config_path}'
       )
-    else:
-      for name, value in servers.items():
-        server = _string_keyed_object(value)
-        if server is None or server.get('enabled') is not False:
-          findings.append(
-            f'Codex MCP server {name!r} is not disabled in {config_path}; '
-            f'{_codex_mcp_remediation(name, config_path)}'
-          )
+      continue
+    for name, value in sorted(servers.items()):
+      server = json_object(value)
+      if server is None or server.get('enabled') is not False:
+        findings.append(
+          f'Codex MCP server {name!r} is not disabled in {config_path}; '
+          f'{_codex_mcp_remediation(name, config_path)}'
+        )
   return findings
 
 
@@ -240,7 +283,7 @@ def _codex_feature_findings(
     'features.plugins': [],
   }
   for config_path, config in configs:
-    features = _string_keyed_object(config.get('features', {}))
+    features = json_object(config.get('features', {}))
     if features is None:
       findings.append(
         f'Invalid features table in Codex config {config_path}'
@@ -270,30 +313,62 @@ def _codex_feature_findings(
   return findings
 
 
-def _check_codex_ambient_state(project_root: Path) -> None:
-  configs, findings = _read_codex_configs(project_root)
-  findings.extend(_codex_feature_findings(configs))
-  findings.extend(_codex_mcp_findings(configs))
+def codex_preflight_findings(state: CodexState) -> tuple[str, ...]:
+  """Evaluate all pure Codex preflight invariants against CodexState."""
+  findings = list(state.read_findings)
+  findings.extend(_codex_feature_findings(state.configs))
+  findings.extend(_codex_mcp_findings(state.configs))
 
-  for memory_file in _codex_memory_files():
+  for memory_file in state.memory_files:
     findings.append(
       f'Codex memory file {memory_file} is present; remove or rename it '
       'because Codex has no persistent setting to disable memory files'
     )
 
-  overrides = _codex_skill_overrides(configs, findings)
-  disabled_paths = {path for path, disabled, _ in overrides if disabled}
-  undisabled_skills = []
-  for skill_file in _codex_skill_files():
+  overrides, override_findings = _codex_skill_overrides(
+    state.configs, state.home, state.environ
+  )
+  findings.extend(override_findings)
+  resolutions = dict(state.skill_path_resolutions)
+  skill_states: dict[Path, bool] = {}
+  for path, disabled in overrides:
+    canonical = resolutions.get(path, path)
+    if not disabled:
+      skill_states[canonical] = False
+    elif canonical not in skill_states:
+      skill_states[canonical] = True
+  disabled_paths = {
+    path for path, disabled in skill_states.items() if disabled
+  }
+
+  for skill_file in state.skill_files:
     if skill_file not in disabled_paths:
-      undisabled_skills.append(skill_file)
+      findings.append(
+        f'Codex skill {skill_file} is not disabled; '
+        f'run /skills and disable {skill_file}'
+      )
+  return tuple(findings)
 
-  for skill_file in undisabled_skills:
-    findings.append(
-      f'Codex skill {skill_file} is not disabled; '
-      f'{_codex_skill_remediation(skill_file)}'
-    )
 
+def build_launch_command(
+  project_root: Path, system_file: Path, model: str
+) -> list[str]:
+  """Build the Codex CLI command line."""
+  config = f'model_instructions_file={json.dumps(str(system_file))}'
+  return [
+    'codex',
+    '--model',
+    model,
+    '--config',
+    config,
+    '--dangerously-bypass-approvals-and-sandbox',
+    '--cd',
+    str(project_root),
+  ]
+
+
+def _check_codex_ambient_state(project_root: Path) -> None:
+  findings = codex_preflight_findings(_collect_codex_state(project_root))
   if findings:
     detail = '\n'.join(f'  - {finding}' for finding in findings)
     raise click.ClickException(
@@ -307,16 +382,10 @@ def launch(
   arguments: Sequence[str],
   model: str,
 ) -> None:
+  """Run Codex preflight checks and replace the process with codex."""
   _check_codex_ambient_state(project_root)
-  config = f'model_instructions_file={json.dumps(str(system_file))}'
-  command = [
-    'codex',
-    '--model',
-    model,
-    '--config',
-    config,
-    '--dangerously-bypass-approvals-and-sandbox',
-    '--cd',
-    str(project_root),
-  ]
-  _exec_agent(project_root, command, arguments)
+  exec_agent(
+    project_root,
+    build_launch_command(project_root, system_file, model),
+    arguments,
+  )

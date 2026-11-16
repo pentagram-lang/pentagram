@@ -2,7 +2,7 @@ import os
 import shlex
 import subprocess
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final, ParamSpec, TypeVar
@@ -36,27 +36,40 @@ def status(label: str, duration: float, success: bool = True) -> None:
   )
 
 
-def nix_files(root: str | os.PathLike[str] = '.') -> list[str]:
-  try:
-    completed = subprocess.run(
-      [
-        'git',
-        '-C',
-        os.fspath(root),
-        'ls-files',
-        '--cached',
-        '--others',
-        '--exclude-standard',
-        '-z',
-        '--',
-        '*.nix',
-      ],
-      capture_output=True,
-      check=False,
+def parse_git_ls_files(stdout: bytes) -> tuple[Path, ...]:
+  """Parse NUL-delimited `git ls-files -z` output into unique paths."""
+  return tuple(
+    dict.fromkeys(
+      Path(os.fsdecode(raw_path))
+      for raw_path in stdout.split(b'\0')
+      if raw_path
     )
+  )
+
+
+def git_ls_files(
+  root: str | os.PathLike[str],
+  *pathspecs: str,
+  error_prefix: str = 'Cannot scan repository with git',
+) -> tuple[Path, ...]:
+  """List tracked and non-ignored Git paths under root."""
+  command = [
+    'git',
+    '-C',
+    os.fspath(root),
+    'ls-files',
+    '--cached',
+    '--others',
+    '--exclude-standard',
+    '-z',
+  ]
+  if pathspecs:
+    command.extend(('--', *pathspecs))
+  try:
+    completed = subprocess.run(command, capture_output=True, check=False)
   except OSError as error:
     raise RuntimeError(
-      sanitize_text(f'Cannot scan Nix files with git: {error}')
+      sanitize_text(f'{error_prefix}: {error}')
     ) from error
 
   if completed.returncode != 0:
@@ -64,13 +77,17 @@ def nix_files(root: str | os.PathLike[str] = '.') -> list[str]:
       completed.stderr.decode(errors='replace').strip()
       or 'unknown git error'
     )
-    raise RuntimeError(f'Cannot scan Nix files with git: {detail}')
+    raise RuntimeError(sanitize_text(f'{error_prefix}: {detail}'))
 
+  return parse_git_ls_files(completed.stdout)
+
+
+def nix_files(root: str | os.PathLike[str] = '.') -> list[str]:
+  """List regular non-symlink Nix files tracked or visible to Git."""
   matches: set[str] = set()
-  for raw_path in completed.stdout.split(b'\0'):
-    if not raw_path:
-      continue
-    rel_path = os.fsdecode(raw_path)
+  for rel_path in git_ls_files(
+    root, '*.nix', error_prefix='Cannot scan Nix files with git'
+  ):
     candidate = Path(root, rel_path)
     try:
       is_candidate = not candidate.is_symlink() and candidate.is_file()
@@ -219,3 +236,25 @@ def get_cargo_test_cmd(
     if nocapture:
       cmd.append('--nocapture')
   return cmd
+
+
+def json_object(value: object) -> dict[str, object] | None:
+  if not isinstance(value, Mapping):
+    return None
+  result: dict[str, object] = {}
+  for key, item in value.items():
+    if not isinstance(key, str):
+      return None
+    result[key] = item
+  return result
+
+
+def string_list(value: object) -> list[str] | None:
+  if not isinstance(value, list):
+    return None
+  result: list[str] = []
+  for item in value:
+    if not isinstance(item, str):
+      return None
+    result.append(item)
+  return result

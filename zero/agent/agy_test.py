@@ -1,17 +1,19 @@
-import fnmatch
 import json
-import posixpath
+import os
+import re
+import signal
+import stat
 import subprocess
 from collections import deque
 from collections.abc import Iterator, Mapping, Sequence
-from contextlib import contextmanager
+from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
 import click
 import pytest
 
-from zero.agent import agy
+from zero.agent import agy, common
 from zero.agent.common import JsonObject
 
 HOME = Path('/home/operator')
@@ -52,57 +54,214 @@ EXPECTED_ADAPTER = (
 )
 
 
-@dataclass(frozen=True)
-class CommandCall:
-  command: tuple[str, ...]
-  cwd: Path
-  env: dict[str, str]
-  capture_output: bool
-  adapter_content: str | None
+@dataclass(frozen=True, slots=True)
+class _FakeNode:
+  mode: int
+  ino: int
+  dev: int = 1
+  content: str | Exception | None = None
+  target: Path | None = None
+  children: tuple[tuple[str, Path], ...] = ()
+  scandir_error: OSError | None = None
+
+  def to_stat_result(self) -> os.stat_result:
+    return os.stat_result(
+      (self.mode, self.ino, self.dev, 1, 0, 0, 0, 0, 0, 0)
+    )
 
 
-@dataclass(frozen=True)
-class CommandReply:
-  returncode: int = 0
-  stdout: str = ''
-  stderr: str = ''
+class _FakeDirEntry:
+  def __init__(
+    self, name: str, path: Path, nodes: Mapping[Path, _FakeNode]
+  ) -> None:
+    self.name = name
+    self.path = str(path)
+    self._path = path
+    self._nodes = nodes
+
+  def is_symlink(self) -> bool:
+    return stat.S_ISLNK(self._nodes[self._path].mode)
+
+  def stat(self, *, follow_symlinks: bool = True) -> os.stat_result:
+    node = self._nodes[self._path]
+    if not follow_symlinks or node.target is None:
+      return node.to_stat_result()
+    target = self._nodes.get(node.target)
+    if target is None:
+      raise FileNotFoundError(
+        2, 'No such file or directory', str(self._path)
+      )
+    return target.to_stat_result()
 
 
-@dataclass(frozen=True)
-class LaunchOutcome:
-  exit_code: int | None
-  error: str | None
-  calls: tuple[CommandCall, ...] = ()
-  remaining_runtime_files: tuple[Path, ...] = ()
+@contextmanager
+def _scandir_context(
+  items: list[_FakeDirEntry],
+) -> Iterator[Iterator[_FakeDirEntry]]:
+  yield iter(items)
 
 
-def _norm(path: Path) -> Path:
-  return Path(posixpath.normpath(str(path)))
+def _install_virtual_fs(
+  mp: pytest.MonkeyPatch,
+  *,
+  files: Mapping[Path, str | Exception],
+  symlinks: Mapping[Path, Path] | None = None,
+  extra_dirs: Mapping[Path, OSError | None] | None = None,
+  others: Sequence[Path] = (),
+  read_counts: dict[Path, int] | None = None,
+) -> None:
+  nodes: dict[Path, _FakeNode] = {}
+  dir_children: dict[Path, dict[str, Path]] = {}
+  next_ino = 100
+
+  def alloc_ino() -> int:
+    nonlocal next_ino
+    next_ino += 1
+    return next_ino
+
+  def ensure_dir(
+    directory: Path, scandir_error: OSError | None = None
+  ) -> None:
+    if directory not in nodes:
+      nodes[directory] = _FakeNode(
+        stat.S_IFDIR | 0o755,
+        ino=alloc_ino(),
+        scandir_error=scandir_error,
+      )
+      dir_children.setdefault(directory, {})
+    for parent in directory.parents:
+      if parent == directory:
+        continue
+      if parent not in nodes:
+        nodes[parent] = _FakeNode(stat.S_IFDIR | 0o755, ino=alloc_ino())
+        dir_children.setdefault(parent, {})
+    for child in (directory, *directory.parents):
+      parent = child.parent
+      if child != parent:
+        dir_children.setdefault(parent, {})[child.name] = child
+
+  ensure_dir(HOME)
+  ensure_dir(PROJECT_ROOT)
+  for directory, scandir_err in (extra_dirs or {}).items():
+    ensure_dir(directory, scandir_error=scandir_err)
+
+  for path in others:
+    ensure_dir(path.parent)
+    nodes[path] = _FakeNode(stat.S_IFIFO | 0o644, ino=alloc_ino())
+    dir_children.setdefault(path.parent, {})[path.name] = path
+
+  for path, content in files.items():
+    ensure_dir(path.parent)
+    nodes[path] = _FakeNode(
+      stat.S_IFREG | 0o644, ino=alloc_ino(), content=content
+    )
+    dir_children.setdefault(path.parent, {})[path.name] = path
+
+  for path, target in (symlinks or {}).items():
+    ensure_dir(path.parent)
+    nodes[path] = _FakeNode(
+      stat.S_IFLNK | 0o777, ino=alloc_ino(), target=target
+    )
+    dir_children.setdefault(path.parent, {})[path.name] = path
+
+  for directory, children in dir_children.items():
+    existing = nodes[directory]
+    nodes[directory] = _FakeNode(
+      existing.mode,
+      ino=existing.ino,
+      scandir_error=existing.scandir_error,
+      children=tuple(sorted(children.items())),
+    )
+
+  link_map = symlinks or {}
+
+  def resolve_path(path: Path) -> Path:
+    parts = path.parts
+    resolved = Path(parts[0])
+    for part in parts[1:]:
+      resolved = resolved / part
+      if resolved in link_map:
+        resolved = link_map[resolved]
+    return resolved
+
+  def fake_lstat(self: Path) -> os.stat_result:
+    node = nodes.get(self)
+    if node is None:
+      raise FileNotFoundError(2, 'No such file or directory', str(self))
+    return node.to_stat_result()
+
+  def fake_stat(
+    self: Path, *, follow_symlinks: bool = True
+  ) -> os.stat_result:
+    key = resolve_path(self) if follow_symlinks else self
+    node = nodes.get(key)
+    if node is None:
+      raise FileNotFoundError(2, 'No such file or directory', str(self))
+    return node.to_stat_result()
+
+  def fake_resolve(self: Path, strict: bool = False) -> Path:
+    del strict
+    return resolve_path(self)
+
+  def fake_read_text(self: Path, encoding: str = 'utf-8') -> str:
+    del encoding
+    target = resolve_path(self)
+    if read_counts is not None:
+      read_counts[target] = read_counts.get(target, 0) + 1
+    node = nodes.get(target)
+    if node is None or node.content is None:
+      raise FileNotFoundError(self)
+    if isinstance(node.content, Exception):
+      raise node.content
+    return node.content
+
+  def fake_scandir(
+    path: Path | str,
+  ) -> AbstractContextManager[Iterator[_FakeDirEntry]]:
+    key = resolve_path(Path(path))
+    node = nodes.get(key)
+    if node is None:
+      raise FileNotFoundError(2, 'No such file or directory', str(path))
+    if node.scandir_error is not None:
+      raise node.scandir_error
+    return _scandir_context(
+      [_FakeDirEntry(name, child, nodes) for name, child in node.children]
+    )
+
+  mp.setattr(agy.os, 'environ', {'HOME': str(HOME), 'PATH': '/usr/bin'})
+  mp.setattr(Path, 'home', classmethod(lambda cls: HOME))
+  mp.setattr(Path, 'lstat', fake_lstat)
+  mp.setattr(Path, 'stat', fake_stat)
+  mp.setattr(Path, 'resolve', fake_resolve)
+  mp.setattr(Path, 'read_text', fake_read_text)
+  mp.setattr(common.os, 'scandir', fake_scandir)
 
 
-def _json_text(value: JsonObject) -> str:
-  return json.dumps(value)
-
-
-def _launch_command(
-  *arguments: str, model: str = MODEL
-) -> tuple[str, ...]:
-  return (
-    'agy',
-    '--new-project',
-    '--add-dir',
-    str(RUNTIME_DIR),
-    '--agent',
-    'pentagram',
-    '--model',
-    model,
-    '--dangerously-skip-permissions',
-    *arguments,
+def _safe_agy_state(
+  *,
+  rule_files: tuple[Path, ...] = (),
+  skill_files: tuple[Path, ...] = (),
+  plugin_state: JsonObject | None = None,
+  plugin_manifests: tuple[agy.AgyPluginManifest, ...] = (),
+  mcp_config: JsonObject | None = None,
+  read_findings: tuple[str, ...] = (),
+) -> agy.AgyState:
+  return agy.AgyState(
+    config_root=CONFIG,
+    rule_files=rule_files,
+    skill_files=skill_files,
+    plugin_state=plugin_state,
+    plugin_manifests=plugin_manifests,
+    mcp_config=mcp_config,
+    read_findings=read_findings,
   )
 
 
-def _probe_command(model: str = MODEL) -> tuple[str, ...]:
-  return (
+def test_render_and_command_builders() -> None:
+  assert agy.render_agent_adapter(SYSTEM_CONTENT) == EXPECTED_ADAPTER
+  assert agy.build_launch_command(
+    RUNTIME_DIR, MODEL, ('--resume', 'session-1')
+  ) == [
     'agy',
     '--new-project',
     '--add-dir',
@@ -110,650 +269,399 @@ def _probe_command(model: str = MODEL) -> tuple[str, ...]:
     '--agent',
     'pentagram',
     '--model',
-    model,
+    MODEL,
+    '--dangerously-skip-permissions',
+    '--resume',
+    'session-1',
+  ]
+  assert agy.build_toolset_probe_command(RUNTIME_DIR, MODEL) == [
+    'agy',
+    '--new-project',
+    '--add-dir',
+    str(RUNTIME_DIR),
+    '--agent',
+    'pentagram',
+    '--model',
+    MODEL,
     '--output-format',
     'stream-json',
     '--print',
     'Reply OK and do not call any tools.',
+  ]
+
+
+def test_expand_agy_path_and_path_matching() -> None:
+  env = {'ROOT': '/opt/agy', 'SUB': 'shared'}
+  assert agy.expand_agy_path('~', HOME, env) == HOME
+  assert agy.expand_agy_path('~/skills', HOME, env) == HOME / 'skills'
+  assert agy.expand_agy_path('$ROOT/${SUB}/$MISSING', HOME, env) == Path(
+    '/opt/agy/shared/$MISSING'
+  )
+
+  include_groups = ((re.compile('team'), re.compile('shared')),)
+  excludes = (re.compile('private'),)
+  assert agy.agy_path_matches(
+    Path('/shared/shared-search'), include_groups, excludes
+  )
+  assert not agy.agy_path_matches(
+    Path('/shared/team-private'), include_groups, excludes
+  )
+  assert not agy.agy_path_matches(
+    Path('/shared/solo-search'), include_groups, excludes
   )
 
 
-def _run_launch(
-  monkeypatch: pytest.MonkeyPatch,
-  *,
-  files: Mapping[Path, str] | None = None,
-  dirs: Sequence[Path] = (),
-  other_paths: Sequence[Path] = (),
-  environ: Mapping[str, str] | None = None,
-  arguments: Sequence[str] = (),
-  model: str = MODEL,
-  replies: Sequence[CommandReply] = (CommandReply(0),),
-) -> LaunchOutcome:
-  virtual_files: dict[Path, str] = {SYSTEM_FILE: SYSTEM_CONTENT}
-  if files is not None:
-    for path, content in files.items():
-      virtual_files[_norm(path)] = content
-
-  virtual_others = {_norm(path) for path in other_paths}
-  virtual_dirs = {_norm(HOME), _norm(PROJECT_ROOT)}
-  for directory in dirs:
-    virtual_dirs.add(_norm(directory))
-  for entry in (*virtual_files, *virtual_dirs.copy(), *virtual_others):
-    virtual_dirs.update(_norm(parent) for parent in entry.parents)
-  virtual_dirs -= set(virtual_files) | virtual_others
-
-  env_map = dict(environ) if environ is not None else {'PATH': '/usr/bin'}
-  reply_queue = deque(replies)
-  calls: list[CommandCall] = []
-  runtime_counter = 0
-
-  def path_kind(path: Path) -> agy.PathKind:
-    normalized = _norm(path)
-    if normalized in virtual_files:
-      return 'file'
-    if normalized in virtual_dirs:
-      return 'dir'
-    if normalized in virtual_others:
-      return 'other'
-    return 'missing'
-
-  def read_text(path: Path) -> str:
-    normalized = _norm(path)
-    if normalized not in virtual_files:
-      raise FileNotFoundError(normalized)
-    return virtual_files[normalized]
-
-  def rglob(root: Path, pattern: str) -> tuple[Path, ...]:
-    normalized_root = _norm(root)
-    candidates = sorted(
-      path
-      for path in (*virtual_files, *virtual_dirs)
-      if normalized_root in path.parents
-      and fnmatch.fnmatchcase(path.name, pattern)
-    )
-    return tuple(candidates)
-
-  @contextmanager
-  def runtime_adapter(agent_content: str) -> Iterator[Path]:
-    nonlocal runtime_counter
-    runtime_dir = Path(f'/runtime/pentagram-agy-{runtime_counter}')
-    runtime_counter += 1
-    adapter_file = (
-      runtime_dir / '.agents' / 'agents' / 'pentagram' / 'agent.md'
-    )
-    virtual_files[adapter_file] = agent_content
-    virtual_dirs.update(_norm(parent) for parent in adapter_file.parents)
-    try:
-      yield runtime_dir
-    finally:
-      virtual_files.pop(adapter_file, None)
-
-  def run_command(
-    command: Sequence[str],
-    cwd: Path,
-    env: Mapping[str, str],
-    capture_output: bool,
-  ) -> subprocess.CompletedProcess[str]:
-    runtime_arg = Path(command[command.index('--add-dir') + 1])
-    adapter_file = (
-      _norm(runtime_arg) / '.agents' / 'agents' / 'pentagram' / 'agent.md'
-    )
-    calls.append(
-      CommandCall(
-        command=tuple(command),
-        cwd=_norm(cwd),
-        env=dict(env),
-        capture_output=capture_output,
-        adapter_content=virtual_files.get(adapter_file),
-      )
-    )
-    reply = reply_queue.popleft()
-    return subprocess.CompletedProcess(
-      list(command), reply.returncode, reply.stdout, reply.stderr
-    )
-
-  host = agy._Host(
-    home=_norm(HOME),
-    environ=env_map,
-    resolve=_norm,
-    path_kind=path_kind,
-    read_text=read_text,
-    rglob=rglob,
-    runtime_adapter=runtime_adapter,
-    run_command=run_command,
-  )
-  monkeypatch.setattr(agy, '_os_host', lambda: host)
-
-  exit_code: int | None = None
-  error: str | None = None
-  try:
-    agy.launch(PROJECT_ROOT, SYSTEM_FILE, arguments, model)
-  except click.exceptions.Exit as exit_exc:
-    exit_code = exit_exc.exit_code
-  except click.ClickException as click_exc:
-    error = str(click_exc)
-
-  remaining_runtime = tuple(
-    sorted(
-      path for path in virtual_files if str(path).startswith('/runtime/')
-    )
-  )
-  return LaunchOutcome(
-    exit_code=exit_code,
-    error=error,
-    calls=tuple(calls),
-    remaining_runtime_files=remaining_runtime,
-  )
-
-
-def test_launch_builds_adapter_ignores_non_ambient_paths_and_exits(
-  monkeypatch: pytest.MonkeyPatch,
-) -> None:
-  outcome = _run_launch(
-    monkeypatch,
-    files={
-      CONFIG / 'mcp_config.json': '  \n',
-      HOME
-      / '.gemini'
-      / 'antigravity-cli'
-      / 'builtin'
-      / 'skills'
-      / 'native_swarm'
-      / 'SKILL.md': 'builtin\n',
-      PROJECT_ROOT
-      / '.gemini'
-      / 'config'
-      / 'skills'
-      / 'local'
-      / 'SKILL.md': 'local\n',
-      PROJECT_ROOT / '.agents' / 'rules' / 'local.md': 'local\n',
+def test_parse_registration_config_parses_filters_and_reports_errors() -> (
+  None
+):
+  config_path = CONFIG / 'skills.json'
+  parsed = agy.parse_registration_config(
+    {
+      'entries': [
+        {
+          'path': 'shared',
+          'include_only': ['search'],
+          'exclude': ['draft'],
+        },
+        'not-a-dict',
+        {'include_only': ['ok']},
+      ],
+      'inherits': [
+        {'path': 'base.json', 'include_only': 'bad', 'exclude': ['[']},
+      ],
     },
-    environ={'PATH': '/usr/bin'},
-    arguments=('--resume', 'session-1'),
-    replies=(CommandReply(returncode=7),),
+    config_path=config_path,
+    kind='skills',
+    inherited_include_groups=((re.compile('team'),),),
+    inherited_excludes=(re.compile('legacy'),),
   )
 
-  assert outcome == LaunchOutcome(
-    exit_code=7,
-    error=None,
-    calls=(
-      CommandCall(
-        command=_launch_command('--resume', 'session-1'),
-        cwd=PROJECT_ROOT,
-        env={'PATH': '/usr/bin'},
-        capture_output=False,
-        adapter_content=EXPECTED_ADAPTER,
+  assert parsed == agy.ParsedRegistrationConfig(
+    entries=(
+      agy.AgyFilterEntry(
+        'shared',
+        ((re.compile('team'),), (re.compile('search'),)),
+        (re.compile('legacy'), re.compile('draft')),
       ),
     ),
+    inherits=(
+      agy.AgyFilterEntry(
+        'base.json',
+        ((re.compile('team'),),),
+        (re.compile('legacy'),),
+      ),
+    ),
+    findings=(
+      f'Invalid AGY skills config entry 1 in {config_path}',
+      f'Invalid AGY skills config entry 2 in {config_path}',
+      f'Invalid include_only in AGY skills inheritance entry 0 in '
+      f'{config_path}',
+      f"Invalid exclude pattern '[' in AGY skills inheritance entry 0 in "
+      f'{config_path}: unterminated character set at position 0',
+    ),
   )
 
-
-@pytest.mark.parametrize(
-  ('files', 'environ', 'expected_skill'),
-  (
-    (
-      {CONFIG / 'skills' / 'search' / 'SKILL.md': 'skill\n'},
-      {'PATH': '/usr/bin'},
-      CONFIG / 'skills' / 'search' / 'SKILL.md',
-    ),
-    (
-      {
-        CONFIG / 'skills.json': _json_text(
-          {'inherits': [{'path': '$SHARED_REG/skills.json'}]}
-        ),
-        Path('/opt/agy/skills.json'): _json_text(
-          {'entries': [{'path': '~/shared/skills'}]}
-        ),
-        HOME / 'shared' / 'skills' / 'search' / 'SKILL.md': 'skill\n',
-      },
-      {'PATH': '/usr/bin', 'SHARED_REG': '/opt/agy'},
-      HOME / 'shared' / 'skills' / 'search' / 'SKILL.md',
-    ),
-  ),
-  ids=('standard-skill', 'inherited-env-and-home-skill'),
-)
-def test_preflight_rejects_standard_and_inherited_skills(
-  monkeypatch: pytest.MonkeyPatch,
-  files: Mapping[Path, str],
-  environ: Mapping[str, str],
-  expected_skill: Path,
-) -> None:
-  outcome = _run_launch(monkeypatch, files=files, environ=environ)
-
-  assert outcome == LaunchOutcome(
-    exit_code=None,
-    error=(
-      'AGY filesystem preflight failed:\n'
-      f'  - AGY skill {expected_skill} is present; remove it or '
-      'deregister its path because AGY has no persistent all-skills '
-      'disable setting'
+  bad_lists = agy.parse_registration_config(
+    {'entries': 'bad', 'inherits': 123},
+    config_path=config_path,
+    kind='skills',
+  )
+  assert bad_lists == agy.ParsedRegistrationConfig(
+    entries=(),
+    inherits=(),
+    findings=(
+      f'Invalid entries in AGY skills config {config_path}',
+      f'Invalid inherits in AGY skills config {config_path}',
     ),
   )
 
 
-@pytest.mark.parametrize(
-  ('files', 'expected_rule'),
-  (
-    ({HOME / 'AGENTS.md': 'rule\n'}, HOME / 'AGENTS.md'),
-    ({HOME / 'GEMINI.md': 'rule\n'}, HOME / 'GEMINI.md'),
-    (
-      {HOME / '.gemini' / 'AGENTS.md': 'rule\n'},
-      HOME / '.gemini' / 'AGENTS.md',
-    ),
-    (
-      {HOME / '.gemini' / 'GEMINI.md': 'rule\n'},
-      HOME / '.gemini' / 'GEMINI.md',
-    ),
-    (
-      {HOME / '.gemini' / 'rules' / 'execution.md': 'rule\n'},
-      HOME / '.gemini' / 'rules' / 'execution.md',
-    ),
-    (
-      {HOME / '.agents' / 'rules' / 'execution.md': 'rule\n'},
-      HOME / '.agents' / 'rules' / 'execution.md',
-    ),
-    (
-      {CONFIG / 'rules' / 'execution.md': 'rule\n'},
-      CONFIG / 'rules' / 'execution.md',
-    ),
-    (
-      {
-        CONFIG / 'rules.json': _json_text(
-          {'entries': [{'path': 'shared-rules'}]}
-        ),
-        CONFIG / 'shared-rules' / 'execution.md': 'rule\n',
-      },
-      CONFIG / 'shared-rules' / 'execution.md',
-    ),
-  ),
-  ids=(
-    'home-agents',
-    'home-gemini',
-    'gemini-agents',
-    'gemini-gemini',
-    'gemini-rules',
-    'agents-rules',
-    'config-rules',
-    'registered-relative-rules',
-  ),
-)
-def test_preflight_rejects_each_ambient_rule_location(
-  monkeypatch: pytest.MonkeyPatch,
-  files: Mapping[Path, str],
-  expected_rule: Path,
-) -> None:
-  outcome = _run_launch(monkeypatch, files=files)
+def test_agy_preflight_findings_evaluates_pure_state() -> None:
+  assert agy.agy_preflight_findings(_safe_agy_state()) == ()
 
-  assert outcome == LaunchOutcome(
-    exit_code=None,
-    error=(
-      'AGY filesystem preflight failed:\n'
-      f'  - AGY rule file {expected_rule} is present; remove or rename it '
-      'because AGY has no persistent setting to disable AGENTS.md/rules '
-      'files'
-    ),
-  )
-
-
-def test_preflight_applies_inherited_include_and_exclude_filters(
-  monkeypatch: pytest.MonkeyPatch,
-) -> None:
-  base_files: dict[Path, str] = {
-    CONFIG / 'skills.json': _json_text(
-      {
-        'inherits': [
-          {
-            'path': str(CONFIG / 'inherited-skills.json'),
-            'include_only': ['team', 'shared'],
-          }
-        ]
+  skill = CONFIG / 'skills' / 'search' / 'SKILL.md'
+  rule = HOME / 'AGENTS.md'
+  manifest_disabled = CONFIG / 'plugins' / 'safe' / 'plugin.json'
+  manifest_enabled = CONFIG / 'plugins' / 'unsafe' / 'plugin.json'
+  manifest_bad = CONFIG / 'plugins' / 'bad' / 'plugin.json'
+  state = _safe_agy_state(
+    skill_files=(skill,),
+    rule_files=(rule,),
+    plugin_state={
+      'plugins': {
+        'safe': {'enabled': False},
+        'unsafe': {'enabled': True},
+        'bad_override': 'invalid',
       }
+    },
+    plugin_manifests=(
+      agy.AgyPluginManifest(manifest_disabled, {'disabled': False}),
+      agy.AgyPluginManifest(manifest_enabled, {'disabled': True}),
+      agy.AgyPluginManifest(
+        CONFIG / 'plugins' / 'bad_override' / 'plugin.json', {}
+      ),
+      agy.AgyPluginManifest(manifest_bad, {'disabled': 'nope'}),
+      agy.AgyPluginManifest(
+        CONFIG / 'plugins' / 'err' / 'plugin.json', None
+      ),
     ),
-    CONFIG / 'inherited-skills.json': _json_text(
+    mcp_config={
+      'mcpServers': {
+        'search': {'command': 'search-server'},
+        'docs': {'command': 'docs-server'},
+      }
+    },
+    read_findings=('Cannot scan AGY skills /bad: denied',),
+  )
+
+  assert agy.agy_preflight_findings(state) == (
+    'Cannot scan AGY skills /bad: denied',
+    f'AGY skill {skill} is present; remove it or deregister its path '
+    'because AGY has no persistent all-skills disable setting',
+    f'AGY rule file {rule} is present; remove or rename it because AGY '
+    'has no persistent setting to disable AGENTS.md/rules files',
+    f"AGY plugin 'unsafe' is enabled; set plugins['unsafe'].enabled = "
+    f'false in {CONFIG / "config.json"}',
+    f"Invalid AGY plugin override for 'bad_override' in "
+    f'{CONFIG / "config.json"}',
+    f'Invalid disabled setting in AGY plugin manifest {manifest_bad}',
+    f"AGY MCP server 'docs' is configured in "
+    f'{CONFIG / "mcp_config.json"}; '
+    'remove it because AGY has no persistent all-MCP disable setting',
+    f"AGY MCP server 'search' is configured in "
+    f'{CONFIG / "mcp_config.json"}; '
+    'remove it because AGY has no persistent all-MCP disable setting',
+  )
+
+  bad_plugin_and_mcp_tables = _safe_agy_state(
+    plugin_state={'plugins': 'bad'},
+    mcp_config={'mcpServers': 'bad'},
+  )
+  assert agy.agy_preflight_findings(bad_plugin_and_mcp_tables) == (
+    f'Invalid plugins setting in {CONFIG / "config.json"}',
+    f'Invalid mcpServers setting in {CONFIG / "mcp_config.json"}',
+  )
+
+
+def test_collect_agy_state_collects_filters_symlinks_cycles_and_errors(
+  monkeypatch: pytest.MonkeyPatch,
+) -> None:
+  external_skills = Path('/external/skills')
+  linked_skills = CONFIG / 'skills' / 'linked'
+  external_skill = external_skills / 'shared' / 'SKILL.md'
+  read_counts: dict[Path, int] = {}
+
+  files: dict[Path, str | Exception] = {
+    CONFIG / 'mcp_config.json': '  \n',
+    HOME
+    / '.gemini'
+    / 'antigravity-cli'
+    / 'builtin'
+    / 'skills'
+    / 'native_swarm'
+    / 'SKILL.md': 'builtin\n',
+    PROJECT_ROOT
+    / '.gemini'
+    / 'config'
+    / 'skills'
+    / 'local'
+    / 'SKILL.md': 'local\n',
+    PROJECT_ROOT / '.agents' / 'rules' / 'local.md': 'local\n',
+    CONFIG / 'rules.json': json.dumps(
       {
         'entries': [
           {
-            'path': '/shared/skills',
-            'include_only': ['search'],
-            'exclude': ['private'],
-          }
-        ]
-      }
-    ),
-    CONFIG / 'rules.json': _json_text(
-      {
-        'entries': [
-          {
-            'path': '/shared/rules',
+            'path': 'shared-rules',
             'include_only': ['policy'],
             'exclude': ['draft'],
           }
         ]
       }
     ),
-    Path('/shared/skills/team-private-search/SKILL.md'): 'excluded\n',
-    Path('/shared/skills/team-docs/SKILL.md'): 'unmatched\n',
-    Path('/shared/skills/solo-search/SKILL.md'): 'missing-group\n',
-    Path('/shared/rules/draft-policy.md'): 'excluded\n',
-    Path('/shared/rules/notes.md'): 'unmatched\n',
+    CONFIG / 'shared-rules' / 'active-policy.md': 'rule\n',
+    CONFIG / 'shared-rules' / 'draft-policy.md': 'excluded\n',
+    CONFIG / 'plugins.json': json.dumps(
+      {'inherits': [{'path': str(CONFIG / 'inherited-plugins.json')}]}
+    ),
+    CONFIG / 'inherited-plugins.json': json.dumps(
+      {'entries': [{'path': '/shared/plugins'}]}
+    ),
+    Path('/shared/plugins/unsafe/plugin.json'): json.dumps({}),
+    CONFIG / 'config.json': json.dumps(
+      {'plugins': {'unsafe': {'enabled': False}}}
+    ),
+    external_skill: 'skill\n',
   }
 
-  filtered_outcome = _run_launch(monkeypatch, files=base_files)
-  assert filtered_outcome == LaunchOutcome(
-    exit_code=0,
-    error=None,
-    calls=(
-      CommandCall(
-        command=_launch_command(),
-        cwd=PROJECT_ROOT,
-        env={'PATH': '/usr/bin'},
-        capture_output=False,
-        adapter_content=EXPECTED_ADAPTER,
-      ),
-    ),
-  )
-
-  matched_outcome = _run_launch(
-    monkeypatch,
-    files={
-      **base_files,
-      Path('/shared/skills/shared-search/SKILL.md'): 'active\n',
-      Path('/shared/rules/active-policy.md'): 'active\n',
-    },
-  )
-  assert matched_outcome == LaunchOutcome(
-    exit_code=None,
-    error=(
-      'AGY filesystem preflight failed:\n'
-      '  - AGY skill /shared/skills/shared-search/SKILL.md is present; '
-      'remove it or deregister its path because AGY has no persistent '
-      'all-skills disable setting\n'
-      '  - AGY rule file /shared/rules/active-policy.md is present; '
-      'remove or rename it because AGY has no persistent setting to '
-      'disable AGENTS.md/rules files'
-    ),
-  )
-
-
-@pytest.mark.parametrize(
-  ('files', 'expected'),
-  (
-    (
-      {
-        CONFIG / 'plugins' / 'example' / 'plugin.json': _json_text(
-          {'disabled': True}
-        )
-      },
-      LaunchOutcome(
-        exit_code=0,
-        error=None,
-        calls=(
-          CommandCall(
-            command=_launch_command(),
-            cwd=PROJECT_ROOT,
-            env={'PATH': '/usr/bin'},
-            capture_output=False,
-            adapter_content=EXPECTED_ADAPTER,
-          ),
-        ),
-      ),
-    ),
-    (
-      {
-        CONFIG / 'plugins' / 'example' / 'plugin.json': _json_text(
-          {'disabled': True}
-        ),
-        CONFIG / 'config.json': _json_text(
-          {'plugins': {'example': {'enabled': True}}}
-        ),
-      },
-      LaunchOutcome(
-        exit_code=None,
-        error=(
-          'AGY filesystem preflight failed:\n'
-          "  - AGY plugin 'example' is enabled; set "
-          f"plugins['example'].enabled = false in {CONFIG / 'config.json'}"
-        ),
-      ),
-    ),
-    (
-      {
-        CONFIG / 'plugins' / 'example' / 'plugin.json': _json_text(
-          {'disabled': False}
-        ),
-        CONFIG / 'config.json': _json_text(
-          {'plugins': {'example': {'enabled': False}}}
-        ),
-      },
-      LaunchOutcome(
-        exit_code=0,
-        error=None,
-        calls=(
-          CommandCall(
-            command=_launch_command(),
-            cwd=PROJECT_ROOT,
-            env={'PATH': '/usr/bin'},
-            capture_output=False,
-            adapter_content=EXPECTED_ADAPTER,
-          ),
-        ),
-      ),
-    ),
-    (
-      {
-        CONFIG / 'plugins.json': _json_text(
-          {'inherits': [{'path': str(CONFIG / 'inherited-plugins.json')}]}
-        ),
-        CONFIG / 'inherited-plugins.json': _json_text(
-          {'entries': [{'path': '/shared/plugins'}]}
-        ),
-        Path('/shared/plugins/unsafe/plugin.json'): _json_text({}),
-      },
-      LaunchOutcome(
-        exit_code=None,
-        error=(
-          'AGY filesystem preflight failed:\n'
-          "  - AGY plugin 'unsafe' is enabled; set "
-          f"plugins['unsafe'].enabled = false in {CONFIG / 'config.json'}"
-        ),
-      ),
-    ),
-  ),
-  ids=(
-    'manifest-disabled',
-    'override-enabled-blocks',
-    'override-disabled-allows',
-    'inherited-plugin-blocks',
-  ),
-)
-def test_preflight_enforces_plugin_manifest_and_override_states(
-  monkeypatch: pytest.MonkeyPatch,
-  files: Mapping[Path, str],
-  expected: LaunchOutcome,
-) -> None:
-  outcome = _run_launch(monkeypatch, files=files)
-
-  assert outcome == expected
-
-
-def test_preflight_rejects_configured_mcp_servers_before_launch(
-  monkeypatch: pytest.MonkeyPatch,
-) -> None:
-  outcome = _run_launch(
-    monkeypatch,
-    files={
-      CONFIG / 'mcp_config.json': _json_text(
-        {
-          'mcpServers': {
-            'search': {'command': 'search-server'},
-            'docs': {'command': 'docs-server'},
-          }
-        }
-      )
-    },
-  )
-
-  assert outcome == LaunchOutcome(
-    exit_code=None,
-    error=(
-      'AGY filesystem preflight failed:\n'
-      f"  - AGY MCP server 'docs' is configured in "
-      f'{CONFIG / "mcp_config.json"}; remove it because AGY has no '
-      'persistent all-MCP disable setting\n'
-      f"  - AGY MCP server 'search' is configured in "
-      f'{CONFIG / "mcp_config.json"}; remove it because AGY has no '
-      'persistent all-MCP disable setting'
-    ),
-  )
-
-
-def test_preflight_reports_cyclic_inheritance_and_invalid_mcp_path(
-  monkeypatch: pytest.MonkeyPatch,
-) -> None:
-  outcome = _run_launch(
-    monkeypatch,
-    files={
-      CONFIG / 'skills.json': _json_text(
-        {'inherits': [{'path': str(CONFIG / 'cycle.json')}]}
-      ),
-      CONFIG / 'cycle.json': _json_text(
-        {'inherits': [{'path': str(CONFIG / 'skills.json')}]}
-      ),
-    },
-    dirs=(CONFIG / 'mcp_config.json',),
-  )
-
-  assert outcome == LaunchOutcome(
-    exit_code=None,
-    error=(
-      'AGY filesystem preflight failed:\n'
-      f'  - Cyclic AGY skills config inheritance at '
-      f'{CONFIG / "skills.json"}\n'
-      f'  - AGY MCP configuration path is not a file: '
-      f'{CONFIG / "mcp_config.json"}'
-    ),
-  )
-
-
-def test_toolset_preflight_validates_pentagram_adapter_and_launches(
-  monkeypatch: pytest.MonkeyPatch,
-) -> None:
-  env = {'PATH': '/usr/bin', agy.AGY_TOOLSET_ENV: '1'}
-  probe_stdout = '\n'.join(
-    (
-      json.dumps({'event': 'init', 'init': {'agent': 'pentagram'}}),
-      json.dumps({'event': 'result', 'result': {'status': 'SUCCESS'}}),
+  with monkeypatch.context() as mp:
+    _install_virtual_fs(
+      mp,
+      files=files,
+      symlinks={linked_skills: external_skills},
+      read_counts=read_counts,
     )
+    state = agy._collect_agy_state(PROJECT_ROOT)
+
+  assert read_counts[CONFIG / 'mcp_config.json'] == 1
+  assert state == agy.AgyState(
+    config_root=CONFIG,
+    rule_files=(CONFIG / 'shared-rules' / 'active-policy.md',),
+    skill_files=(external_skill,),
+    plugin_state={'plugins': {'unsafe': {'enabled': False}}},
+    plugin_manifests=(
+      agy.AgyPluginManifest(
+        Path('/shared/plugins/unsafe/plugin.json'), {}
+      ),
+    ),
+    mcp_config=None,
+    read_findings=(),
   )
 
-  outcome = _run_launch(
-    monkeypatch,
-    environ=env,
-    arguments=('--print', 'hi'),
-    replies=(
-      CommandReply(returncode=0, stdout=probe_stdout),
-      CommandReply(returncode=0),
+
+def test_collect_agy_state_reports_cycles_missing_and_unreadable_paths(
+  monkeypatch: pytest.MonkeyPatch,
+) -> None:
+  blocked_rules = CONFIG / 'rules' / 'blocked'
+  fifo_skills = Path('/shared/fifo-skills')
+  mcp_path = CONFIG / 'mcp_config.json'
+  read_counts: dict[Path, int] = {}
+
+  with monkeypatch.context() as mp:
+    _install_virtual_fs(
+      mp,
+      files={
+        CONFIG / 'skills.json': json.dumps(
+          {
+            'entries': [{'path': str(fifo_skills)}],
+            'inherits': [
+              {'path': str(CONFIG / 'cycle.json')},
+              {'path': str(CONFIG / 'missing.json')},
+            ],
+          }
+        ),
+        CONFIG / 'cycle.json': json.dumps(
+          {'inherits': [{'path': str(CONFIG / 'skills.json')}]}
+        ),
+        mcp_path: UnicodeDecodeError('utf-8', b'\xff', 0, 1, 'bad byte'),
+      },
+      extra_dirs={blocked_rules: PermissionError(13, 'denied')},
+      others=(fifo_skills,),
+      read_counts=read_counts,
+    )
+    state = agy._collect_agy_state(PROJECT_ROOT)
+
+  assert read_counts[mcp_path] == 1
+  assert state == agy.AgyState(
+    config_root=CONFIG,
+    rule_files=(),
+    skill_files=(),
+    plugin_state=None,
+    plugin_manifests=(),
+    mcp_config=None,
+    read_findings=(
+      f'Cyclic AGY skills config inheritance at {CONFIG / "skills.json"}',
+      f'AGY skills config path does not exist: {CONFIG / "missing.json"}',
+      f'AGY skills path is not a file or directory: {fifo_skills}',
+      f'Cannot scan AGY rules {blocked_rules}: [Errno 13] denied',
+      f'Cannot read AGY MCP configuration {mcp_path}: '
+      "'utf-8' codec can't decode byte 0xff in position 0: bad byte",
     ),
   )
 
-  assert outcome == LaunchOutcome(
-    exit_code=0,
-    error=None,
-    calls=(
-      CommandCall(
-        command=_probe_command(),
-        cwd=PROJECT_ROOT,
-        env=env,
-        capture_output=True,
-        adapter_content=EXPECTED_ADAPTER,
-      ),
-      CommandCall(
-        command=_launch_command('--print', 'hi'),
-        cwd=PROJECT_ROOT,
-        env=env,
-        capture_output=False,
-        adapter_content=EXPECTED_ADAPTER,
-      ),
+  with monkeypatch.context() as mp:
+    _install_virtual_fs(mp, files={}, extra_dirs={mcp_path: None})
+    dir_state = agy._collect_agy_state(PROJECT_ROOT)
+  assert dir_state == agy.AgyState(
+    config_root=CONFIG,
+    rule_files=(),
+    skill_files=(),
+    plugin_state=None,
+    plugin_manifests=(),
+    mcp_config=None,
+    read_findings=(
+      f'AGY MCP configuration path is not a file: {mcp_path}',
     ),
   )
 
 
 @pytest.mark.parametrize(
-  ('reply', 'expected_error'),
+  ('returncode', 'stdout', 'stderr', 'expected_error'),
   (
     (
-      CommandReply(
-        returncode=3,
-        stdout='\n'.join(
-          (
-            json.dumps({'event': 'init', 'init': {'agent': 'pentagram'}}),
-            json.dumps(
-              {
-                'event': 'result',
-                'result': {
-                  'status': 'ERROR',
-                  'error': (
-                    'failed to construct executor: unknown component: '
-                    'tool "bogus" not found in registry'
-                  ),
-                },
-              }
-            ),
-          )
-        ),
-        stderr='error: failed to construct executor\n',
+      0,
+      '\n'.join(
+        (
+          json.dumps({'event': 'init', 'init': {'agent': 'pentagram'}}),
+          json.dumps({'event': 'result', 'result': {'status': 'SUCCESS'}}),
+        )
       ),
+      '',
+      None,
+    ),
+    (
+      3,
+      '\n'.join(
+        (
+          json.dumps({'event': 'init', 'init': {'agent': 'pentagram'}}),
+          json.dumps(
+            {
+              'event': 'result',
+              'result': {
+                'status': 'ERROR',
+                'error': (
+                  'failed to construct executor: unknown component: '
+                  'tool "bogus" not found in registry'
+                ),
+              },
+            }
+          ),
+        )
+      ),
+      'error: failed to construct executor\n',
       (
         'AGY tool preflight failed: failed to construct executor: '
         'unknown component: tool "bogus" not found in registry'
       ),
     ),
     (
-      CommandReply(returncode=2, stdout='', stderr='auth expired\n'),
+      2,
+      '',
+      'auth expired\n',
       'AGY tool preflight failed: auth expired',
     ),
     (
-      CommandReply(
-        returncode=0,
-        stdout='\n'.join(
-          (
-            json.dumps({'event': 'init', 'init': {'agent': 'default'}}),
-            json.dumps(
-              {'event': 'result', 'result': {'status': 'SUCCESS'}}
-            ),
-          )
-        ),
+      0,
+      '\n'.join(
+        (
+          json.dumps({'event': 'init', 'init': {'agent': 'default'}}),
+          json.dumps({'event': 'result', 'result': {'status': 'SUCCESS'}}),
+        )
       ),
+      '',
       'AGY tool preflight did not initialize the pentagram custom agent',
     ),
     (
-      CommandReply(
-        returncode=0,
-        stdout=json.dumps(
-          {'event': 'init', 'init': {'agent': 'pentagram'}}
-        ),
-      ),
+      0,
+      json.dumps({'event': 'init', 'init': {'agent': 'pentagram'}}),
+      '',
       'AGY tool preflight returned no stream-json result event',
     ),
     (
-      CommandReply(
-        returncode=0,
-        stdout='\n'.join(
-          (
-            json.dumps({'event': 'init', 'init': {'agent': 'pentagram'}}),
-            json.dumps(
-              {
-                'event': 'result',
-                'result': {'status': 'CANCELLED'},
-              }
-            ),
-          )
-        ),
+      0,
+      '\n'.join(
+        (
+          json.dumps({'event': 'init', 'init': {'agent': 'pentagram'}}),
+          json.dumps(
+            {'event': 'result', 'result': {'status': 'CANCELLED'}}
+          ),
+        )
       ),
+      '',
       "AGY tool preflight failed: unexpected result status 'CANCELLED'",
     ),
   ),
   ids=(
+    'success',
     'executor-component-error',
     'stderr-failure',
     'wrong-agent',
@@ -761,24 +669,232 @@ def test_toolset_preflight_validates_pentagram_adapter_and_launches(
     'non-success-result',
   ),
 )
-def test_toolset_preflight_stops_before_session_on_invalid_probe(
-  monkeypatch: pytest.MonkeyPatch,
-  reply: CommandReply,
-  expected_error: str,
+def test_toolset_probe_error_validates_stream_json_output(
+  returncode: int,
+  stdout: str,
+  stderr: str,
+  expected_error: str | None,
 ) -> None:
-  env = {'PATH': '/usr/bin', agy.AGY_TOOLSET_ENV: '1'}
-  outcome = _run_launch(monkeypatch, environ=env, replies=(reply,))
-
-  assert outcome == LaunchOutcome(
-    exit_code=None,
-    error=expected_error,
-    calls=(
-      CommandCall(
-        command=_probe_command(),
-        cwd=PROJECT_ROOT,
-        env=env,
-        capture_output=True,
-        adapter_content=EXPECTED_ADAPTER,
-      ),
-    ),
+  assert (
+    agy.toolset_probe_error(returncode, stdout, stderr) == expected_error
   )
+
+
+def test_launch_handles_probe_signal_exits_and_os_errors(
+  monkeypatch: pytest.MonkeyPatch,
+) -> None:
+  calls: list[dict[str, object]] = []
+  cleaned: list[str] = []
+
+  class FakeTmpDir:
+    def __init__(self, prefix: str = '') -> None:
+      del prefix
+      self.name = str(RUNTIME_DIR)
+
+    def cleanup(self) -> None:
+      cleaned.append(self.name)
+
+  written_adapters: dict[Path, str] = {}
+
+  def install_runtime(
+    mp: pytest.MonkeyPatch,
+    replies: Sequence[subprocess.CompletedProcess[str] | Exception],
+  ) -> None:
+    queue = deque(replies)
+    written_adapters.clear()
+    calls.clear()
+    cleaned.clear()
+    mp.setattr(agy, '_collect_agy_state', lambda _r: _safe_agy_state())
+    mp.setattr(agy.tempfile, 'TemporaryDirectory', FakeTmpDir)
+    mp.setattr(Path, 'mkdir', lambda self, parents=False: None)
+    mp.setattr(
+      Path,
+      'read_text',
+      lambda self, encoding='utf-8': SYSTEM_CONTENT
+      if self == SYSTEM_FILE
+      else '',
+    )
+    mp.setattr(
+      Path,
+      'write_text',
+      lambda self, content, encoding='utf-8': (
+        written_adapters.__setitem__(self, content) or len(content)
+      ),
+    )
+
+    def fake_run(
+      cmd: Sequence[str],
+      cwd: Path,
+      env: Mapping[str, str],
+      capture_output: bool = False,
+      text: bool = False,
+      encoding: str | None = None,
+      errors: str | None = None,
+    ) -> subprocess.CompletedProcess[str]:
+      adapter_path = (
+        RUNTIME_DIR / '.agents' / 'agents' / 'pentagram' / 'agent.md'
+      )
+      calls.append(
+        {
+          'cmd': list(cmd),
+          'cwd': cwd,
+          'capture_output': capture_output,
+          'text': text,
+          'encoding': encoding,
+          'errors': errors,
+          'adapter': written_adapters.get(adapter_path),
+        }
+      )
+      reply = queue.popleft()
+      if isinstance(reply, Exception):
+        raise reply
+      return reply
+
+    mp.setattr(agy.subprocess, 'run', fake_run)
+
+  probe_ok = '\n'.join(
+    (
+      json.dumps({'event': 'init', 'init': {'agent': 'pentagram'}}),
+      json.dumps({'event': 'result', 'result': {'status': 'SUCCESS'}}),
+    )
+  )
+  with monkeypatch.context() as mp:
+    mp.setattr(agy.os, 'environ', {agy.AGY_TOOLSET_ENV: '1'})
+    install_runtime(
+      mp,
+      [
+        subprocess.CompletedProcess([], 0, stdout=probe_ok, stderr=''),
+        subprocess.CompletedProcess([], -signal.SIGTERM),
+      ],
+    )
+    with pytest.raises(click.exceptions.Exit) as exit_info:
+      agy.launch(PROJECT_ROOT, SYSTEM_FILE, ('--print', 'hi'), MODEL)
+    assert exit_info.value.exit_code == 128 + signal.SIGTERM
+    assert cleaned == [str(RUNTIME_DIR)]
+    assert calls == [
+      {
+        'cmd': agy.build_toolset_probe_command(RUNTIME_DIR, MODEL),
+        'cwd': PROJECT_ROOT,
+        'capture_output': True,
+        'text': True,
+        'encoding': 'utf-8',
+        'errors': 'replace',
+        'adapter': EXPECTED_ADAPTER,
+      },
+      {
+        'cmd': agy.build_launch_command(
+          RUNTIME_DIR, MODEL, ('--print', 'hi')
+        ),
+        'cwd': PROJECT_ROOT,
+        'capture_output': False,
+        'text': False,
+        'encoding': None,
+        'errors': None,
+        'adapter': EXPECTED_ADAPTER,
+      },
+    ]
+
+  with monkeypatch.context() as mp:
+    mp.setattr(agy.os, 'environ', {})
+    install_runtime(mp, [FileNotFoundError(2, 'agy missing')])
+    with pytest.raises(click.ClickException) as run_err:
+      agy.launch(PROJECT_ROOT, SYSTEM_FILE, (), MODEL)
+    assert str(run_err.value) == (
+      'Failed to launch agent agy: [Errno 2] agy missing'
+    )
+    assert cleaned == [str(RUNTIME_DIR)]
+
+  with monkeypatch.context() as mp:
+    mp.setattr(agy.os, 'environ', {})
+    mp.setattr(agy, '_collect_agy_state', lambda _r: _safe_agy_state())
+    mp.setattr(
+      Path,
+      'read_text',
+      lambda self, encoding='utf-8': (_ for _ in ()).throw(
+        PermissionError(13, 'denied')
+      ),
+    )
+    with pytest.raises(click.ClickException) as sys_err:
+      agy.launch(PROJECT_ROOT, SYSTEM_FILE, (), MODEL)
+    assert str(sys_err.value) == (
+      f'Cannot read system prompt {SYSTEM_FILE}: [Errno 13] denied'
+    )
+
+  with monkeypatch.context() as mp:
+    mp.setattr(agy.os, 'environ', {})
+    mp.setattr(agy, '_collect_agy_state', lambda _r: _safe_agy_state())
+    mp.setattr(
+      Path, 'read_text', lambda self, encoding='utf-8': SYSTEM_CONTENT
+    )
+    mp.setattr(
+      agy.tempfile,
+      'TemporaryDirectory',
+      lambda prefix='': (_ for _ in ()).throw(OSError('disk full')),
+    )
+    with pytest.raises(click.ClickException) as tmp_err:
+      agy.launch(PROJECT_ROOT, SYSTEM_FILE, (), MODEL)
+    assert str(tmp_err.value) == (
+      'Failed to prepare AGY runtime adapter: disk full'
+    )
+
+  with monkeypatch.context() as mp:
+    mp.setattr(agy.os, 'environ', {})
+    mp.setattr(
+      agy,
+      '_collect_agy_state',
+      lambda _r: _safe_agy_state(rule_files=(HOME / 'AGENTS.md',)),
+    )
+    mp.setattr(
+      Path,
+      'read_text',
+      lambda self, encoding='utf-8': (_ for _ in ()).throw(
+        AssertionError(f'unexpected read_text on {self}')
+      ),
+    )
+    mp.setattr(
+      agy.tempfile,
+      'TemporaryDirectory',
+      lambda prefix='': (_ for _ in ()).throw(
+        AssertionError('unexpected TemporaryDirectory')
+      ),
+    )
+    mp.setattr(
+      agy.subprocess,
+      'run',
+      lambda *args, **kwargs: (_ for _ in ()).throw(
+        AssertionError('unexpected subprocess.run')
+      ),
+    )
+    with pytest.raises(click.ClickException) as preflight_err:
+      agy.launch(PROJECT_ROOT, SYSTEM_FILE, (), MODEL)
+    assert str(preflight_err.value) == (
+      'AGY filesystem preflight failed:\n'
+      f'  - AGY rule file {HOME / "AGENTS.md"} is present; remove or '
+      'rename it because AGY has no persistent setting to disable '
+      'AGENTS.md/rules files'
+    )
+
+  with monkeypatch.context() as mp:
+    mp.setattr(agy.os, 'environ', {agy.AGY_TOOLSET_ENV: '1'})
+    install_runtime(mp, [FileNotFoundError(2, 'probe missing')])
+    with pytest.raises(click.ClickException) as probe_os_err:
+      agy.launch(PROJECT_ROOT, SYSTEM_FILE, (), MODEL)
+    assert str(probe_os_err.value) == (
+      'AGY tool preflight failed: [Errno 2] probe missing'
+    )
+    assert cleaned == [str(RUNTIME_DIR)]
+    assert len(calls) == 1
+
+  with monkeypatch.context() as mp:
+    mp.setattr(agy.os, 'environ', {agy.AGY_TOOLSET_ENV: '1'})
+    install_runtime(
+      mp,
+      [subprocess.CompletedProcess([], 2, stdout='', stderr='bad tool\n')],
+    )
+    with pytest.raises(click.ClickException) as probe_fail_err:
+      agy.launch(PROJECT_ROOT, SYSTEM_FILE, (), MODEL)
+    assert (
+      str(probe_fail_err.value) == 'AGY tool preflight failed: bad tool'
+    )
+    assert cleaned == [str(RUNTIME_DIR)]
+    assert len(calls) == 1

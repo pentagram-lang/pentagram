@@ -1,13 +1,21 @@
 from __future__ import annotations
 
 import html
-import os
 import re
-import subprocess
+import stat
 from collections import defaultdict
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import (
+  Callable,
+  Iterable,
+  Mapping,
+  Sequence,
+)
+from collections.abc import (
+  Set as AbstractSet,
+)
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
+from typing import Final, Literal
 from urllib.parse import unquote
 
 from markdown_it import MarkdownIt
@@ -16,11 +24,13 @@ from markdown_it.rules_inline import link as _markdown_link
 from markdown_it.rules_inline.state_inline import StateInline
 from markdown_it.token import Token
 
+from zero.lib import git_ls_files
+
 _URI_SCHEME = re.compile(r'^[A-Za-z][A-Za-z0-9+.-]*:')
 _HTML_TAG = re.compile(r'<[^>]*>')
 
 
-@dataclass(frozen=True, order=True)
+@dataclass(frozen=True, slots=True, order=True)
 class Diagnostic:
   path: str
   line: int
@@ -40,54 +50,115 @@ class DocumentationLintError(RuntimeError):
     super().__init__('Documentation lint violations:\n' + details)
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class Heading:
   level: int
   line: int
   text: str
   identifier: str
+  is_top_level: bool = True
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
+class ResolvedLink:
+  path: str
+  fragment: str | None = None
+  is_directory: bool = False
+  traversal_prefixes: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class InvalidLink:
+  reason: Literal['empty', 'query', 'outside']
+
+
+type LinkTarget = ResolvedLink | InvalidLink
+
+
+@dataclass(frozen=True, slots=True)
 class Link:
   line: int
   text: str
   href: str
-  target_path: str | None = None
-  target_fragment: str | None = None
-  has_query: bool = False
+  target: LinkTarget | None = None
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
+class CompanionSection:
+  line: int
+  labels: tuple[str, ...]
+  has_task_content: bool
+  has_nonempty_assert_list: bool
+
+
+@dataclass(frozen=True, slots=True)
 class Document:
   path: str
-  source: str
-  tokens: list[Token]
-  headings: list[Heading]
-  links: list[Link]
+  line_count: int
+  headings: tuple[Heading, ...]
+  links: tuple[Link, ...]
+  test_sections: tuple[CompanionSection, ...] = ()
 
 
 @dataclass
 class _LintState:
-  root: Path
-  inventory: tuple[Path, ...]
-  inventory_set: set[str]
+  inventory: tuple[str, ...]
+  inventory_set: frozenset[str]
+  directory_set: frozenset[str]
   markdown_paths: tuple[str, ...]
   documents: dict[str, Document]
+  heading_index: dict[str, dict[str, tuple[Heading, ...]]]
   diagnostics: list[Diagnostic]
 
 
-def _new_lint_state(root: Path, inventory: Iterable[Path]) -> _LintState:
-  ordered_inventory = tuple(sorted(inventory))
+def _inferred_directories(
+  inventory: Iterable[str],
+  directories: AbstractSet[str],
+) -> frozenset[str]:
+  inferred: set[str] = {''}
+  for item in inventory:
+    for parent in PurePosixPath(item).parents:
+      if parent != PurePosixPath('.'):
+        inferred.add(parent.as_posix())
+  for directory in directories:
+    normalized = PurePosixPath(directory).as_posix()
+    inferred.add('' if normalized == '.' else normalized)
+  return frozenset(inferred)
+
+
+def _build_heading_index(
+  documents: Mapping[str, Document],
+) -> dict[str, dict[str, tuple[Heading, ...]]]:
+  index: dict[str, dict[str, tuple[Heading, ...]]] = {}
+  for path, document in documents.items():
+    grouped: dict[str, list[Heading]] = defaultdict(list)
+    for heading in document.headings:
+      grouped[heading.identifier].append(heading)
+    index[path] = {
+      identifier: tuple(matches) for identifier, matches in grouped.items()
+    }
+  return index
+
+
+def _new_lint_state(
+  ordered_inventory: tuple[str, ...],
+  documents: dict[str, Document],
+  diagnostics: list[Diagnostic],
+  *,
+  directories: AbstractSet[str] = frozenset(),
+) -> _LintState:
   return _LintState(
-    root,
     ordered_inventory,
-    {path.as_posix() for path in ordered_inventory},
+    frozenset(ordered_inventory),
+    _inferred_directories(ordered_inventory, directories),
     tuple(
-      path.as_posix() for path in ordered_inventory if path.suffix == '.md'
+      path
+      for path in ordered_inventory
+      if PurePosixPath(path).suffix == '.md'
     ),
-    {},
-    [],
+    documents,
+    _build_heading_index(documents),
+    diagnostics,
   )
 
 
@@ -97,49 +168,65 @@ def _add_diagnostic(
   state.diagnostics.append(Diagnostic(path, line, code, message))
 
 
-def _git_inventory(repository_root: Path) -> tuple[Path, ...]:
+def _git_inventory_resolved(root: Path) -> tuple[Path, ...]:
+  raw_paths = git_ls_files(
+    root, error_prefix='Cannot scan repository with git'
+  )
+  kept: list[Path] = []
   try:
-    result = subprocess.run(
-      [
-        'git',
-        'ls-files',
-        '--cached',
-        '--others',
-        '--exclude-standard',
-        '-z',
-      ],
-      cwd=repository_root,
-      capture_output=True,
-      check=False,
-    )
+    for path in raw_paths:
+      full_path = root / path
+      try:
+        lst = full_path.lstat()
+      except (FileNotFoundError, NotADirectoryError):
+        continue
+      if stat.S_ISREG(lst.st_mode):
+        kept.append(path)
+        continue
+      if not stat.S_ISLNK(lst.st_mode):
+        continue
+      try:
+        st = full_path.stat()
+      except (FileNotFoundError, NotADirectoryError):
+        continue
+      if not stat.S_ISREG(st.st_mode):
+        continue
+      try:
+        resolved = full_path.resolve(strict=True)
+      except (FileNotFoundError, NotADirectoryError):
+        continue
+      if resolved == root or root in resolved.parents:
+        kept.append(path)
   except OSError as error:
     raise RuntimeError(
       f'Cannot scan repository with git: {error}'
     ) from error
-
-  if result.returncode != 0:
-    detail = (
-      result.stderr.decode(errors='replace').strip() or 'unknown git error'
-    )
-    raise RuntimeError(f'Cannot scan repository with git: {detail}')
-
-  paths = (
-    Path(os.fsdecode(raw_path))
-    for raw_path in result.stdout.split(b'\0')
-    if raw_path
-  )
-  return tuple(path for path in paths if (repository_root / path).exists())
+  return tuple(sorted(kept))
 
 
-def _visible_text(tokens: list[Token] | None) -> str:
-  text = []
-  for token in tokens or []:
+def git_inventory(repository_root: str | Path) -> tuple[Path, ...]:
+  """List existing regular files in a Git repository within root."""
+  try:
+    root = Path(repository_root).resolve()
+  except OSError as error:
+    raise RuntimeError(
+      f'Cannot scan repository with git: {error}'
+    ) from error
+  return _git_inventory_resolved(root)
+
+
+def _visible_text(tokens: Sequence[Token] | None) -> str:
+  text: list[str] = []
+  for token in tokens or ():
     if token.type in {'text', 'code_inline'}:
       text.append(token.content)
     elif token.type in {'softbreak', 'hardbreak'}:
       text.append(' ')
     elif token.type == 'image':
-      text.append(token.attrGet('alt') or '')
+      if token.children is not None:
+        text.append(_visible_text(token.children))
+      else:
+        text.append(token.content)
     elif token.type == 'html_inline':
       text.append(html.unescape(_HTML_TAG.sub('', token.content)))
   return ''.join(text)
@@ -191,7 +278,7 @@ def _link_rule_with_source_line(
   return link_rule
 
 
-def _parse_document(path: str, source: str) -> Document:
+def _build_parser() -> MarkdownIt:
   parser = MarkdownIt('commonmark', {'html': True})
   parser.inline.ruler.at(
     'link', _link_rule_with_source_line(_markdown_link)
@@ -199,9 +286,109 @@ def _parse_document(path: str, source: str) -> Document:
   parser.inline.ruler.at(
     'autolink', _link_rule_with_source_line(_markdown_autolink)
   )
-  tokens = parser.parse(source)
-  headings = []
-  links = []
+  return parser
+
+
+_PARSER: Final[MarkdownIt] = _build_parser()
+
+
+def _is_external_href(href: str) -> bool:
+  return bool(_URI_SCHEME.match(href) or href.startswith('//'))
+
+
+def _strong_label(inline_token: Token, label: str) -> bool:
+  children = inline_token.children or []
+  return (
+    len(children) == 5
+    and children[0].type == 'text'
+    and children[0].content == ''
+    and children[1].type == 'strong_open'
+    and children[2].type == 'text'
+    and children[2].content == label
+    and children[3].type == 'strong_close'
+    and children[4].type == 'text'
+    and children[4].content == ''
+  )
+
+
+def _has_content(tokens: Sequence[Token]) -> bool:
+  for token in tokens:
+    if token.type in {'fence', 'code_block'} and token.content.strip():
+      return True
+    if token.type == 'inline' and _visible_text(token.children).strip():
+      return True
+  return False
+
+
+def _has_nonempty_list(tokens: Sequence[Token]) -> bool:
+  list_depth = 0
+  for token in tokens:
+    if token.type in {'bullet_list_open', 'ordered_list_open'}:
+      list_depth += 1
+      continue
+    if token.type in {'bullet_list_close', 'ordered_list_close'}:
+      list_depth = max(0, list_depth - 1)
+      continue
+    if (
+      list_depth > 0
+      and token.type == 'inline'
+      and _visible_text(token.children).strip()
+    ):
+      return True
+  return False
+
+
+def _extract_companion_sections(
+  path: str, tokens: Sequence[Token]
+) -> tuple[CompanionSection, ...]:
+  heading_indexes = [
+    index
+    for index, token in enumerate(tokens)
+    if token.type == 'heading_open' and token.level == 0
+  ]
+  sections: list[CompanionSection] = []
+  for pos, start in enumerate(heading_indexes):
+    if tokens[start].tag != 'h2':
+      continue
+    end = (
+      heading_indexes[pos + 1]
+      if pos + 1 < len(heading_indexes)
+      else len(tokens)
+    )
+    heading_line = _token_line(path, tokens[start])
+    labels: list[tuple[str, int]] = []
+    for token_index in range(start + 3, end):
+      token = tokens[token_index]
+      if (
+        token.type == 'inline'
+        and token.children
+        and tokens[token_index - 1].type == 'paragraph_open'
+        and tokens[token_index - 1].level == 0
+      ):
+        if _strong_label(token, 'Task'):
+          labels.append(('Task', token_index))
+        elif _strong_label(token, 'Assert'):
+          labels.append(('Assert', token_index))
+
+    label_names = tuple(label for label, _ in labels)
+    has_task = False
+    has_assert = False
+    if label_names == ('Task', 'Assert'):
+      task_index = labels[0][1]
+      assert_index = labels[1][1]
+      has_task = _has_content(tokens[task_index + 2 : assert_index])
+      has_assert = _has_nonempty_list(tokens[assert_index + 2 : end])
+    sections.append(
+      CompanionSection(heading_line, label_names, has_task, has_assert)
+    )
+  return tuple(sections)
+
+
+def parse_document(path: str, source: str) -> Document:
+  """Parse a Markdown document into frozen structural summaries."""
+  tokens = _PARSER.parse(source)
+  headings: list[Heading] = []
+  links: list[Link] = []
   index = 0
   while index < len(tokens):
     token = tokens[index]
@@ -214,9 +401,10 @@ def _parse_document(path: str, source: str) -> Document:
           _token_line(path, token),
           text,
           _heading_identifier(text),
+          is_top_level=token.level == 0,
         )
       )
-      index += 3
+      index += 1
       continue
     if token.type == 'inline':
       children = token.children or []
@@ -238,57 +426,96 @@ def _parse_document(path: str, source: str) -> Document:
           child_index += 1
           continue
         line = _token_line(path, token) + _inline_line_offset(path, child)
+        href = child.attrGet('href') or ''
+        target = (
+          None if _is_external_href(href) else link_target(path, href)
+        )
         links.append(
           Link(
             line,
             _visible_text(children[child_index + 1 : close_index - 1]),
-            child.attrGet('href') or '',
+            href,
+            target,
           )
         )
         child_index = close_index
         continue
     index += 1
-  return Document(path, source, tokens, headings, links)
+
+  test_sections = (
+    _extract_companion_sections(path, tokens)
+    if _is_companion(path)
+    else ()
+  )
+  return Document(
+    path=path,
+    line_count=len(source.splitlines()),
+    headings=tuple(headings),
+    links=tuple(links),
+    test_sections=test_sections,
+  )
 
 
-def _normalise_target_path(source_path: str, raw_path: str) -> str | None:
-  if not raw_path:
-    return source_path
+def _normalise_target_path(
+  source_path: str, raw_path: str
+) -> tuple[str | None, bool, tuple[str, ...]]:
   if raw_path.startswith('/'):
-    return None
-  source = PurePosixPath(source_path)
-  parts = list(source.parent.parts)
-  for part in PurePosixPath(raw_path).parts:
-    if part in {'', '.'}:
+    return None, False, ()
+  parts = list(PurePosixPath(source_path).parent.parts)
+  raw_segments = raw_path.split('/')
+  last_nonempty = raw_segments[-1]
+  is_directory = raw_path.endswith('/') or last_nonempty in {'.', '..'}
+  traversed: list[str] = []
+
+  for segment in raw_segments:
+    if segment == '':
       continue
-    if part == '..':
+    if segment == '.':
+      if parts:
+        traversed.append('/'.join(parts))
+      continue
+    if segment == '..':
       if not parts:
-        return None
+        return None, is_directory, tuple(dict.fromkeys(traversed))
+      traversed.append('/'.join(parts))
       parts.pop()
       continue
-    parts.append(part)
-  return '/'.join(parts)
+    if parts:
+      traversed.append('/'.join(parts))
+    parts.append(segment)
+
+  if raw_path.endswith('/') and parts:
+    traversed.append('/'.join(parts))
+  return '/'.join(parts), is_directory, tuple(dict.fromkeys(traversed))
 
 
-def _link_target(
-  source_path: str, href: str
-) -> tuple[str | None, str | None, bool, str | None]:
+def link_target(source_path: str, href: str) -> LinkTarget:
+  """Resolve a local Markdown href against its source document path."""
+  if href == '':
+    return InvalidLink('empty')
   raw_path, separator, raw_fragment = href.partition('#')
   if '?' in raw_path:
-    return None, None, True, 'query'
-  path = _normalise_target_path(source_path, unquote(raw_path))
-  if path is None:
-    return None, None, False, 'outside'
-  fragment = unquote(raw_fragment) if separator and raw_fragment else None
-  return path, fragment, False, None
+    return InvalidLink('query')
+  fragment = unquote(raw_fragment) if separator else None
+  unquoted_path = unquote(raw_path)
+  if unquoted_path == '':
+    return ResolvedLink(path=source_path, fragment=fragment)
+  normalized, is_directory, traversal_prefixes = _normalise_target_path(
+    source_path, unquoted_path
+  )
+  if normalized is None:
+    return InvalidLink('outside')
+  return ResolvedLink(
+    path=normalized,
+    fragment=fragment,
+    is_directory=is_directory,
+    traversal_prefixes=traversal_prefixes,
+  )
 
 
 def _check_headings(state: _LintState) -> None:
   for path in sorted(state.documents):
-    headings = state.documents[path].headings
-    by_identifier = defaultdict(list)
-    for heading in headings:
-      by_identifier[heading.identifier].append(heading)
+    by_identifier = state.heading_index[path]
     for identifier, matches in sorted(by_identifier.items()):
       for heading in matches[1:]:
         _add_diagnostic(
@@ -306,38 +533,44 @@ def _check_headings(state: _LintState) -> None:
 def _check_links(state: _LintState) -> None:
   for path in sorted(state.documents):
     document = state.documents[path]
-    headings = defaultdict(list)
-    for heading in document.headings:
-      headings[heading.identifier].append(heading)
-    valid_links = defaultdict(list)
+    valid_links: dict[tuple[str, str | None], list[Link]] = defaultdict(
+      list
+    )
     for link in document.links:
-      href = link.href
-      if _URI_SCHEME.match(href) or href.startswith('//'):
+      target = link.target
+      if target is None:
         continue
-      target_path, fragment, has_query, error = _link_target(path, href)
-      link.target_path = target_path
-      link.target_fragment = fragment
-      link.has_query = has_query
-      if error == 'query':
+      if isinstance(target, InvalidLink):
+        if target.reason == 'empty':
+          message = 'local link destination is empty'
+        elif target.reason == 'query':
+          message = 'local link destination contains a query string'
+        else:
+          message = 'local link target is outside the repository'
+        _add_diagnostic(state, path, link.line, 'MD002', message)
+        continue
+      file_prefix = next(
+        (
+          prefix
+          for prefix in target.traversal_prefixes
+          if prefix in state.inventory_set
+        ),
+        None,
+      )
+      if file_prefix is not None:
         _add_diagnostic(
           state,
           path,
           link.line,
           'MD002',
-          'local link destination contains a query string',
+          (
+            'local link path traverses through non-directory file '
+            f"'{file_prefix}'"
+          ),
         )
         continue
-      if target_path is None:
-        _add_diagnostic(
-          state,
-          path,
-          link.line,
-          'MD002',
-          'local link target is outside the repository',
-        )
-        continue
-      target_fs_path = state.root / PurePosixPath(target_path)
-      if target_fs_path.is_dir():
+      target_path = target.path
+      if target_path in state.directory_set:
         _add_diagnostic(
           state,
           path,
@@ -346,24 +579,34 @@ def _check_links(state: _LintState) -> None:
           'local link target is a directory',
         )
         continue
-      if target_path not in state.inventory_set:
+      if target.is_directory or target_path not in state.inventory_set:
+        display_target = (
+          f'{target_path}/' if target.is_directory else target_path
+        )
         _add_diagnostic(
           state,
           path,
           link.line,
           'MD002',
-          f"local link target '{target_path}' is not an inventoried file",
+          f"local link target '{display_target}' is not an inventoried "
+          'file',
         )
         continue
+      fragment = target.fragment
       if fragment is not None:
-        matching_headings = (
-          headings if target_path == path else defaultdict(list)
+        if fragment == '':
+          _add_diagnostic(
+            state,
+            path,
+            link.line,
+            'MD002',
+            f"local link fragment '#' does not identify a heading in "
+            f"'{target_path}'",
+          )
+          continue
+        matches = state.heading_index.get(target_path, {}).get(
+          fragment, ()
         )
-        if target_path != path and target_path in state.documents:
-          matching_headings = defaultdict(list)
-          for heading in state.documents[target_path].headings:
-            matching_headings[heading.identifier].append(heading)
-        matches = matching_headings.get(fragment, [])
         if not matches:
           _add_diagnostic(
             state,
@@ -389,7 +632,8 @@ def _check_links(state: _LintState) -> None:
           )
           continue
       valid_links[(target_path, fragment)].append(link)
-    for target, links in sorted(
+
+    for (target_path, _), links in sorted(
       valid_links.items(), key=lambda item: (item[0][0], item[0][1] or '')
     ):
       first = links[0]
@@ -401,7 +645,7 @@ def _check_links(state: _LintState) -> None:
             link.line,
             'MD003',
             (
-              f"local links to '{target[0]}' use different visible text "
+              f"local links to '{target_path}' use different visible text "
               f'from line {first.line}'
             ),
           )
@@ -411,18 +655,10 @@ def _is_companion(path: str) -> bool:
   return path.endswith('.test.md')
 
 
-def _companion_subject_candidates(path: str) -> tuple[str, ...]:
-  base_path = path.removesuffix('.test.md')
-  candidates = [base_path + '.md']
-  if not base_path.endswith('.md'):
-    candidates.append(base_path)
-  return tuple(candidates)
-
-
 def _direct_children_by_directory(
   markdown_paths: Sequence[str],
 ) -> dict[PurePosixPath, tuple[str, ...]]:
-  children_by_directory = defaultdict(set)
+  children_by_directory: dict[PurePosixPath, set[str]] = defaultdict(set)
   for path in markdown_paths:
     if _is_companion(path):
       continue
@@ -436,6 +672,23 @@ def _direct_children_by_directory(
     directory: tuple(sorted(children))
     for directory, children in children_by_directory.items()
   }
+
+
+def _direct_child_target(
+  link: Link,
+  inventory_set: frozenset[str],
+  child_set: AbstractSet[str],
+) -> str | None:
+  target = link.target
+  if (
+    not isinstance(target, ResolvedLink)
+    or target.is_directory
+    or target.fragment is not None
+    or target.path not in child_set
+    or any(prefix in inventory_set for prefix in target.traversal_prefixes)
+  ):
+    return None
+  return target.path
 
 
 def _check_indexes(state: _LintState) -> None:
@@ -459,6 +712,7 @@ def _check_indexes(state: _LintState) -> None:
           'README.md'
         ),
       )
+
   for readme_path in noncompanions:
     if PurePosixPath(readme_path).name != 'README.md':
       continue
@@ -470,35 +724,30 @@ def _check_indexes(state: _LintState) -> None:
     document = state.documents.get(readme_path)
     if document is None:
       continue
-    sections = []
-    h2s = [heading for heading in document.headings if heading.level == 2]
-    for heading in h2s:
-      next_heading_line = len(document.source.splitlines()) + 1
-      for candidate in document.headings:
-        if candidate.line > heading.line and candidate.level <= 2:
-          next_heading_line = min(next_heading_line, candidate.line)
-      sections.append(
-        (
-          heading,
-          [
-            link
-            for link in document.links
-            if heading.line <= link.line < next_heading_line
-          ],
-        )
-      )
+
+    h1_or_h2 = [h for h in document.headings if h.level <= 2]
+    h2s = [h for h in h1_or_h2 if h.level == 2]
     child_set = set(children)
-    child_links_by_section = {}
-    for heading, links in sections:
-      child_links = [
-        link
-        for link in links
-        if link.target_path in child_set
-        and not link.has_query
-        and link.target_fragment is None
+    child_h2_lines: dict[str, set[int]] = defaultdict(set)
+
+    for heading in h2s:
+      next_heading_line = document.line_count + 1
+      for candidate in h1_or_h2:
+        if candidate.line > heading.line:
+          next_heading_line = candidate.line
+          break
+      child_targets = [
+        target_path
+        for link in document.links
+        if heading.line <= link.line < next_heading_line
+        for target_path in (
+          _direct_child_target(link, state.inventory_set, child_set),
+        )
+        if target_path is not None
       ]
-      child_links_by_section[heading.line] = child_links
-      if len(child_links) != 1:
+      for target_path in child_targets:
+        child_h2_lines[target_path].add(heading.line)
+      if len(child_targets) != 1:
         _add_diagnostic(
           state,
           readme_path,
@@ -506,16 +755,13 @@ def _check_indexes(state: _LintState) -> None:
           'MD004',
           (
             'H2 section must link to exactly one direct child; '
-            f'found {len(child_links)}'
+            f'found {len(child_targets)}'
           ),
         )
-    child_sections = defaultdict(list)
-    for heading, _links in sections:
-      for link in child_links_by_section[heading.line]:
-        child_sections[link.target_path].append((heading, link))
+
     for child in children:
-      matches = child_sections.get(child, [])
-      if len(matches) != 1:
+      section_count = len(child_h2_lines.get(child, ()))
+      if section_count != 1:
         _add_diagnostic(
           state,
           readme_path,
@@ -523,54 +769,18 @@ def _check_indexes(state: _LintState) -> None:
           'MD004',
           (
             f"direct child '{child}' must be linked from exactly one H2 "
-            f'section; found {len(matches)}'
+            f'section; found {section_count}'
           ),
         )
-
-
-def _strong_label(inline_token: Token, label: str) -> bool:
-  children = inline_token.children or []
-  return (
-    len(children) == 5
-    and children[0].type == 'text'
-    and children[0].content == ''
-    and children[1].type == 'strong_open'
-    and children[2].type == 'text'
-    and children[2].content == label
-    and children[3].type == 'strong_close'
-    and children[4].type == 'text'
-    and children[4].content == ''
-  )
-
-
-def _test_sections(document: Document) -> list[tuple[int, int]]:
-  tokens = document.tokens
-  h2_indexes = [
-    index
-    for index, token in enumerate(tokens)
-    if token.type == 'heading_open' and token.tag == 'h2'
-  ]
-  sections = []
-  for index, start in enumerate(h2_indexes):
-    end = (
-      h2_indexes[index + 1] if index + 1 < len(h2_indexes) else len(tokens)
-    )
-    sections.append((start, end))
-  return sections
 
 
 def _check_companions(state: _LintState) -> None:
   for path in state.markdown_paths:
     if not _is_companion(path):
       continue
-    candidates = _companion_subject_candidates(path)
-    source_paths = tuple(
-      candidate
-      for candidate in candidates
-      if candidate in state.inventory_set
-    )
     line = 1
-    if any(_is_companion(source_path) for source_path in source_paths):
+    base_path = path.removesuffix('.test.md')
+    if _is_companion(base_path):
       _add_diagnostic(
         state,
         path,
@@ -579,6 +789,32 @@ def _check_companions(state: _LintState) -> None:
         'a test companion cannot have a test companion',
       )
       continue
+    raw_candidates = [base_path + '.md']
+    if not base_path.endswith('.md'):
+      raw_candidates.append(base_path)
+    if any(
+      _is_companion(candidate) and candidate in state.inventory_set
+      for candidate in raw_candidates
+    ):
+      _add_diagnostic(
+        state,
+        path,
+        line,
+        'MD005',
+        'a test companion cannot have a test companion',
+      )
+      continue
+
+    candidates = tuple(
+      candidate
+      for candidate in raw_candidates
+      if not _is_companion(candidate)
+    )
+    source_paths = tuple(
+      candidate
+      for candidate in candidates
+      if candidate in state.inventory_set
+    )
     if not source_paths:
       _add_diagnostic(
         state,
@@ -599,11 +835,24 @@ def _check_companions(state: _LintState) -> None:
         + ' and '.join(f"'{source_path}'" for source_path in source_paths),
       )
       continue
+
     document = state.documents.get(path)
     if document is None:
       continue
-    tokens = document.tokens
-    h1s = [heading for heading in document.headings if heading.level == 1]
+
+    for heading in document.headings:
+      if not heading.is_top_level:
+        _add_diagnostic(
+          state,
+          path,
+          heading.line,
+          'MD005',
+          'test companion headings must not be nested inside blockquotes '
+          'or lists',
+        )
+
+    h1s = [h for h in document.headings if h.is_top_level and h.level == 1]
+    h2s = [h for h in document.headings if h.is_top_level and h.level == 2]
     if len(h1s) != 1 or h1s[0].text != 'Tests':
       _add_diagnostic(
         state,
@@ -612,7 +861,17 @@ def _check_companions(state: _LintState) -> None:
         'MD005',
         "test companion must have exactly one H1 named 'Tests'",
       )
-    if any(heading.level not in {1, 2} for heading in document.headings):
+    elif h2s and h2s[0].line < h1s[0].line:
+      _add_diagnostic(
+        state,
+        path,
+        line,
+        'MD005',
+        "test companion H1 'Tests' must precede all test sections",
+      )
+    if any(
+      h.is_top_level and h.level not in {1, 2} for h in document.headings
+    ):
       _add_diagnostic(
         state,
         path,
@@ -620,10 +879,15 @@ def _check_companions(state: _LintState) -> None:
         'MD005',
         'test companion may contain only H1 and H2 headings',
       )
-    h2s = [heading for heading in document.headings if heading.level == 2]
-    first_heading_by_name = {}
-    duplicate_names = set()
+
+    first_heading_by_name: dict[str, Heading] = {}
+    duplicate_names: set[str] = set()
     for heading in h2s:
+      if not heading.text.strip():
+        _add_diagnostic(
+          state, path, heading.line, 'MD005', 'test name must not be empty'
+        )
+        continue
       if heading.text in first_heading_by_name:
         duplicate_names.add(heading.text)
       else:
@@ -637,89 +901,75 @@ def _check_companions(state: _LintState) -> None:
         'MD005',
         f"test name '{name}' is duplicated",
       )
-    sections = _test_sections(document)
-    for start, end in sections:
-      heading_line = _token_line(path, tokens[start])
-      labels = []
-      for token_index in range(start + 2, end):
-        token = tokens[token_index]
-        if token.type == 'inline' and token.children:
-          if _strong_label(token, 'Task'):
-            labels.append(('Task', token_index))
-          elif _strong_label(token, 'Assert'):
-            labels.append(('Assert', token_index))
-      if [label for label, _ in labels] != ['Task', 'Assert']:
+
+    for section in document.test_sections:
+      if section.labels != ('Task', 'Assert'):
         _add_diagnostic(
           state,
           path,
-          heading_line,
+          section.line,
           'MD005',
           "each test must contain one '**Task**' followed by one "
           "'**Assert**'",
         )
         continue
-      task_index = labels[0][1]
-      assert_index = labels[1][1]
-      task_content = tokens[task_index + 1 : assert_index]
-      if not _has_content(task_content):
-        _add_diagnostic(
-          state, path, heading_line, 'MD005', 'test Task must not be empty'
-        )
-      assert_content = tokens[assert_index + 1 : end]
-      if not _has_nonempty_list(assert_content):
+      if not section.has_task_content:
         _add_diagnostic(
           state,
           path,
-          heading_line,
+          section.line,
+          'MD005',
+          'test Task must not be empty',
+        )
+      if not section.has_nonempty_assert_list:
+        _add_diagnostic(
+          state,
+          path,
+          section.line,
           'MD005',
           'test Assert must contain a non-empty list',
         )
 
 
-def _has_content(tokens: Sequence[Token]) -> bool:
-  for token in tokens:
-    if token.type in {'fence', 'code_block'} and token.content.strip():
-      return True
-    if token.type == 'inline' and _visible_text(token.children).strip():
-      return True
-  return False
-
-
-def _has_nonempty_list(tokens: Sequence[Token]) -> bool:
-  in_list = False
-  for token in tokens:
-    if token.type in {'bullet_list_open', 'ordered_list_open'}:
-      in_list = True
-      continue
-    if (
-      in_list
-      and token.type == 'inline'
-      and _visible_text(token.children).strip()
-    ):
-      return True
-    if in_list and token.type in {
-      'bullet_list_close',
-      'ordered_list_close',
-    }:
-      in_list = False
-  return False
-
-
-def lint_repository(
-  repository_root: str | Path,
-) -> tuple[Diagnostic, ...]:
-  root = Path(repository_root).resolve()
-  inventory = _git_inventory(root)
-  state = _new_lint_state(root, inventory)
-  for path in state.markdown_paths:
-    full_path = root / PurePosixPath(path)
-    try:
-      source = full_path.read_text(encoding='utf-8')
-      state.documents[path] = _parse_document(path, source)
-    except (OSError, UnicodeError) as error:
-      _add_diagnostic(
-        state, path, 1, 'MD000', f'cannot parse Markdown file: {error}'
+def _parse_sources(
+  sources: Mapping[str, str | OSError | UnicodeError],
+  markdown_paths: Sequence[str],
+) -> tuple[dict[str, Document], list[Diagnostic]]:
+  documents: dict[str, Document] = {}
+  diagnostics: list[Diagnostic] = []
+  for path in markdown_paths:
+    entry = sources.get(path)
+    if entry is None:
+      missing = FileNotFoundError(path)
+      diagnostics.append(
+        Diagnostic(
+          path, 1, 'MD000', f'cannot parse Markdown file: {missing}'
+        )
       )
+    elif isinstance(entry, (OSError, UnicodeError)):
+      diagnostics.append(
+        Diagnostic(
+          path, 1, 'MD000', f'cannot parse Markdown file: {entry}'
+        )
+      )
+    else:
+      documents[path] = parse_document(path, entry)
+  return documents, diagnostics
+
+
+def _lint_parsed(
+  ordered_inventory: tuple[str, ...],
+  documents: dict[str, Document],
+  diagnostics: list[Diagnostic],
+  *,
+  directories: AbstractSet[str] = frozenset(),
+) -> tuple[Diagnostic, ...]:
+  state = _new_lint_state(
+    ordered_inventory,
+    documents,
+    diagnostics,
+    directories=directories,
+  )
   _check_headings(state)
   _check_links(state)
   _check_indexes(state)
@@ -727,7 +977,82 @@ def lint_repository(
   return tuple(sorted(state.diagnostics))
 
 
+def lint_sources(
+  sources: Mapping[str, str | OSError | UnicodeError],
+  *,
+  inventory: Iterable[str] | None = None,
+  directories: AbstractSet[str] = frozenset(),
+) -> tuple[Diagnostic, ...]:
+  """Lint Markdown sources and repository inventory entirely in memory."""
+  ordered_inventory = tuple(
+    sorted(set(sources) if inventory is None else set(inventory))
+  )
+  markdown_paths = tuple(
+    path
+    for path in ordered_inventory
+    if PurePosixPath(path).suffix == '.md'
+  )
+  documents, diagnostics = _parse_sources(sources, markdown_paths)
+  return _lint_parsed(
+    ordered_inventory,
+    documents,
+    diagnostics,
+    directories=directories,
+  )
+
+
+def lint_repository(
+  repository_root: str | Path,
+) -> tuple[Diagnostic, ...]:
+  """Scan and lint all Markdown documentation in a Git repository."""
+  try:
+    root = Path(repository_root).resolve()
+  except OSError as error:
+    raise RuntimeError(
+      f'Cannot scan repository with git: {error}'
+    ) from error
+  inventory_paths = _git_inventory_resolved(root)
+  ordered_inventory = tuple(
+    sorted(path.as_posix() for path in inventory_paths)
+  )
+  inventory_set = frozenset(ordered_inventory)
+  markdown_paths = tuple(
+    path
+    for path in ordered_inventory
+    if PurePosixPath(path).suffix == '.md'
+  )
+  sources: dict[str, str | OSError | UnicodeError] = {}
+  for path in markdown_paths:
+    full_path = root / PurePosixPath(path)
+    try:
+      sources[path] = full_path.read_text(encoding='utf-8')
+    except (OSError, UnicodeError) as error:
+      sources[path] = error
+  documents, diagnostics = _parse_sources(sources, markdown_paths)
+  try:
+    disk_directories = frozenset(
+      target.path
+      for document in documents.values()
+      for link in document.links
+      for target in (link.target,)
+      if isinstance(target, ResolvedLink)
+      and target.path not in inventory_set
+      and (root / PurePosixPath(target.path)).is_dir()
+    )
+  except OSError as error:
+    raise RuntimeError(
+      f'Cannot inspect documentation link target: {error}'
+    ) from error
+  return _lint_parsed(
+    ordered_inventory,
+    documents,
+    diagnostics,
+    directories=disk_directories,
+  )
+
+
 def check_documentation(repository_root: str | Path) -> None:
+  """Raise DocumentationLintError when repository docs have violations."""
   diagnostics = lint_repository(repository_root)
   if diagnostics:
     raise DocumentationLintError(diagnostics)
