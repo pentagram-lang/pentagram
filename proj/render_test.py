@@ -60,11 +60,11 @@ def _command_for_path(path: tuple[str | int, ...]) -> str:
 
 def test_public_exports_and_formatted_primitives() -> None:
   assert set(render.__all__) == {
-    'HANDOFF_TEXT_LIMIT',
     'HandoffJson',
     'HandoffProjection',
     'HandoffRetrieval',
     'HandoffView',
+    'TextHandoffView',
     'TruncatedField',
     'build_handoff_json',
     'format_blocker_list',
@@ -611,7 +611,7 @@ def test_handoff_rendering_projection_and_json_dict() -> None:
   exact_limit_view = render.HandoffView(
     data=service.HandoffData(
       path='.tmp/exact.sqlite3',
-      project=_project_record(objective='x' * render.HANDOFF_TEXT_LIMIT),
+      project=_project_record(objective='x' * core.HANDOFF_TEXT_LIMIT),
       state=service.ProjectState(
         id=1, summary='-', next_action='', updated_at=_TIME, revision=1
       ),
@@ -704,7 +704,7 @@ def test_handoff_rendering_projection_and_json_dict() -> None:
   ) == (
     'Project: sample\n'
     'Status: active\n'
-    f'Objective: {"x" * render.HANDOFF_TEXT_LIMIT}\n'
+    f'Objective: {"x" * core.HANDOFF_TEXT_LIMIT}\n'
     'Project database: .tmp/exact.sqlite3\n'
     'Active goal: -\n'
     'Goal text: -\n'
@@ -909,3 +909,265 @@ def test_handoff_rendering_projection_and_json_dict() -> None:
   assert str(missing_cmd_err.value) == (
     'No handoff retrieval command for task_log'
   )
+
+
+def test_text_handoff_view_differential_parity_and_short_prefixes() -> (
+  None
+):
+  retrieval = _sample_retrieval()
+  long_dash = '-' + ('x' * 1500)
+  newline_501 = '\n' * 501
+  tricky_utf8 = 'a\x1b\x9f\u2028\u2029' + ('😀' * 600)
+  exact_1000 = 'k' * 1000
+  over_1001 = 'm' * 1001
+
+  full_data = service.HandoffData(
+    path='memory://demo',
+    project=_project_record(name='demo', objective=long_dash),
+    state=service.ProjectState(
+      id=1,
+      summary='-',
+      next_action=newline_501,
+      updated_at=_TIME,
+      revision=2,
+    ),
+    goal=service.ActiveGoalRef(
+      goal=service.GoalRecord(
+        id=4,
+        text=tricky_utf8,
+        status='active',
+        status_reason='',
+        ever_activated=1,
+        created_at=_TIME,
+        started_at=_TIME,
+        achieved_at=None,
+        updated_at=_TIME,
+      )
+    ),
+    stage=service.StageRecord(
+      id=7,
+      name=exact_1000,
+      outcome='Done',
+      purpose='',
+      entry_conditions='',
+      exit_evidence='',
+      position=0,
+      achievement_generation=0,
+      achievement_generation_started_at=_TIME,
+      created_at=_TIME,
+      updated_at=_TIME,
+      status='active',
+      started_at=_TIME,
+      achieved_at=None,
+      achievement_evidence_id=None,
+    ),
+    task=service.HandoffTaskRecord(
+      id=12,
+      goal_id=4,
+      stage_id=7,
+      title=over_1001,
+      purpose='P',
+      scope='S',
+      exclusions='E',
+      result='R',
+      completion_evidence='C',
+      status='active',
+      priority=0,
+      created_at=_TIME,
+      started_at=_TIME,
+      completed_at=None,
+      updated_at=_TIME,
+      title_status='legacy-blank',
+    ),
+    blocked_tasks=(
+      service.BlockedTaskSummary(
+        id=20,
+        title='-',
+        status='blocked',
+        goal_id=4,
+        stage_id=7,
+        stage_name=None,
+        updated_at=_TIME,
+        title_status='substantive',
+      ),
+      service.BlockedTaskSummary(
+        id=21,
+        title=long_dash,
+        status='blocked',
+        goal_id=None,
+        stage_id=8,
+        stage_name=tricky_utf8,
+        updated_at=_TIME,
+        title_status='substantive',
+      ),
+    ),
+    blocked_goals=(
+      service.BlockedGoalSummary(
+        id=9,
+        text=exact_1000,
+        status='blocked',
+        status_reason=over_1001,
+        updated_at=_TIME,
+      ),
+    ),
+    blockers=(
+      service.HandoffBlockerSummary(
+        id=3,
+        goal_id=4,
+        stage_id=7,
+        task_id=12,
+        description=long_dash,
+        required='-',
+        opened_at=_TIME,
+        target_kind='task',
+        target_id=12,
+      ),
+    ),
+    decisions=(
+      service.HandoffDecisionSummary(
+        id=5,
+        goal_id=4,
+        stage_id=7,
+        task_id=12,
+        summary=newline_501,
+        decided_at=_TIME,
+        context_status='legacy-unresolved',
+      ),
+    ),
+    evidence=(
+      service.EvidenceRecord(
+        id=6,
+        goal_id=4,
+        stage_id=7,
+        task_id=12,
+        claim=tricky_utf8,
+        source='S',
+        result='R',
+        captured_at=_TIME,
+        context_status='complete',
+        claim_status='legacy-blank',
+        stage_generation=0,
+      ),
+    ),
+    logs=(
+      service.HandoffLogEntry(
+        occurred_at=_TIME,
+        kind='-',
+        message=over_1001,
+      ),
+    ),
+    focus=service.HandoffFocus(kind='task', id=12),
+    pages=service.HandoffPages(
+      blocked_tasks=service.HandoffPage(shown=2, total=2, truncated=False),
+      blocked_goals=service.HandoffPage(shown=1, total=1, truncated=False),
+      blockers=service.HandoffPage(shown=1, total=1, truncated=False),
+      decisions=service.HandoffPage(shown=1, total=1, truncated=False),
+      evidence=service.HandoffPage(shown=1, total=1, truncated=False),
+      task_log=service.HandoffPage(shown=1, total=1, truncated=False),
+    ),
+  )
+
+  def _bounded(value: str) -> service.BoundedText:
+    return service.BoundedText(
+      value[: core.HANDOFF_TEXT_LIMIT + 1], len(value)
+    )
+
+  text_data = service.TextHandoffData(
+    path='memory://demo',
+    project=service.TextHandoffProject(
+      name=_bounded('demo'),
+      status='active',
+      objective=_bounded(long_dash),
+      charter_context_status='current',
+    ),
+    state=service.TextHandoffState(
+      summary=_bounded('-'),
+      next_action=_bounded(newline_501),
+    ),
+    goal=service.TextHandoffGoal(
+      id=4,
+      status='active',
+      text=_bounded(tricky_utf8),
+    ),
+    stage=service.TextHandoffStage(id=7, name=_bounded(exact_1000)),
+    task=service.TextHandoffTask(
+      id=12,
+      goal_id=4,
+      stage_id=7,
+      title=_bounded(over_1001),
+      title_status='legacy-blank',
+    ),
+    blocked_tasks=(
+      service.TextBlockedTaskSummary(
+        id=20,
+        title=_bounded('-'),
+        goal_id=4,
+        stage_id=7,
+        stage_name=None,
+        title_status='substantive',
+      ),
+      service.TextBlockedTaskSummary(
+        id=21,
+        title=_bounded(long_dash),
+        goal_id=None,
+        stage_id=8,
+        stage_name=_bounded(tricky_utf8),
+        title_status='substantive',
+      ),
+    ),
+    blocked_goals=(
+      service.TextBlockedGoalSummary(
+        id=9,
+        text=_bounded(exact_1000),
+        status_reason=_bounded(over_1001),
+      ),
+    ),
+    blockers=(
+      service.TextHandoffBlockerSummary(
+        id=3,
+        description=_bounded(long_dash),
+        required=_bounded('-'),
+        target_kind='task',
+        target_id=12,
+      ),
+    ),
+    decisions=(
+      service.TextHandoffDecisionSummary(
+        id=5,
+        summary=_bounded(newline_501),
+        context_status='legacy-unresolved',
+      ),
+    ),
+    evidence=(
+      service.TextHandoffEvidenceSummary(
+        id=6,
+        claim=_bounded(tricky_utf8),
+        context_status='complete',
+        claim_status='legacy-blank',
+      ),
+    ),
+    logs=(
+      service.TextHandoffLogEntry(
+        kind=_bounded('-'),
+        message=_bounded(over_1001),
+      ),
+    ),
+    focus=full_data.focus,
+    pages=full_data.pages,
+  )
+  full_rendered = render._render_handoff(
+    render.HandoffView(data=full_data, retrieval=retrieval),
+    _command_for_path,
+  )
+  text_rendered = render._render_handoff(
+    render.TextHandoffView(data=text_data, retrieval=retrieval),
+    _command_for_path,
+  )
+
+  assert (
+    text_rendered,
+    render.format_handoff(
+      render.TextHandoffView(data=text_data, retrieval=retrieval),
+      _command_for_path,
+    ),
+  ) == (full_rendered, full_rendered[0])

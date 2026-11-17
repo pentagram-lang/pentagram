@@ -7,6 +7,7 @@ from typing import Final, Literal
 from wcwidth import wcswidth
 
 from .core import (
+  HANDOFF_TEXT_LIMIT,
   BlockerFilterStatus,
   ClaimStatus,
   ProjectError,
@@ -15,7 +16,9 @@ from .core import (
   dataclass_to_dict,
 )
 from .service import (
+  ActiveGoalRef,
   BlockerRecord,
+  BoundedText,
   CharterHistoryRecord,
   DecisionRecord,
   EvidenceRecord,
@@ -34,14 +37,16 @@ from .service import (
   TaskDetails,
   TaskLogRecord,
   TaskRecord,
+  TextHandoffData,
+  TextHandoffGoal,
 )
 
 __all__ = [
-  'HANDOFF_TEXT_LIMIT',
   'HandoffJson',
   'HandoffProjection',
   'HandoffRetrieval',
   'HandoffView',
+  'TextHandoffView',
   'TruncatedField',
   'build_handoff_json',
   'format_blocker_list',
@@ -58,8 +63,6 @@ __all__ = [
   'format_task_list',
   'format_task_log_list',
 ]
-
-HANDOFF_TEXT_LIMIT: Final[int] = 1000
 
 _TEXT_ESCAPES: Final[dict[int, str]] = {
   **{codepoint: f'\\u{codepoint:04x}' for codepoint in range(0x7F, 0xA0)},
@@ -125,6 +128,12 @@ class HandoffView:
 
 
 @dataclass(frozen=True, slots=True)
+class TextHandoffView:
+  data: TextHandoffData
+  retrieval: HandoffRetrieval
+
+
+@dataclass(frozen=True, slots=True)
 class HandoffJson:
   view: HandoffView
   text_projection: HandoffProjection
@@ -160,14 +169,16 @@ def _display_width(value: str) -> int:
   return width if width >= 0 else len(value)
 
 
-def _bounded_escaped_text(value: str, limit: int) -> tuple[str, bool]:
+def _bounded_escaped_prefix(
+  prefix: str, total_chars: int, limit: int
+) -> tuple[str, bool]:
   if limit < 1:
     raise ValueError('limit must be at least 1')
-  if value == '-':
+  if total_chars == 1 and prefix == '-':
     return ('"-"', False) if limit >= 3 else ('…', True)
   rendered: list[str] = []
   rendered_length = 0
-  for character in value:
+  for character in prefix:
     encoded = _escape_text(character)
     if rendered_length + len(encoded) > limit:
       while rendered and rendered_length + 1 > limit:
@@ -653,7 +664,7 @@ def format_evidence_list(
 
 
 def _handoff_page_and_command(
-  view: HandoffView, key: _HandoffPageKey
+  view: HandoffView | TextHandoffView, key: _HandoffPageKey
 ) -> tuple[HandoffPage, str | None]:
   match key:
     case 'blocked_tasks':
@@ -670,7 +681,9 @@ def _handoff_page_and_command(
       return view.data.pages.task_log, view.retrieval.task_log
 
 
-def _handoff_page_suffix(view: HandoffView, key: _HandoffPageKey) -> str:
+def _handoff_page_suffix(
+  view: HandoffView | TextHandoffView, key: _HandoffPageKey
+) -> str:
   page, command = _handoff_page_and_command(view, key)
   parts = [f'{page.shown} of {page.total}']
   if page.truncated:
@@ -681,7 +694,7 @@ def _handoff_page_suffix(view: HandoffView, key: _HandoffPageKey) -> str:
 
 
 def _render_handoff(
-  view: HandoffView,
+  view: HandoffView | TextHandoffView,
   full_value_command: Callable[[tuple[str | int, ...]], str],
 ) -> tuple[str, HandoffProjection]:
   data = view.data
@@ -689,17 +702,29 @@ def _render_handoff(
   state = data.state
   stage = data.stage
   task = data.task
-  goal = data.goal
+  raw_goal = data.goal
+  goal_record: GoalRecord | TextHandoffGoal | None = (
+    raw_goal.goal if isinstance(raw_goal, ActiveGoalRef) else raw_goal
+  )
   truncations: list[TruncatedField] = []
   commands: set[str] = set()
 
   def text(
     value: object, path: tuple[str | int, ...], default: str = '-'
   ) -> str:
-    if value is None or value == '':
+    if value is None:
       return default
-    raw = str(value)
-    rendered, truncated = _bounded_escaped_text(raw, HANDOFF_TEXT_LIMIT)
+    if isinstance(value, BoundedText):
+      prefix = value.prefix
+      total_chars = value.characters
+    else:
+      prefix = str(value)
+      total_chars = len(prefix)
+    if total_chars == 0:
+      return default
+    rendered, truncated = _bounded_escaped_prefix(
+      prefix, total_chars, HANDOFF_TEXT_LIMIT
+    )
     if not truncated:
       return rendered
     command = full_value_command(path)
@@ -707,7 +732,7 @@ def _render_handoff(
     truncations.append(
       TruncatedField(
         path='.'.join(str(part) for part in path),
-        characters=len(raw),
+        characters=total_chars,
         retrieval=command,
       )
     )
@@ -723,11 +748,11 @@ def _render_handoff(
       else []
     ),
     f'Project database: {text(data.path, ("path",))}',
-    f'Active goal: {goal.goal.id} ({goal.goal.status})'
-    if goal is not None
+    f'Active goal: {goal_record.id} ({goal_record.status})'
+    if goal_record is not None
     else 'Active goal: -',
-    f'Goal text: {text(goal.goal.text, ("goal", "goal", "text"))}'
-    if goal is not None
+    f'Goal text: {text(goal_record.text, ("goal", "goal", "text"))}'
+    if goal_record is not None
     else 'Goal text: -',
     f'Active stage: {text(stage.name, ("stage", "name"))}'
     if stage is not None
@@ -826,7 +851,7 @@ def _render_handoff(
 
 
 def format_handoff(
-  view: HandoffView,
+  view: HandoffView | TextHandoffView,
   full_value_command: Callable[[tuple[str | int, ...]], str],
 ) -> str:
   return _render_handoff(view, full_value_command)[0]

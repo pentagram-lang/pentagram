@@ -6,10 +6,12 @@ __all__ = [
   'BLOCKER_STATUSES',
   'GOAL_STATUSES',
   'HANDOFF_LIMIT',
+  'HANDOFF_TEXT_LIMIT',
   'MAX_GOAL_TEXT_LENGTH',
   'MAX_PROJECT_NAME_LENGTH',
   'PROJECT_SUFFIX',
   'TASK_STATUSES',
+  'UNICODE_WHITESPACE',
   'UNSET',
   'BlockerFilterStatus',
   'BlockerStatus',
@@ -43,6 +45,12 @@ PROJECT_SUFFIX: Final[str] = '.sqlite3'
 MAX_PROJECT_NAME_LENGTH: Final[int] = 200
 MAX_GOAL_TEXT_LENGTH: Final[int] = 4000
 HANDOFF_LIMIT: Final[int] = 5
+HANDOFF_TEXT_LIMIT: Final[int] = 1000
+UNICODE_WHITESPACE: Final[str] = ''.join(
+  chr(cp)
+  for cp in range(0x110000)
+  if not (0xD800 <= cp <= 0xDFFF) and chr(cp).isspace()
+)
 
 _PROJECT_NAME_PATTERN: Final[re.Pattern[str]] = re.compile(
   r'^[^/\\\x00]+$'
@@ -168,6 +176,8 @@ class GoalText:
       raise ProjectError(
         'Goal text must contain at least one non-whitespace character'
       )
+    if '\x00' in self.value:
+      raise ProjectError('Goal text must not contain NUL characters')
     length = len(self.value)
     if length > MAX_GOAL_TEXT_LENGTH:
       raise ProjectError(

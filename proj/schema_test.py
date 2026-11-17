@@ -757,10 +757,12 @@ def test_v6_migration_upgrades_to_v7_and_rolls_back_atomically(
 
     with pytest.raises(core.ProjectError) as in_tx_err:
       db.execute('BEGIN')
-      schema._migrate_schema_6_to_7(db)
+      schema.validate_project(
+        db, expected_name=_NAME, display_path='memory://v6-tx'
+      )
     assert str(in_tx_err.value) == (
       'Cannot migrate schema version 6 database inside an active '
-      'transaction'
+      'transaction: memory://v6-tx'
     )
     db.rollback()
 
@@ -1129,3 +1131,520 @@ def test_classify_database_classifies_schemas_and_corruption(
     ) == ('disk I/O error', False)
   finally:
     io_db.close()
+
+
+def _check_table_violation(
+  snapshot: bytes,
+  setup_sql: tuple[tuple[str, tuple[object, ...]], ...],
+  *,
+  version: int = schema.SCHEMA_VERSION,
+) -> str:
+  db = sqlite3.connect(':memory:')
+  try:
+    db.deserialize(snapshot)
+    schema.configure_connection(db)
+    db.execute('PRAGMA foreign_keys = OFF')
+    db.execute('PRAGMA ignore_check_constraints = ON')
+    for (trigger_name,) in db.execute(
+      "SELECT name FROM sqlite_master WHERE type = 'trigger'"
+    ).fetchall():
+      db.execute(f'DROP TRIGGER "{trigger_name}"')
+    for stmt, stmt_params in setup_sql:
+      db.execute(stmt, stmt_params)
+    db.execute('PRAGMA ignore_check_constraints = OFF')
+    db.execute('PRAGMA foreign_keys = ON')
+    with pytest.raises(core.ProjectError) as err:
+      schema._validate_table_checks(db, version)
+    return str(err.value)
+  finally:
+    db.close()
+
+
+def test_table_check_constraints_and_additional_table(
+  v7_snapshot: bytes,
+) -> None:
+  table_failures = (
+    _check_table_violation(
+      v7_snapshot,
+      (
+        (
+          'UPDATE project SET charter_context_status = ? WHERE id = 1',
+          ('bad',),
+        ),
+      ),
+    ),
+    _check_table_violation(
+      v7_snapshot,
+      (
+        (
+          'INSERT INTO goal (id, text, status, created_at, started_at, '
+          'updated_at) VALUES (1, ?, ?, 1, 1, 1)',
+          ('\u2003\u3000\n', 'pending'),
+        ),
+      ),
+    ),
+    _check_table_violation(
+      v7_snapshot,
+      (
+        (
+          'INSERT INTO goal (id, text, status, created_at, started_at, '
+          'updated_at) VALUES (1, ?, ?, 1, 1, 1)',
+          (sqlite3.Binary(b'blob'), 'pending'),
+        ),
+      ),
+    ),
+    _check_table_violation(
+      v7_snapshot,
+      (
+        (
+          'INSERT INTO goal (id, text, status, created_at, started_at, '
+          'updated_at) VALUES (1, ?, ?, 1, 1, 1)',
+          ('Valid v6', 'pending'),
+        ),
+      ),
+      version=6,
+    ),
+    _check_table_violation(
+      v7_snapshot,
+      (
+        (
+          'INSERT INTO stage (id, name, outcome, achievement_generation, '
+          'created_at, updated_at) VALUES (1, ?, ?, -1, 1, 1)',
+          ('s1', 'out'),
+        ),
+      ),
+    ),
+    _check_table_violation(
+      v7_snapshot,
+      (
+        (
+          'INSERT INTO stage (id, name, outcome, created_at, updated_at) '
+          "VALUES (1, 's1', 'out', 1, 1)",
+          (),
+        ),
+        (
+          'INSERT INTO task (id, stage_id, title, purpose, scope, '
+          'exclusions, result, completion_evidence, status, started_at, '
+          'created_at, updated_at) VALUES (1, 1, ?, ?, ?, ?, ?, ?, ?, 1, '
+          '1, 1)',
+          ('t1', '\u2003\u3000', 's', 'e', 'r', 'c', 'pending'),
+        ),
+      ),
+    ),
+    _check_table_violation(
+      v7_snapshot,
+      (('UPDATE project_state SET id = 2 WHERE id = 1', ()),),
+    ),
+    _check_table_violation(
+      v7_snapshot,
+      (
+        (
+          'INSERT INTO stage (id, name, outcome, created_at, updated_at) '
+          "VALUES (1, 's1', 'out', 1, 1)",
+          (),
+        ),
+        (
+          'INSERT INTO stage_dependency (stage_id, dependency_id) '
+          'VALUES (1, 1)',
+          (),
+        ),
+      ),
+    ),
+    _check_table_violation(
+      v7_snapshot,
+      (
+        (
+          'INSERT INTO task (id, title, created_at, updated_at) '
+          "VALUES (1, 't1', 1, 1)",
+          (),
+        ),
+        (
+          'INSERT INTO task_tag (task_id, tag) VALUES (1, ?)',
+          ('\u2003\u3000',),
+        ),
+      ),
+    ),
+    _check_table_violation(
+      v7_snapshot,
+      (
+        (
+          'INSERT INTO decision (id, summary, decided_at, context_status) '
+          'VALUES (1, ?, 1, ?)',
+          ('d1', 'bad'),
+        ),
+      ),
+    ),
+    _check_table_violation(
+      v7_snapshot,
+      (
+        (
+          'INSERT INTO task (id, title, status, created_at, updated_at) '
+          "VALUES (1, 't1', 'blocked', 1, 1)",
+          (),
+        ),
+        (
+          'INSERT INTO blocker (id, task_id, description, required, '
+          'status, opened_at, resolved_at, resolution) '
+          'VALUES (1, 1, ?, ?, ?, 1, 2, ?)',
+          ('desc', 'req', 'resolved', '\u2003'),
+        ),
+      ),
+    ),
+    _check_table_violation(
+      v7_snapshot,
+      (
+        (
+          'INSERT INTO evidence (id, stage_id, claim, captured_at, '
+          'stage_generation) VALUES (1, 1, ?, 1, -1)',
+          ('claim',),
+        ),
+      ),
+    ),
+    _check_table_violation(
+      v7_snapshot,
+      (
+        (
+          'INSERT INTO evidence (id, stage_id, claim, captured_at, '
+          'stage_generation) VALUES (1, NULL, ?, 1, 0)',
+          ('claim',),
+        ),
+      ),
+    ),
+    _check_table_violation(
+      v7_snapshot,
+      (
+        ('DROP TRIGGER IF EXISTS stage_achievement_insert', ()),
+        (
+          'INSERT INTO stage_achievement (id, stage_id, evidence_id, '
+          'achieved_at, stage_generation) VALUES (1, 1, 1, 1, -1)',
+          (),
+        ),
+      ),
+    ),
+    _check_table_violation(
+      v7_snapshot,
+      (
+        ('DROP TRIGGER IF EXISTS legacy_lifecycle_insert', ()),
+        (
+          'INSERT INTO legacy_lifecycle (id, source_schema_version, '
+          'entity_kind, entity_id, status, was_selected, migrated_at) '
+          'VALUES (1, 1, ?, 1, ?, 2, 1)',
+          ('project', 'active'),
+        ),
+      ),
+    ),
+  )
+
+  with _memory_db() as db:
+    db.deserialize(v7_snapshot)
+    schema.configure_connection(db)
+    db.execute(
+      'INSERT INTO evidence (id, stage_id, claim, captured_at, '
+      "stage_generation) VALUES (1, NULL, 'Valid claim', 1, NULL)"
+    )
+    db.execute(
+      'CREATE TABLE extra_notes (id INTEGER PRIMARY KEY, body TEXT)'
+    )
+    db.execute("INSERT INTO extra_notes VALUES (1, 'extra note')")
+    schema._validate_table_checks(db, schema.SCHEMA_VERSION)
+    schema.validate_project(
+      db, expected_name=_NAME, display_path='memory://demo'
+    )
+    sql_parity = tuple(
+      bool(
+        db.execute(
+          "SELECT typeof(?) = 'text' AND octet_length(ltrim(?, ?)) > 0",
+          (sample, sample, core.UNICODE_WHITESPACE),
+        ).fetchone()[0]
+      )
+      for sample in ('', ' \t\u2003\u3000\n', '\x00', ' \x00 ', 'a')
+    )
+
+  assert (table_failures, sql_parity) == (
+    (
+      'Project database integrity check failed: CHECK constraint '
+      'failed on project',
+      'Project database integrity check failed: CHECK constraint '
+      'failed on goal',
+      'Project database integrity check failed: CHECK constraint '
+      'failed on goal',
+      'Project database integrity check failed: CHECK constraint '
+      'failed on goal',
+      'Project database integrity check failed: CHECK constraint '
+      'failed on stage',
+      'Project database integrity check failed: CHECK constraint '
+      'failed on task',
+      'Project database integrity check failed: CHECK constraint '
+      'failed on project_state',
+      'Project database integrity check failed: CHECK constraint '
+      'failed on stage_dependency',
+      'Project database integrity check failed: CHECK constraint '
+      'failed on task_tag',
+      'Project database integrity check failed: CHECK constraint '
+      'failed on decision',
+      'Project database integrity check failed: CHECK constraint '
+      'failed on blocker',
+      'Project database integrity check failed: CHECK constraint '
+      'failed on evidence',
+      'Project database integrity check failed: CHECK constraint '
+      'failed on evidence',
+      'Project database integrity check failed: CHECK constraint '
+      'failed on stage_achievement',
+      'Project database integrity check failed: CHECK constraint '
+      'failed on legacy_lifecycle',
+    ),
+    (False, False, True, True, True),
+  )
+
+
+def _utf8_corruption_error(snapshot: bytes, sql: str) -> str:
+  with _memory_db() as db:
+    db.deserialize(snapshot)
+    schema.configure_connection(db)
+    db.execute(sql)
+    with pytest.raises(core.ProjectError) as exc_info:
+      schema.validate_project(
+        db, expected_name=_NAME, display_path='memory://utf8'
+      )
+    return str(exc_info.value)
+
+
+def _seed_raw_utf16_db(conn: sqlite3.Connection, encoding: str) -> None:
+  conn.execute(f"PRAGMA encoding = '{encoding}'")
+  conn.row_factory = sqlite3.Row
+  conn.create_function('substantive', 1, core.is_substantive)
+  for sql in schema._canonical_schema_definitions().values():
+    conn.execute(sql)
+  conn.execute(f'PRAGMA user_version = {schema.SCHEMA_VERSION}')
+  conn.execute(
+    'INSERT INTO project (id, name, objective, scope, non_goals, '
+    'constraints_text, acceptance, created_at, updated_at) '
+    "VALUES (1, 'demo', 'O', 'S', 'N', 'C', 'A', 1, 1)"
+  )
+  conn.execute(
+    'INSERT INTO project_state (id, summary, next_action, updated_at) '
+    "VALUES (1, '', '', 1)"
+  )
+
+
+def test_validate_project_encoding_extra_checks_utf8_and_bounded_name(
+  v7_snapshot: bytes,
+  monkeypatch: pytest.MonkeyPatch,
+) -> None:
+  with _memory_db() as utf16le_cfg_db:
+    utf16le_cfg_db.execute("PRAGMA encoding = 'UTF-16le'")
+    with pytest.raises(core.ProjectError) as cfg_le_err:
+      schema.configure_connection(utf16le_cfg_db)
+    with pytest.raises(core.ProjectError) as init_le_err:
+      schema.initialize_project(utf16le_cfg_db, _NAME, _CHARTER)
+
+  with _memory_db() as utf16be_cfg_db:
+    utf16be_cfg_db.execute("PRAGMA encoding = 'UTF-16be'")
+    with pytest.raises(core.ProjectError) as cfg_be_err:
+      schema.configure_connection(utf16be_cfg_db)
+
+  with _memory_db() as utf16_db:
+    _seed_raw_utf16_db(utf16_db, 'UTF-16le')
+    with pytest.raises(core.ProjectError) as utf16_err:
+      schema.validate_project(
+        utf16_db, expected_name=_NAME, display_path='memory://utf16'
+      )
+
+  with _memory_db() as extra_db:
+    extra_db.deserialize(v7_snapshot)
+    schema.configure_connection(extra_db)
+    extra_db.execute(
+      'CREATE TABLE "bad""extra" '
+      '(id INTEGER PRIMARY KEY, x INTEGER CHECK (x > 0))'
+    )
+    extra_db.execute('PRAGMA ignore_check_constraints = ON')
+    extra_db.execute('INSERT INTO "bad""extra" VALUES (1, -1)')
+    extra_db.execute('PRAGMA ignore_check_constraints = OFF')
+    with pytest.raises(core.ProjectError) as extra_err:
+      schema.validate_project(
+        extra_db, expected_name=_NAME, display_path='memory://extra'
+      )
+
+  goal_checks = (
+    _check_table_violation(
+      v7_snapshot,
+      (
+        (
+          'INSERT INTO goal (id, text, status, created_at, started_at, '
+          "updated_at) VALUES (1, printf('%.*c', 5000000, 'g'), "
+          "'pending', 1, 1, 1)",
+          (),
+        ),
+      ),
+    ),
+    _check_table_violation(
+      v7_snapshot,
+      (
+        (
+          'INSERT INTO goal (id, text, status, created_at, started_at, '
+          "updated_at) VALUES (1, ?, 'pending', 1, 1, 1)",
+          ('ab\x00cd',),
+        ),
+      ),
+    ),
+  )
+
+  utf8_errors = (
+    _utf8_corruption_error(
+      v7_snapshot,
+      "UPDATE project_state SET summary = CAST(X'ff' AS TEXT) "
+      'WHERE id = 1',
+    ),
+    _utf8_corruption_error(
+      v7_snapshot,
+      'UPDATE project_state SET summary = '
+      "CAST(CAST(printf('%.*c', 5000, 'a') AS BLOB) || X'ff' AS TEXT) "
+      'WHERE id = 1',
+    ),
+    _utf8_corruption_error(
+      v7_snapshot,
+      'UPDATE project_state SET summary = '
+      "CAST(CAST(printf('%.*c', 70000, 'a') AS BLOB) || X'ff' AS TEXT) "
+      'WHERE id = 1',
+    ),
+  )
+
+  with _memory_db() as name_db:
+    schema.configure_connection(name_db)
+    for sql in schema._canonical_schema_definitions().values():
+      name_db.execute(sql)
+    name_db.execute(f'PRAGMA user_version = {schema.SCHEMA_VERSION}')
+    name_db.execute(
+      'INSERT INTO project (id, name, objective, scope, non_goals, '
+      'constraints_text, acceptance, created_at, updated_at) '
+      "VALUES (1, printf('%.*c', 5000000, 'n'), 'O', 'S', 'N', 'C', 'A', "
+      '1, 1)'
+    )
+    name_db.execute(
+      'INSERT INTO project_state (id, summary, next_action, updated_at) '
+      "VALUES (1, '', '', 1)"
+    )
+    with pytest.raises(core.ProjectError) as name_err:
+      schema.validate_project(
+        name_db, expected_name=_NAME, display_path='memory://name-mismatch'
+      )
+
+  snap_uri = 'file:/schema_snapshot_tag?vfs=memdb'
+  tag_writer = sqlite3.connect(snap_uri, uri=True, timeout=0.01)
+  tag_reader = sqlite3.connect(snap_uri, uri=True, timeout=0.01)
+  snap_busy_errors: list[str] = []
+  try:
+    schema.configure_connection(tag_writer)
+    tag_writer.execute('PRAGMA busy_timeout = 10')
+    schema.configure_connection(tag_reader)
+    schema.initialize_project(tag_writer, _NAME, _CHARTER)
+    tag_writer.execute(
+      'INSERT INTO task (id, title, created_at, updated_at) '
+      "VALUES (1, 'T', 1, 1)"
+    )
+    tag_writer.execute(
+      'INSERT INTO task_tag (task_id, tag) '
+      "VALUES (1, printf('%.*c', 70000, 't'))"
+    )
+    tag_writer.commit()
+
+    real_stream_valid = schema._stream_valid_utf8
+
+    def _delete_tag_mid_validation(
+      conn_arg: sqlite3.Connection,
+      table: str,
+      column: str,
+      rowid: int,
+    ) -> bool:
+      if table == 'task_tag' and column == 'tag':
+        with pytest.raises(sqlite3.OperationalError) as busy_err:
+          tag_writer.execute('DELETE FROM task_tag')
+          tag_writer.commit()
+        tag_writer.rollback()
+        snap_busy_errors.append(str(busy_err.value))
+      return real_stream_valid(conn_arg, table, column, rowid)
+
+    with monkeypatch.context() as mp:
+      mp.setattr(schema, '_stream_valid_utf8', _delete_tag_mid_validation)
+      schema.validate_project(
+        tag_reader, expected_name=_NAME, display_path='memory://snap-tag'
+      )
+    tag_writer.execute('DELETE FROM task_tag')
+    tag_writer.commit()
+  finally:
+    tag_reader.close()
+    tag_writer.close()
+
+  mig_uri = 'file:/schema_v6_concurrent?vfs=memdb'
+  opener_one = sqlite3.connect(mig_uri, uri=True, timeout=0.01)
+  opener_two = sqlite3.connect(mig_uri, uri=True, timeout=0.01)
+  try:
+    schema.configure_connection(opener_one)
+    schema.configure_connection(opener_two)
+    schema.initialize_project(opener_one, _NAME, _CHARTER)
+    downgrade_v7_to_v6(opener_one)
+    opener_one.commit()
+
+    real_migrate = schema._migrate_schema_6_to_7
+    raced = False
+
+    def _race_migration(
+      conn_arg: sqlite3.Connection, *, expected_name: str
+    ) -> bool:
+      nonlocal raced
+      if not raced:
+        raced = True
+        schema.validate_project(
+          opener_one, expected_name=_NAME, display_path='memory://v6-one'
+        )
+      return real_migrate(conn_arg, expected_name=expected_name)
+
+    with monkeypatch.context() as mp:
+      mp.setattr(schema, '_migrate_schema_6_to_7', _race_migration)
+      schema.validate_project(
+        opener_two, expected_name=_NAME, display_path='memory://v6-two'
+      )
+    v2_row = opener_two.execute('PRAGMA user_version').fetchone()
+    assert v2_row is not None
+    migrated_v2 = int(v2_row[0])
+  finally:
+    opener_two.close()
+    opener_one.close()
+
+  expected_utf8 = (
+    'Project database integrity check failed: invalid UTF-8 text in '
+    'project_state.summary: memory://utf8'
+  )
+  expected_prefix = ('n' * 200) + '…'
+  assert (
+    str(cfg_le_err.value),
+    str(init_le_err.value),
+    str(cfg_be_err.value),
+    str(utf16_err.value),
+    str(extra_err.value),
+    goal_checks,
+    utf8_errors,
+    str(name_err.value),
+    snap_busy_errors,
+    (raced, migrated_v2),
+  ) == (
+    "Unsupported project database encoding 'UTF-16le'; expected 'UTF-8'",
+    'Project database could not be initialized: '
+    "Unsupported project database encoding 'UTF-16le'; expected 'UTF-8'",
+    "Unsupported project database encoding 'UTF-16be'; expected 'UTF-8'",
+    "Unsupported project database encoding 'UTF-16le'; expected 'UTF-8': "
+    'memory://utf16',
+    'Project database integrity check failed: '
+    'CHECK constraint failed in bad"extra: memory://extra',
+    (
+      'Project database integrity check failed: CHECK constraint '
+      'failed on goal',
+      'Project database integrity check failed: CHECK constraint '
+      'failed on goal',
+    ),
+    (expected_utf8, expected_utf8, expected_utf8),
+    f'Project name {expected_prefix!r} does not match database address '
+    "'demo': memory://name-mismatch",
+    ['database is locked'],
+    (True, schema.SCHEMA_VERSION),
+  )

@@ -11,6 +11,7 @@ def test_core_constants_and_status_tuples() -> None:
     core.MAX_PROJECT_NAME_LENGTH,
     core.MAX_GOAL_TEXT_LENGTH,
     core.HANDOFF_LIMIT,
+    core.HANDOFF_TEXT_LIMIT,
     core.GOAL_STATUSES,
     core.TASK_STATUSES,
     core.BLOCKER_STATUSES,
@@ -19,12 +20,25 @@ def test_core_constants_and_status_tuples() -> None:
     200,
     4000,
     5,
+    1000,
     ('active', 'pending', 'blocked', 'achieved', 'cancelled'),
     ('pending', 'active', 'completed', 'blocked', 'cancelled'),
     ('open', 'resolved', 'withdrawn'),
   )
   assert core.UNSET is core.UNSET
   assert core.UNSET is not core.Unset(object())
+
+
+def test_unicode_whitespace_matches_str_isspace() -> None:
+  expected = tuple(
+    chr(code) for code in range(0x110000) if chr(code).isspace()
+  )
+  assert (
+    tuple(sorted(core.UNICODE_WHITESPACE)),
+    len(core.UNICODE_WHITESPACE),
+    tuple(ch for ch in expected if core.is_substantive(ch)),
+    core.is_substantive('\x00'),
+  ) == (expected, len(expected), (), True)
 
 
 @pytest.mark.parametrize(
@@ -153,12 +167,13 @@ def test_goal_text_parse_accepts_valid_text(raw: str) -> None:
       ' \u2003\n',
       'Goal text must contain at least one non-whitespace character',
     ),
+    ('ab\x00cd', 'Goal text must not contain NUL characters'),
     (
       'x' * (core.MAX_GOAL_TEXT_LENGTH + 1),
       'Goal text is limited to 4,000 characters; received 4,001.',
     ),
   ],
-  ids=('empty', 'whitespace', 'over-limit'),
+  ids=('empty', 'whitespace', 'nul-byte', 'over-limit'),
 )
 def test_goal_text_parse_rejects_blank_or_over_limit_text(
   raw: str, expected_message: str

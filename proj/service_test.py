@@ -4,6 +4,7 @@ import json
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
+from typing import cast
 
 import pytest
 
@@ -1692,3 +1693,416 @@ def test_empty_stage_stays_pending_until_completed_and_achieved(
         decisions=(),
       ),
     )
+
+
+def _bounded(value: str) -> service.BoundedText:
+  return service.BoundedText(
+    value[: core.HANDOFF_TEXT_LIMIT + 1], len(value)
+  )
+
+
+def test_bounded_text_and_read_text_handoff_sql_edge_cases(
+  monkeypatch: pytest.MonkeyPatch,
+) -> None:
+  bad_bounded: list[str] = []
+  for fn in (
+    lambda: service.BoundedText(cast(str, 123), 5),
+    lambda: service.BoundedText('abc', True),
+    lambda: service.BoundedText('abc', -1),
+    lambda: service.BoundedText('abc', 2),
+    lambda: service.BoundedText('abc', 5000),
+  ):
+    with pytest.raises(core.ProjectError) as bad_err:
+      fn()
+    bad_bounded.append(str(bad_err.value))
+  assert bad_bounded == [
+    'BoundedText prefix must be str',
+    'BoundedText characters must be a non-negative int',
+    'BoundedText characters must be a non-negative int',
+    'BoundedText prefix length must be 2; received 3',
+    'BoundedText prefix length must be 1001; received 3',
+  ]
+
+  with _memory_db() as (conn, _clock):
+    charter = core.CharterInput.parse(
+      objective='Initial objective',
+      scope='Initial scope',
+      non_goals='None',
+      constraints='Strict',
+      acceptance='Green',
+    )
+    schema.initialize_project(conn, _NAME, charter)
+    emoji_boundary_values: list[service.BoundedText] = []
+    for pad in (0, 1, 2, 3):
+      candidate = ('a' * pad) + ('😀' * 1005)
+      conn.execute(
+        'UPDATE project SET objective = ? WHERE id = 1', (candidate,)
+      )
+      pad_handoff = service.read_text_handoff(conn, 'memory://demo')
+      emoji_boundary_values.append(pad_handoff.project.objective)
+
+    oversized_objective = 'a' * 70_000 + '\x00' + '😀' * 100
+    conn.execute(
+      'UPDATE project SET objective = ? WHERE id = 1',
+      (oversized_objective,),
+    )
+    conn.execute(
+      'UPDATE project_state SET summary = ?, next_action = ? WHERE id = 1',
+      ('-\x00' + 's' * 1500, '-'),
+    )
+
+    stage_active = service.add_stage(
+      conn,
+      core.SubstantiveText('stage-active'),
+      core.SubstantiveText('Outcome A'),
+    )
+    stage_blocked = service.add_stage(
+      conn,
+      core.SubstantiveText('B' + 'é' * 500 + '\x00' + '😀' * 600),
+      core.SubstantiveText('Outcome B'),
+    )
+    blocked_goal_id = service.create_goal(
+      conn,
+      core.GoalText('Blocked goal text'),
+      service.GoalStages.parse([stage_blocked]),
+    )
+    service.block_goal(
+      conn,
+      core.PositiveInt(blocked_goal_id),
+      core.SubstantiveText('GBlock ' + '\x00' + 'w' * 5000),
+      required=core.SubstantiveText('GReq'),
+    )
+    goal_id = service.create_goal(
+      conn,
+      core.GoalText('G' + '😀' * 1005),
+      service.GoalStages.parse([stage_active]),
+    )
+    active_task_id = service.add_task(
+      conn,
+      core.SubstantiveText('T' + 'x' * 4500),
+      stage=core.PositiveInt(stage_active),
+      goal=core.PositiveInt(goal_id),
+      purpose='P',
+      scope='S',
+      exclusions='E',
+      result='R',
+      completion_evidence='C',
+    )
+    service.start_task(conn, core.PositiveInt(active_task_id))
+    blocked_task_id = service.add_task(
+      conn,
+      core.SubstantiveText('\x00'),
+      stage=core.PositiveInt(stage_blocked),
+      purpose='P2',
+      scope='S2',
+      exclusions='E2',
+      result='R2',
+      completion_evidence='C2',
+    )
+    service.block_task(
+      conn,
+      core.PositiveInt(blocked_task_id),
+      core.SubstantiveText('Blocked desc ' + '\x00' + 'z' * 5000),
+      required=core.SubstantiveText('Unblock req ' + '😀' * 1005),
+    )
+    blocked_no_stage_id = service.add_task(
+      conn, core.SubstantiveText('No stage task')
+    )
+    service.block_task(
+      conn,
+      core.PositiveInt(blocked_no_stage_id),
+      core.SubstantiveText('B2'),
+      required=core.SubstantiveText('R2'),
+    )
+    service.add_decision(
+      conn,
+      core.SubstantiveText('Decision summary ' + 'a' * 1200),
+      task=core.PositiveInt(active_task_id),
+    )
+    service.add_evidence(
+      conn,
+      core.SubstantiveText('Evidence claim ' + '\x00' + 'b' * 70_000),
+      task=core.PositiveInt(active_task_id),
+    )
+    service.append_task_log(
+      conn,
+      core.PositiveInt(active_task_id),
+      'Log message ' + '\x00' + '😀' * 1200,
+      kind='note',
+    )
+
+    full = service.read_handoff(conn, 'memory://demo')
+    bounded = service.read_text_handoff(conn, 'memory://demo')
+
+    conn.execute(
+      'UPDATE task SET purpose = ? WHERE id = ?',
+      ('\x00', active_task_id),
+    )
+    nul_purpose_ok = service.read_text_handoff(conn, 'memory://demo').task
+    conn.create_function('substantive', 1, lambda _value: True)
+    conn.execute(
+      'UPDATE task SET purpose = ? WHERE id = ?',
+      ('\u2003\u3000\n', active_task_id),
+    )
+    schema.configure_connection(conn)
+    with pytest.raises(core.ProjectError) as ws_full_err:
+      service.read_handoff(conn, 'memory://demo')
+    with pytest.raises(core.ProjectError) as ws_text_err:
+      service.read_text_handoff(conn, 'memory://demo')
+
+    conn.execute(
+      "UPDATE project_state SET summary = CAST(X'ff' AS TEXT) WHERE id = 1"
+    )
+    with pytest.raises(core.ProjectError) as small_bad_utf8:
+      service.read_text_handoff(conn, 'memory://demo')
+    conn.execute(
+      'UPDATE project_state SET summary = '
+      "CAST(CAST(printf('%.*c', 70000, 'a') AS BLOB) || X'ff' AS TEXT) "
+      'WHERE id = 1'
+    )
+    with pytest.raises(core.ProjectError) as large_bad_utf8:
+      service.read_text_handoff(conn, 'memory://demo')
+
+    dependent_stage = service.add_stage(
+      conn,
+      core.SubstantiveText('dependent-stage'),
+      core.SubstantiveText('Dependent outcome'),
+    )
+    long_dep_stage = service.add_stage(
+      conn,
+      core.SubstantiveText('d' * 100_000),
+      core.SubstantiveText('Long dep outcome'),
+    )
+    conn.execute(
+      'INSERT INTO stage_dependency (stage_id, dependency_id) '
+      'VALUES (?, ?)',
+      (dependent_stage, long_dep_stage),
+    )
+    dep_task = service.add_task(
+      conn,
+      core.SubstantiveText('Blocked by long dep'),
+      stage=core.PositiveInt(dependent_stage),
+      purpose='P',
+      scope='S',
+      exclusions='E',
+      result='R',
+      completion_evidence='C',
+    )
+    with pytest.raises(core.ProjectError) as dep_err:
+      service.start_task(conn, core.PositiveInt(dep_task))
+
+  memdb_uri = 'file:/service_snapshot_isolation?vfs=memdb'
+  writer = sqlite3.connect(memdb_uri, uri=True, timeout=0.01)
+  reader = sqlite3.connect(memdb_uri, uri=True, timeout=0.01)
+  try:
+    schema.configure_connection(writer)
+    writer.execute('PRAGMA busy_timeout = 10')
+    schema.configure_connection(reader)
+    schema.initialize_project(
+      writer,
+      _NAME,
+      core.CharterInput.parse(
+        objective='x' * 5000,
+        scope='Scope',
+        non_goals='None',
+        constraints='Strict',
+        acceptance='Green',
+      ),
+    )
+    writer.commit()
+
+    real_stream = service._stream_utf8_char_count
+    busy_errors: list[str] = []
+
+    def _contend_mid_read(
+      conn_arg: sqlite3.Connection,
+      table_name: str,
+      column_name: str,
+      row_id: int,
+    ) -> int:
+      if table_name == 'project' and column_name == 'objective':
+        with pytest.raises(sqlite3.OperationalError) as busy_err:
+          writer.execute(
+            "UPDATE project SET objective = 'mutated' WHERE id = 1"
+          )
+          writer.commit()
+        busy_errors.append(str(busy_err.value))
+      return real_stream(conn_arg, table_name, column_name, row_id)
+
+    monkeypatch.setattr(
+      service, '_stream_utf8_char_count', _contend_mid_read
+    )
+    snapshot_handoff = service.read_text_handoff(reader, 'memory://snap')
+    writer.execute("UPDATE project SET objective = 'mutated' WHERE id = 1")
+    writer.commit()
+    after_handoff = service.read_text_handoff(reader, 'memory://snap')
+  finally:
+    reader.close()
+    writer.close()
+
+  raw_utf16 = sqlite3.connect(':memory:')
+  try:
+    raw_utf16.execute("PRAGMA encoding = 'UTF-16le'")
+    raw_utf16.row_factory = sqlite3.Row
+    raw_utf16.create_function('substantive', 1, core.is_substantive)
+    for sql in schema._canonical_schema_definitions().values():
+      raw_utf16.execute(sql)
+    raw_utf16.execute(f'PRAGMA user_version = {schema.SCHEMA_VERSION}')
+    raw_utf16.execute(
+      'INSERT INTO project (id, name, objective, scope, non_goals, '
+      'constraints_text, acceptance, created_at, updated_at) '
+      "VALUES (1, 'demo', 'O', 'S', 'N', 'C', 'A', 1, 1)"
+    )
+    raw_utf16.execute(
+      'INSERT INTO project_state (id, summary, next_action, updated_at) '
+      "VALUES (1, '', '', 1)"
+    )
+    raw_utf16.execute(
+      'INSERT INTO stage (id, name, outcome, created_at, updated_at) '
+      "VALUES (1, 'dep', 'Dep', 1, 1), (2, 'target', 'Target', 1, 1)"
+    )
+    raw_utf16.execute(
+      'INSERT INTO stage_dependency (stage_id, dependency_id) '
+      'VALUES (2, 1)'
+    )
+    raw_utf16.execute(
+      'INSERT INTO task (id, stage_id, title, purpose, scope, exclusions, '
+      'result, completion_evidence, created_at, updated_at) '
+      "VALUES (1, 2, 'T', 'P', 'S', 'E', 'R', 'C', 1, 1)"
+    )
+    with pytest.raises(core.ProjectError) as handoff_utf16_err:
+      service.read_text_handoff(raw_utf16, 'memory://raw-utf16')
+    with pytest.raises(core.ProjectError) as start_utf16_err:
+      service.start_task(raw_utf16, core.PositiveInt(1))
+  finally:
+    raw_utf16.close()
+
+  assert (
+    emoji_boundary_values,
+    bounded,
+    nul_purpose_ok,
+    str(ws_full_err.value),
+    str(ws_text_err.value),
+    str(small_bad_utf8.value),
+    str(large_bad_utf8.value),
+    str(dep_err.value),
+    busy_errors,
+    snapshot_handoff.project.objective.characters,
+    after_handoff.project.objective,
+    str(handoff_utf16_err.value),
+    str(start_utf16_err.value),
+  ) == (
+    [
+      _bounded(('a' * 0) + ('😀' * 1005)),
+      _bounded(('a' * 1) + ('😀' * 1005)),
+      _bounded(('a' * 2) + ('😀' * 1005)),
+      _bounded(('a' * 3) + ('😀' * 1005)),
+    ],
+    service.TextHandoffData(
+      path='memory://demo',
+      project=service.TextHandoffProject(
+        name=_bounded(full.project.name),
+        status=full.project.status,
+        objective=_bounded(full.project.objective),
+        charter_context_status=full.project.charter_context_status,
+      ),
+      state=service.TextHandoffState(
+        summary=_bounded(full.state.summary),
+        next_action=_bounded(full.state.next_action),
+      ),
+      goal=service.TextHandoffGoal(
+        id=goal_id,
+        status='active',
+        text=_bounded('G' + '😀' * 1005),
+      ),
+      stage=service.TextHandoffStage(
+        id=stage_active,
+        name=_bounded('stage-active'),
+      ),
+      task=service.TextHandoffTask(
+        id=active_task_id,
+        goal_id=goal_id,
+        stage_id=stage_active,
+        title=_bounded('T' + 'x' * 4500),
+        title_status='substantive',
+      ),
+      blocked_tasks=tuple(
+        service.TextBlockedTaskSummary(
+          id=item.id,
+          title=_bounded(item.title),
+          goal_id=item.goal_id,
+          stage_id=item.stage_id,
+          stage_name=(
+            _bounded(item.stage_name)
+            if item.stage_name is not None
+            else None
+          ),
+          title_status=item.title_status,
+        )
+        for item in full.blocked_tasks
+      ),
+      blocked_goals=tuple(
+        service.TextBlockedGoalSummary(
+          id=item.id,
+          text=_bounded(item.text),
+          status_reason=_bounded(item.status_reason),
+        )
+        for item in full.blocked_goals
+      ),
+      blockers=tuple(
+        service.TextHandoffBlockerSummary(
+          id=item.id,
+          description=_bounded(item.description),
+          required=_bounded(item.required),
+          target_kind=item.target_kind,
+          target_id=item.target_id,
+        )
+        for item in full.blockers
+      ),
+      decisions=tuple(
+        service.TextHandoffDecisionSummary(
+          id=item.id,
+          summary=_bounded(item.summary),
+          context_status=item.context_status,
+        )
+        for item in full.decisions
+      ),
+      evidence=tuple(
+        service.TextHandoffEvidenceSummary(
+          id=item.id,
+          claim=_bounded(item.claim),
+          context_status=item.context_status,
+          claim_status=item.claim_status,
+        )
+        for item in full.evidence
+      ),
+      logs=tuple(
+        service.TextHandoffLogEntry(
+          kind=_bounded(item.kind),
+          message=_bounded(item.message),
+        )
+        for item in full.logs
+      ),
+      focus=full.focus,
+      pages=full.pages,
+    ),
+    service.TextHandoffTask(
+      id=active_task_id,
+      goal_id=goal_id,
+      stage_id=stage_active,
+      title=_bounded('T' + 'x' * 4500),
+      title_status='substantive',
+    ),
+    'Starting a task requires documented purpose',
+    'Starting a task requires documented purpose',
+    "Database error: 'utf-8' codec can't decode byte 0xff in position 0: "
+    'invalid start byte',
+    "Database error: 'utf-8' codec can't decode byte 0xff in "
+    'position 4464: invalid start byte',
+    f'Stage dependency is not achieved: {"d" * core.HANDOFF_TEXT_LIMIT}…',
+    ['database is locked'],
+    5000,
+    _bounded('mutated'),
+    "Unsupported project database encoding 'UTF-16le'; expected 'UTF-8'",
+    "Unsupported project database encoding 'UTF-16le'; expected 'UTF-8'",
+  )

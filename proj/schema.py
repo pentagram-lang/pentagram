@@ -1,10 +1,18 @@
+import codecs
 import contextlib
 import re
 import sqlite3
+from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Final, Literal
 
-from .core import CharterInput, ProjectError, ProjectName, is_substantive
+from .core import (
+  UNICODE_WHITESPACE,
+  CharterInput,
+  ProjectError,
+  ProjectName,
+  is_substantive,
+)
 
 __all__ = [
   'SCHEMA_VERSION',
@@ -13,6 +21,7 @@ __all__ = [
   'classify_database',
   'configure_connection',
   'connection_time',
+  'ensure_utf8_encoding',
   'initialize_project',
   'is_corrupt_sqlite_error',
   'validate_project',
@@ -1791,13 +1800,133 @@ _IS_PROJECT_DB_SQL: Final[str] = (
 )
 
 
+_UTF8_CHECK_CHUNK_BYTES: Final[int] = 65536
+_NAME_PREFIX_BYTES: Final[int] = 804
+
+_CANONICAL_TEXT_COLUMNS: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
+  (
+    'project',
+    (
+      'name',
+      'objective',
+      'scope',
+      'non_goals',
+      'constraints_text',
+      'acceptance',
+      'charter_context_status',
+    ),
+  ),
+  (
+    'project_charter_history',
+    ('objective', 'scope', 'non_goals', 'constraints_text', 'acceptance'),
+  ),
+  ('goal', ('text', 'status', 'status_reason')),
+  (
+    'stage',
+    ('name', 'outcome', 'purpose', 'entry_conditions', 'exit_evidence'),
+  ),
+  (
+    'task',
+    (
+      'title',
+      'purpose',
+      'scope',
+      'exclusions',
+      'result',
+      'completion_evidence',
+      'status',
+    ),
+  ),
+  ('project_state', ('summary', 'next_action')),
+  ('task_tag', ('tag',)),
+  ('task_log', ('kind', 'message')),
+  (
+    'decision',
+    (
+      'summary',
+      'rationale',
+      'alternatives',
+      'consequences',
+      'context_status',
+    ),
+  ),
+  (
+    'blocker',
+    (
+      'description',
+      'impact',
+      'attempts',
+      'required',
+      'status',
+      'resolution',
+    ),
+  ),
+  (
+    'evidence',
+    ('claim', 'source', 'result', 'context_status', 'claim_status'),
+  ),
+  ('legacy_lifecycle', ('entity_kind', 'status')),
+)
+
+
+def _split_sql_statements(script: str) -> tuple[str, ...]:
+  statements: list[str] = []
+  buffer: list[str] = []
+  for line in script.splitlines(keepends=True):
+    buffer.append(line)
+    candidate = ''.join(buffer)
+    if sqlite3.complete_statement(candidate):
+      stripped = candidate.strip()
+      if stripped:
+        statements.append(stripped)
+      buffer.clear()
+  trailing = ''.join(buffer).strip()
+  if trailing:
+    raise ProjectError('Incomplete SQL statement in migration script')
+  return tuple(statements)
+
+
+_LIFECYCLE_TRIGGER_STATEMENTS: Final[tuple[str, ...]] = (
+  _split_sql_statements(_LIFECYCLE_TRIGGER_SQL)
+)
+
+
+def ensure_utf8_encoding(connection: sqlite3.Connection) -> None:
+  row = connection.execute('PRAGMA encoding').fetchone()
+  encoding = row[0] if row is not None else ''
+  if encoding != 'UTF-8':
+    raise ProjectError(
+      f'Unsupported project database encoding {encoding!r}; '
+      "expected 'UTF-8'"
+    )
+
+
+def _valid_utf8(value: object) -> bool:
+  if isinstance(value, bytes):
+    try:
+      value.decode('utf-8')
+    except UnicodeDecodeError:
+      return False
+    return True
+  return isinstance(value, str)
+
+
+def _decode_utf8_prefix(prefix: bytes, *, complete: bool) -> str:
+  decoder = codecs.getincrementaldecoder('utf-8')('strict')
+  return decoder.decode(prefix, final=complete)
+
+
 def configure_connection(
   connection: sqlite3.Connection,
 ) -> sqlite3.Connection:
   try:
+    ensure_utf8_encoding(connection)
     connection.row_factory = sqlite3.Row
     connection.create_function(
       'substantive', 1, is_substantive, deterministic=True
+    )
+    connection.create_function(
+      'valid_utf8', 1, _valid_utf8, deterministic=True
     )
     connection.execute('PRAGMA foreign_keys = ON')
     connection.execute('PRAGMA busy_timeout = 5000')
@@ -1826,6 +1955,7 @@ def initialize_project(
   charter: CharterInput,
 ) -> None:
   try:
+    ensure_utf8_encoding(connection)
     connection.executescript(
       f'BEGIN;\n{_SCHEMA_SQL}\n{_LIFECYCLE_TRIGGER_SQL}'
     )
@@ -1902,75 +2032,130 @@ def validate_project(
     raise ProjectError(f'{error}: {display_path}') from error
 
 
-def _validate_project_inner(
-  connection: sqlite3.Connection,
-  *,
-  expected_name: str,
+@contextlib.contextmanager
+def _read_snapshot(connection: sqlite3.Connection) -> Iterator[None]:
+  started = not connection.in_transaction
+  if started:
+    connection.execute('BEGIN')
+  try:
+    yield
+  finally:
+    if started and connection.in_transaction:
+      with contextlib.suppress(sqlite3.Error):
+        connection.rollback()
+
+
+def _validate_current_schema(
+  connection: sqlite3.Connection, *, expected_name: str
 ) -> None:
-  version_row = connection.execute('PRAGMA user_version').fetchone()
-  version = version_row[0] if version_row is not None else 0
-  if version == 6:
-    _validate_project_schema(connection, _canonical_schema_definitions(6))
-    _validate_project_integrity(connection)
-    _validate_project_singletons(connection, expected_name)
-    _validate_current_lifecycle(connection)
-    _migrate_schema_6_to_7(connection)
-    return
-  if version != SCHEMA_VERSION:
-    raise ProjectError(
-      f'Unsupported project schema version {version}; expected '
-      f'{SCHEMA_VERSION}'
-    )
   _validate_project_schema(connection)
   _validate_project_integrity(connection)
   _validate_project_singletons(connection, expected_name)
   _validate_current_lifecycle(connection)
 
 
-def _migrate_schema_6_to_7(connection: sqlite3.Connection) -> None:
+def _validate_project_inner(
+  connection: sqlite3.Connection,
+  *,
+  expected_name: str,
+) -> None:
+  ensure_utf8_encoding(connection)
+  if connection.in_transaction:
+    version_row = connection.execute('PRAGMA user_version').fetchone()
+    version = version_row[0] if version_row is not None else 0
+    if version == 6:
+      raise ProjectError(
+        'Cannot migrate schema version 6 database inside an active '
+        'transaction'
+      )
+    if version != SCHEMA_VERSION:
+      raise ProjectError(
+        f'Unsupported project schema version {version}; expected '
+        f'{SCHEMA_VERSION}'
+      )
+    _validate_current_schema(connection, expected_name=expected_name)
+    return
+
+  with _read_snapshot(connection):
+    version_row = connection.execute('PRAGMA user_version').fetchone()
+    version = version_row[0] if version_row is not None else 0
+    if version == SCHEMA_VERSION:
+      _validate_current_schema(connection, expected_name=expected_name)
+      return
+    if version != 6:
+      raise ProjectError(
+        f'Unsupported project schema version {version}; expected '
+        f'{SCHEMA_VERSION}'
+      )
+
+  migrated = _migrate_schema_6_to_7(
+    connection, expected_name=expected_name
+  )
+  if not migrated:
+    with _read_snapshot(connection):
+      version_row = connection.execute('PRAGMA user_version').fetchone()
+      version = version_row[0] if version_row is not None else 0
+      if version != SCHEMA_VERSION:
+        raise ProjectError(
+          f'Unsupported project schema version {version}; expected '
+          f'{SCHEMA_VERSION}'
+        )
+      _validate_current_schema(connection, expected_name=expected_name)
+
+
+def _migration_statements_6_to_7() -> tuple[str, ...]:
   trigger_names = sorted(
     name
     for kind, name in _canonical_schema_definitions(6)
     if kind == 'trigger'
   )
-  drop_triggers = '\n'.join(
-    f'DROP TRIGGER "{name}";' for name in trigger_names
+  return (
+    *(f'DROP TRIGGER "{name}"' for name in trigger_names),
+    'CREATE TEMP TABLE goal_migration_copy AS '
+    'SELECT id, text, status, status_reason, ever_activated, created_at, '
+    'started_at, achieved_at, updated_at FROM goal',
+    'DROP TABLE goal',
+    _GOAL_TABLE_SQL,
+    'INSERT INTO goal (id, text, status, status_reason, ever_activated, '
+    'created_at, started_at, achieved_at, updated_at) '
+    'SELECT id, text, status, status_reason, ever_activated, created_at, '
+    'started_at, achieved_at, updated_at FROM goal_migration_copy',
+    'DROP TABLE goal_migration_copy',
+    'CREATE INDEX goal_status_index ON goal(status)',
+    'CREATE UNIQUE INDEX one_active_goal_index ON goal(status) '
+    "WHERE status = 'active'",
+    *_LIFECYCLE_TRIGGER_STATEMENTS,
+    f'PRAGMA user_version = {SCHEMA_VERSION}',
   )
-  migration = f"""
-  BEGIN IMMEDIATE;
-  {drop_triggers}
-  CREATE TEMP TABLE goal_migration_copy AS
-    SELECT id, text, status, status_reason, ever_activated, created_at,
-      started_at, achieved_at, updated_at
-    FROM goal;
-  DROP TABLE goal;
-  {_GOAL_TABLE_SQL};
-  INSERT INTO goal (
-    id, text, status, status_reason, ever_activated, created_at,
-    started_at, achieved_at, updated_at
-  ) SELECT
-    id, text, status, status_reason, ever_activated, created_at,
-    started_at, achieved_at, updated_at
-  FROM goal_migration_copy;
-  DROP TABLE goal_migration_copy;
-  CREATE INDEX goal_status_index ON goal(status);
-  CREATE UNIQUE INDEX one_active_goal_index
-    ON goal(status) WHERE status = 'active';
-  {_LIFECYCLE_TRIGGER_SQL}
-  PRAGMA user_version = {SCHEMA_VERSION};
-  """
-  if connection.in_transaction:
-    raise ProjectError(
-      'Cannot migrate schema version 6 database inside an active '
-      'transaction'
-    )
+
+
+def _migrate_schema_6_to_7(
+  connection: sqlite3.Connection, *, expected_name: str
+) -> bool:
   connection.execute('PRAGMA foreign_keys = OFF')
   try:
-    connection.executescript(migration)
+    connection.execute('BEGIN IMMEDIATE')
+    version_row = connection.execute('PRAGMA user_version').fetchone()
+    version = version_row[0] if version_row is not None else 0
+    if version == SCHEMA_VERSION:
+      connection.rollback()
+      return False
+    if version != 6:
+      raise ProjectError(
+        f'Unsupported project schema version {version}; expected '
+        f'{SCHEMA_VERSION}'
+      )
+    _validate_project_schema(connection, _canonical_schema_definitions(6))
+    _validate_project_integrity(connection, 6)
+    _validate_project_singletons(connection, expected_name)
+    _validate_current_lifecycle(connection)
+    for statement in _migration_statements_6_to_7():
+      connection.execute(statement)
     _validate_project_schema(connection)
     _validate_project_integrity(connection)
     _validate_current_lifecycle(connection)
     connection.commit()
+    return True
   finally:
     try:
       if connection.in_transaction:
@@ -2041,14 +2226,188 @@ def _validate_project_schema(
         )
 
 
-def _validate_project_integrity(connection: sqlite3.Connection) -> None:
-  integrity = [
-    row[0] for row in connection.execute('PRAGMA integrity_check')
+def _validate_table_checks(
+  connection: sqlite3.Connection, version: int
+) -> None:
+  goal_statuses = (
+    "('active', 'blocked', 'achieved', 'cancelled')"
+    if version == 6
+    else "('active', 'pending', 'blocked', 'achieved', 'cancelled')"
+  )
+  ws_params = {'ws': UNICODE_WHITESPACE}
+  checks: tuple[tuple[str, str], ...] = (
+    (
+      'project',
+      'id = 1 AND '
+      "charter_context_status IN ('current', 'legacy-incomplete')",
+    ),
+    (
+      'goal',
+      f'length(text) > 0 AND {_substantive_sql("text")} '
+      'AND octet_length(text) <= 16000 '
+      "AND instr(CAST(text AS BLOB), X'00') = 0 "
+      f'AND length(text) <= 4000 AND status IN {goal_statuses} '
+      'AND ever_activated IN (0, 1) '
+      "AND ((status = 'achieved' AND achieved_at IS NOT NULL) "
+      "OR (status <> 'achieved' AND achieved_at IS NULL))",
+    ),
+    ('stage', 'achievement_generation >= 0'),
+    (
+      'task',
+      "status IN ('pending', 'active', 'completed', "
+      "'blocked', 'cancelled') "
+      f'AND (started_at IS NULL OR ({_substantive_sql("purpose")} '
+      f'AND {_substantive_sql("scope")} '
+      f'AND {_substantive_sql("exclusions")} '
+      f'AND {_substantive_sql("result")} '
+      f'AND {_substantive_sql("completion_evidence")})) '
+      "AND (status <> 'active' OR started_at IS NOT NULL) "
+      "AND (status <> 'active' OR stage_id IS NOT NULL) "
+      "AND (status <> 'completed' OR started_at IS NOT NULL) "
+      "AND ((status = 'completed' AND completed_at IS NOT NULL) "
+      "OR (status <> 'completed' AND completed_at IS NULL))",
+    ),
+    ('project_state', 'id = 1'),
+    ('stage_dependency', 'stage_id <> dependency_id'),
+    ('task_tag', _substantive_sql('tag')),
+    ('decision', "context_status IN ('complete', 'legacy-unresolved')"),
+    (
+      'blocker',
+      "status IN ('open', 'resolved', 'withdrawn') "
+      "AND ((status = 'open' AND resolved_at IS NULL AND resolution = '') "
+      "OR (status <> 'open' AND resolved_at IS NOT NULL "
+      f'AND {_substantive_sql("resolution")}))',
+    ),
+    (
+      'evidence',
+      "context_status IN ('complete', 'legacy-unresolved') "
+      "AND claim_status IN ('substantive', 'legacy-blank') "
+      'AND (stage_generation IS NULL OR stage_generation >= 0) '
+      'AND ((stage_id IS NULL AND stage_generation IS NULL) '
+      'OR (stage_id IS NOT NULL AND stage_generation IS NOT NULL))',
+    ),
+    ('stage_achievement', 'stage_generation >= 0'),
+    (
+      'legacy_lifecycle',
+      'source_schema_version IN (1, 2, 3, 4, 5) '
+      "AND entity_kind IN ('project', 'goal', 'stage', 'task') "
+      'AND was_selected IN (0, 1)',
+    ),
+  )
+  for table, expr in checks:
+    failed = connection.execute(
+      f'SELECT 1 FROM {table} WHERE ({expr}) IS 0 LIMIT 1',
+      ws_params,
+    ).fetchone()
+    if failed is not None:
+      raise ProjectError(
+        f'Project database integrity check failed: CHECK constraint '
+        f'failed on {table}'
+      )
+
+
+def _stream_valid_utf8(
+  connection: sqlite3.Connection,
+  table: str,
+  column: str,
+  rowid: int,
+) -> bool:
+  decoder = codecs.getincrementaldecoder('utf-8')('strict')
+  try:
+    with connection.blobopen(table, column, rowid, readonly=True) as blob:
+      total = len(blob)
+      offset = 0
+      while offset < total:
+        chunk = blob.read(min(_UTF8_CHECK_CHUNK_BYTES, total - offset))
+        decoder.decode(chunk, final=False)
+        offset += len(chunk)
+      decoder.decode(b'', final=True)
+  except UnicodeDecodeError:
+    return False
+  return True
+
+
+def _validate_utf8_columns(connection: sqlite3.Connection) -> None:
+  for table, columns in _CANONICAL_TEXT_COLUMNS:
+    for column in columns:
+      invalid_small = connection.execute(
+        f'SELECT 1 FROM "{table}" '
+        f'WHERE typeof("{column}") = \'text\' '
+        f'AND octet_length("{column}") > 0 '
+        f'AND octet_length("{column}") <= ? '
+        f'AND NOT valid_utf8(CAST("{column}" AS BLOB)) '
+        'LIMIT 1',
+        (_UTF8_CHECK_CHUNK_BYTES,),
+      ).fetchone()
+      if invalid_small is not None:
+        raise ProjectError(
+          'Project database integrity check failed: '
+          f'invalid UTF-8 text in {table}.{column}'
+        )
+      large_rowids = [
+        int(row[0])
+        for row in connection.execute(
+          f'SELECT rowid FROM "{table}" '
+          f'WHERE typeof("{column}") = \'text\' '
+          f'AND octet_length("{column}") > ?',
+          (_UTF8_CHECK_CHUNK_BYTES,),
+        ).fetchall()
+      ]
+      for rowid in large_rowids:
+        if not _stream_valid_utf8(connection, table, column, rowid):
+          raise ProjectError(
+            'Project database integrity check failed: '
+            f'invalid UTF-8 text in {table}.{column}'
+          )
+
+
+def _validate_extra_table_integrity(
+  connection: sqlite3.Connection, version: int
+) -> None:
+  canonical_tables = {
+    name
+    for kind, name in _canonical_schema_definitions(version)
+    if kind == 'table'
+  }
+  extra_tables = [
+    str(row[0])
+    for row in connection.execute(
+      "SELECT name FROM sqlite_master WHERE type = 'table' "
+      "AND name NOT LIKE 'sqlite_%' ORDER BY name"
+    ).fetchall()
+    if row[0] not in canonical_tables
   ]
+  for table in extra_tables:
+    escaped = table.replace('"', '""')
+    rows = [
+      row[0]
+      for row in connection.execute(
+        f'PRAGMA integrity_check("{escaped}")'
+      ).fetchall()
+    ]
+    if rows != ['ok']:
+      raise ProjectError(
+        f'Project database integrity check failed: {rows[0]}'
+      )
+
+
+def _validate_project_integrity(
+  connection: sqlite3.Connection, version: int = SCHEMA_VERSION
+) -> None:
+  connection.execute('PRAGMA ignore_check_constraints = ON')
+  try:
+    integrity = [
+      row[0] for row in connection.execute('PRAGMA integrity_check')
+    ]
+  finally:
+    connection.execute('PRAGMA ignore_check_constraints = OFF')
   if integrity != ['ok']:
     raise ProjectError(
       f'Project database integrity check failed: {integrity[0]}'
     )
+  _validate_table_checks(connection, version)
+  _validate_extra_table_integrity(connection, version)
+  _validate_utf8_columns(connection)
   violation = connection.execute('PRAGMA foreign_key_check').fetchone()
   if violation is not None:
     raise ProjectError(
@@ -2061,8 +2420,13 @@ def _validate_project_singletons(
   connection: sqlite3.Connection, expected_name: str
 ) -> None:
   project_rows = connection.execute(
-    'SELECT name, typeof(name) AS name_type, '
-    'typeof(objective) AS objective_type FROM project'
+    'SELECT typeof(name) AS name_type, '
+    'typeof(objective) AS objective_type, '
+    '(name = :expected) AS name_matches, '
+    'CAST(substr(CAST(name AS BLOB), 1, :limit) AS BLOB) AS name_prefix, '
+    'octet_length(name) AS name_bytes '
+    'FROM project',
+    {'expected': expected_name, 'limit': _NAME_PREFIX_BYTES},
   ).fetchall()
   state_count = connection.execute(
     'SELECT count(*) FROM project_state'
@@ -2080,10 +2444,23 @@ def _validate_project_singletons(
   row = project_rows[0]
   if row['name_type'] != 'text' or row['objective_type'] != 'text':
     raise ProjectError('Project database metadata columns must be text')
-  stored_name = row['name']
-  if stored_name != expected_name:
+  if not row['name_matches']:
+    prefix_blob = row['name_prefix']
+    name_bytes = int(row['name_bytes'])
+    decoded = (
+      ''
+      if prefix_blob is None
+      else _decode_utf8_prefix(
+        prefix_blob, complete=name_bytes <= _NAME_PREFIX_BYTES
+      )
+    )
+    displayed = (
+      f'{decoded[:200]}…'
+      if len(decoded) > 200 or name_bytes > _NAME_PREFIX_BYTES
+      else decoded
+    )
     raise ProjectError(
-      f'Project name {stored_name!r} does not match database address '
+      f'Project name {displayed!r} does not match database address '
       f'{expected_name!r}'
     )
 
@@ -2132,7 +2509,14 @@ def _canonical_schema_definitions(
   return _SCHEMA_DEFINITIONS[version]
 
 
+def _substantive_sql(expr: str) -> str:
+  return (
+    f"(typeof({expr}) = 'text' AND octet_length(ltrim({expr}, :ws)) > 0)"
+  )
+
+
 def _validate_current_lifecycle(connection: sqlite3.Connection) -> None:
+  ws_params = {'ws': UNICODE_WHITESPACE}
   for entity, table in (('goals', 'goal'), ('tasks', 'task')):
     active_count = connection.execute(
       f"SELECT count(*) FROM {table} WHERE status = 'active'"
@@ -2142,17 +2526,17 @@ def _validate_current_lifecycle(connection: sqlite3.Connection) -> None:
         f'Project has multiple active {entity}: {active_count}'
       )
   incomplete_charter = connection.execute(
-    """
+    f"""
     SELECT id
     FROM project
     WHERE (
       charter_context_status = 'current'
       AND (
-        NOT substantive(objective)
-        OR NOT substantive(scope)
-        OR NOT substantive(non_goals)
-        OR NOT substantive(constraints_text)
-        OR NOT substantive(acceptance)
+        NOT {_substantive_sql('objective')}
+        OR NOT {_substantive_sql('scope')}
+        OR NOT {_substantive_sql('non_goals')}
+        OR NOT {_substantive_sql('constraints_text')}
+        OR NOT {_substantive_sql('acceptance')}
       )
       AND (
         EXISTS (SELECT 1 FROM task WHERE started_at IS NOT NULL)
@@ -2165,11 +2549,11 @@ def _validate_current_lifecycle(connection: sqlite3.Connection) -> None:
       charter_context_status = 'legacy-incomplete'
       AND (
         (
-          substantive(objective)
-          AND substantive(scope)
-          AND substantive(non_goals)
-          AND substantive(constraints_text)
-          AND substantive(acceptance)
+          {_substantive_sql('objective')}
+          AND {_substantive_sql('scope')}
+          AND {_substantive_sql('non_goals')}
+          AND {_substantive_sql('constraints_text')}
+          AND {_substantive_sql('acceptance')}
         )
         OR NOT EXISTS (
           SELECT 1 FROM legacy_lifecycle
@@ -2185,16 +2569,17 @@ def _validate_current_lifecycle(connection: sqlite3.Connection) -> None:
       )
     )
     LIMIT 1
-    """
+    """,
+    ws_params,
   ).fetchone()
   if incomplete_charter is not None:
     raise ProjectError('Project has an incomplete post-execution charter')
   invalid_stage = connection.execute(
-    """
+    f"""
     SELECT id
     FROM stage
     WHERE (
-      (NOT substantive(name) OR NOT substantive(outcome))
+      (NOT {_substantive_sql('name')} OR NOT {_substantive_sql('outcome')})
       AND NOT EXISTS (
         SELECT 1 FROM legacy_lifecycle
         WHERE entity_kind = 'stage'
@@ -2204,19 +2589,20 @@ def _validate_current_lifecycle(connection: sqlite3.Connection) -> None:
     ) OR achievement_generation_started_at < 0
       OR achievement_generation_started_at > unixepoch()
     LIMIT 1
-    """
+    """,
+    ws_params,
   ).fetchone()
   if invalid_stage is not None:
     raise ProjectError(
       f'Project has an invalid stage contract: {invalid_stage["id"]}'
     )
   invalid_task_boundary = connection.execute(
-    """
+    f"""
     SELECT task.id
     FROM task
     LEFT JOIN stage ON stage.id = task.stage_id
     WHERE (
-      NOT substantive(task.title)
+      NOT {_substantive_sql('task.title')}
       AND (
         task.status NOT IN ('pending', 'blocked')
         OR task.started_at IS NOT NULL
@@ -2231,12 +2617,12 @@ def _validate_current_lifecycle(connection: sqlite3.Connection) -> None:
     ) OR (
       task.started_at IS NOT NULL
       AND (
-        NOT substantive(task.title)
-        OR NOT substantive(task.purpose)
-        OR NOT substantive(task.scope)
-        OR NOT substantive(task.exclusions)
-        OR NOT substantive(task.result)
-        OR NOT substantive(task.completion_evidence)
+        NOT {_substantive_sql('task.title')}
+        OR NOT {_substantive_sql('task.purpose')}
+        OR NOT {_substantive_sql('task.scope')}
+        OR NOT {_substantive_sql('task.exclusions')}
+        OR NOT {_substantive_sql('task.result')}
+        OR NOT {_substantive_sql('task.completion_evidence')}
         OR (
           stage.id IS NULL
           AND NOT EXISTS (
@@ -2254,7 +2640,8 @@ def _validate_current_lifecycle(connection: sqlite3.Connection) -> None:
       )
     )
     LIMIT 1
-    """
+    """,
+    ws_params,
   ).fetchone()
   if invalid_task_boundary is not None:
     raise ProjectError(
@@ -2262,7 +2649,7 @@ def _validate_current_lifecycle(connection: sqlite3.Connection) -> None:
       f'{invalid_task_boundary["id"]}'
     )
   invalid_blocker = connection.execute(
-    """
+    f"""
     SELECT blocker.id
     FROM blocker
     LEFT JOIN task ON task.id = blocker.task_id
@@ -2271,8 +2658,8 @@ def _validate_current_lifecycle(connection: sqlite3.Connection) -> None:
       OR (
         blocker.status = 'open'
         AND (
-          NOT substantive(blocker.description)
-          OR NOT substantive(blocker.required)
+          NOT {_substantive_sql('blocker.description')}
+          OR NOT {_substantive_sql('blocker.required')}
           OR (blocker.task_id IS NOT NULL AND task.status <> 'blocked')
           OR (
             blocker.task_id IS NULL
@@ -2301,7 +2688,8 @@ def _validate_current_lifecycle(connection: sqlite3.Connection) -> None:
         )
       )
     LIMIT 1
-    """
+    """,
+    ws_params,
   ).fetchone()
   if invalid_blocker is not None:
     raise ProjectError(
@@ -2361,16 +2749,16 @@ def _validate_current_lifecycle(connection: sqlite3.Connection) -> None:
       f'{incoherent_record["kind"]} {incoherent_record["id"]}'
     )
   invalid_evidence = connection.execute(
-    """
+    f"""
     SELECT evidence.id
     FROM evidence
     LEFT JOIN stage ON stage.id = evidence.stage_id
     WHERE (
       evidence.claim_status = 'substantive'
-      AND NOT substantive(evidence.claim)
+      AND NOT {_substantive_sql('evidence.claim')}
     ) OR (
       evidence.claim_status = 'legacy-blank'
-      AND substantive(evidence.claim)
+      AND {_substantive_sql('evidence.claim')}
     ) OR evidence.captured_at > unixepoch()
       OR (
         evidence.stage_id IS NOT NULL
@@ -2382,7 +2770,8 @@ def _validate_current_lifecycle(connection: sqlite3.Connection) -> None:
         AND evidence.captured_at < stage.achievement_generation_started_at
       )
     LIMIT 1
-    """
+    """,
+    ws_params,
   ).fetchone()
   if invalid_evidence is not None:
     raise ProjectError(
@@ -2409,31 +2798,31 @@ def _validate_current_lifecycle(connection: sqlite3.Connection) -> None:
       f'{dependency_cycle["start_id"]}'
     )
   invalid_active_task = connection.execute(
-    """
+    f"""
     SELECT task.id
     FROM task
     LEFT JOIN stage ON stage.id = task.stage_id
     WHERE task.status = 'active'
       AND (
-        NOT substantive(task.title)
-        OR NOT substantive(task.purpose)
-        OR NOT substantive(task.scope)
-        OR NOT substantive(task.exclusions)
-        OR NOT substantive(task.result)
-        OR NOT substantive(task.completion_evidence)
+        NOT {_substantive_sql('task.title')}
+        OR NOT {_substantive_sql('task.purpose')}
+        OR NOT {_substantive_sql('task.scope')}
+        OR NOT {_substantive_sql('task.exclusions')}
+        OR NOT {_substantive_sql('task.result')}
+        OR NOT {_substantive_sql('task.completion_evidence')}
         OR task.started_at IS NULL
         OR task.started_at <= 0
         OR task.started_at > CAST(strftime('%s', 'now') AS INTEGER)
         OR stage.id IS NULL
-        OR NOT substantive(stage.name)
-        OR NOT substantive(stage.outcome)
+        OR NOT {_substantive_sql('stage.name')}
+        OR NOT {_substantive_sql('stage.outcome')}
         OR EXISTS (
           SELECT 1 FROM project
-          WHERE NOT substantive(objective)
-            OR NOT substantive(scope)
-            OR NOT substantive(non_goals)
-            OR NOT substantive(constraints_text)
-            OR NOT substantive(acceptance)
+          WHERE NOT {_substantive_sql('objective')}
+            OR NOT {_substantive_sql('scope')}
+            OR NOT {_substantive_sql('non_goals')}
+            OR NOT {_substantive_sql('constraints_text')}
+            OR NOT {_substantive_sql('acceptance')}
         )
         OR EXISTS (
           SELECT 1 FROM blocker
@@ -2465,7 +2854,8 @@ def _validate_current_lifecycle(connection: sqlite3.Connection) -> None:
         )
       )
     LIMIT 1
-    """
+    """,
+    ws_params,
   ).fetchone()
   if invalid_active_task is not None:
     raise ProjectError(
@@ -2501,7 +2891,7 @@ def _validate_current_lifecycle(connection: sqlite3.Connection) -> None:
       f'Project has an invalid active goal: {invalid_active_goal["id"]}'
     )
   invalid_goal = connection.execute(
-    """
+    f"""
     SELECT goal.id
     FROM goal
     WHERE goal.ever_activated = 0
@@ -2532,21 +2922,22 @@ def _validate_current_lifecycle(connection: sqlite3.Connection) -> None:
           SELECT 1 FROM evidence
           WHERE evidence.goal_id = goal.id
             AND evidence.claim_status = 'substantive'
-            AND substantive(evidence.claim)
+            AND {_substantive_sql('evidence.claim')}
         )
         OR EXISTS (
           SELECT 1 FROM evidence
           WHERE evidence.goal_id = goal.id
             AND (
               evidence.claim_status <> 'substantive'
-              OR NOT substantive(evidence.claim)
+              OR NOT {_substantive_sql('evidence.claim')}
               OR evidence.captured_at > goal.achieved_at
             )
         )
       )
     )
     LIMIT 1
-    """
+    """,
+    ws_params,
   ).fetchone()
   if invalid_goal is not None:
     raise ProjectError(
@@ -2573,7 +2964,7 @@ def _validate_current_lifecycle(connection: sqlite3.Connection) -> None:
       f'{invalid_task_chronology["id"]}'
     )
   invalid_achievement = connection.execute(
-    """
+    f"""
     SELECT stage_achievement.id
     FROM stage_achievement
     JOIN stage ON stage.id = stage_achievement.stage_id
@@ -2584,18 +2975,18 @@ def _validate_current_lifecycle(connection: sqlite3.Connection) -> None:
       AND (
         EXISTS (
           SELECT 1 FROM project
-          WHERE NOT substantive(objective)
-            OR NOT substantive(scope)
-            OR NOT substantive(non_goals)
-            OR NOT substantive(constraints_text)
-            OR NOT substantive(acceptance)
+          WHERE NOT {_substantive_sql('objective')}
+            OR NOT {_substantive_sql('scope')}
+            OR NOT {_substantive_sql('non_goals')}
+            OR NOT {_substantive_sql('constraints_text')}
+            OR NOT {_substantive_sql('acceptance')}
         )
-        OR NOT substantive(stage.name)
-        OR NOT substantive(stage.outcome)
-        OR NOT substantive(stage.exit_evidence)
+        OR NOT {_substantive_sql('stage.name')}
+        OR NOT {_substantive_sql('stage.outcome')}
+        OR NOT {_substantive_sql('stage.exit_evidence')}
         OR evidence.id IS NULL
         OR evidence.claim_status <> 'substantive'
-        OR NOT substantive(evidence.claim)
+        OR NOT {_substantive_sql('evidence.claim')}
         OR evidence.captured_at > stage_achievement.achieved_at
         OR evidence.captured_at < stage.achievement_generation_started_at
         OR stage_achievement.achieved_at > unixepoch()
@@ -2619,7 +3010,7 @@ def _validate_current_lifecycle(connection: sqlite3.Connection) -> None:
           SELECT 1 FROM task
           WHERE task.stage_id = stage.id
             AND task.status = 'completed'
-            AND substantive(task.title)
+            AND {_substantive_sql('task.title')}
         )
         OR EXISTS (
           SELECT 1 FROM task
@@ -2628,7 +3019,8 @@ def _validate_current_lifecycle(connection: sqlite3.Connection) -> None:
         )
       )
     LIMIT 1
-    """
+    """,
+    ws_params,
   ).fetchone()
   if invalid_achievement is not None:
     raise ProjectError(

@@ -10,6 +10,7 @@ import click
 from .core import (
   BLOCKER_STATUSES,
   GOAL_STATUSES,
+  HANDOFF_TEXT_LIMIT,
   TASK_STATUSES,
   UNSET,
   BlockerFilterStatus,
@@ -29,10 +30,10 @@ from .core import (
   parse_stage_reference,
 )
 from .render import (
-  HANDOFF_TEXT_LIMIT,
   HandoffJson,
   HandoffRetrieval,
   HandoffView,
+  TextHandoffView,
   build_handoff_json,
   format_blocker_list,
   format_decision_list,
@@ -49,11 +50,14 @@ from .render import (
   format_task_log_list,
 )
 from .service import (
+  ActiveGoalRef,
   BlockerRecord,
+  BoundedText,
   DecisionRecord,
   EvidenceRecord,
   GoalDetails,
   GoalListItem,
+  GoalRecord,
   GoalStages,
   HandoffData,
   ProjectPatch,
@@ -66,6 +70,8 @@ from .service import (
   TaskLogRecord,
   TaskPatch,
   TaskRecord,
+  TextHandoffData,
+  TextHandoffGoal,
   achieve_goal,
   achieve_stage,
   activate_goal,
@@ -95,6 +101,7 @@ from .service import (
   read_task,
   read_task_logs,
   read_tasks,
+  read_text_handoff,
   remove_stage_dependency,
   remove_task_tags,
   reopen_goal,
@@ -254,9 +261,31 @@ def _handoff_filter_options(
   return tuple(options)
 
 
-def _handoff_retrieval_commands(data: HandoffData) -> HandoffRetrieval:
-  name = data.project.name
-  goal_ref = data.goal.goal if data.goal is not None else None
+def _handoff_project_name(name: str | BoundedText) -> str:
+  if isinstance(name, BoundedText):
+    if name.characters > HANDOFF_TEXT_LIMIT:
+      raise ProjectError(
+        'Generated project recovery command exceeds the handoff text limit'
+      )
+    return name.prefix
+  return name
+
+
+def _handoff_active_goal(
+  data: HandoffData | TextHandoffData,
+) -> GoalRecord | TextHandoffGoal | None:
+  if data.goal is None:
+    return None
+  return (
+    data.goal.goal if isinstance(data.goal, ActiveGoalRef) else data.goal
+  )
+
+
+def _handoff_retrieval_commands(
+  data: HandoffData | TextHandoffData,
+) -> HandoffRetrieval:
+  name = _handoff_project_name(data.project.name)
+  goal_ref = _handoff_active_goal(data)
   focus_kind = data.focus.kind
   focus_id = data.focus.id
   decision_count = data.pages.decisions.total
@@ -335,32 +364,38 @@ def _handoff_retrieval_commands(data: HandoffData) -> HandoffRetrieval:
 
 
 def _handoff_full_value_command(
-  view: HandoffView,
-  name: str,
+  view: HandoffView | TextHandoffView,
+  name: str | BoundedText,
   path: Sequence[str | int],
 ) -> str:
+  project_name = _handoff_project_name(name)
   if not path or not isinstance(path[0], str):
     raise ValueError('Handoff retrieval path must start with a field name')
   root = path[0]
   if root in ('path', 'project', 'state'):
-    return _project_command(('handoff',), name, options=('--json',))
+    return _project_command(
+      ('handoff',), project_name, options=('--json',)
+    )
   data = view.data
   if root == 'goal':
-    if data.goal is None:
+    goal_ref = _handoff_active_goal(data)
+    if goal_ref is None:
       raise ValueError('There is no active goal to retrieve')
     return _project_command(
       ('goal', 'show'),
-      name,
-      (data.goal.goal.id,),
+      project_name,
+      (goal_ref.id,),
       ('--json',),
     )
   if root == 'stage':
-    return _project_command(('stage', 'list'), name, options=('--json',))
+    return _project_command(
+      ('stage', 'list'), project_name, options=('--json',)
+    )
   if root == 'task':
     if data.task is None:
       raise ValueError('There is no active task to retrieve')
     return _project_command(
-      ('task', 'show'), name, (data.task.id,), ('--json',)
+      ('task', 'show'), project_name, (data.task.id,), ('--json',)
     )
   if root in ('blocked_tasks', 'blocked_goals'):
     if len(path) < 2 or not isinstance(path[1], int):
@@ -369,13 +404,13 @@ def _handoff_full_value_command(
     if root == 'blocked_tasks':
       return _project_command(
         ('task', 'show'),
-        name,
+        project_name,
         (data.blocked_tasks[index].id,),
         ('--json',),
       )
     return _project_command(
       ('goal', 'show'),
-      name,
+      project_name,
       (data.blocked_goals[index].id,),
       ('--json',),
     )
@@ -395,6 +430,12 @@ def _handoff_full_value_command(
 
 def _handoff_view(data: HandoffData) -> HandoffView:
   return HandoffView(
+    data=data, retrieval=_handoff_retrieval_commands(data)
+  )
+
+
+def _text_handoff_view(data: TextHandoffData) -> TextHandoffView:
+  return TextHandoffView(
     data=data, retrieval=_handoff_retrieval_commands(data)
   )
 
@@ -480,19 +521,20 @@ def handoff_command(ctx: click.Context, name: str, as_json: bool) -> None:
 
   def _run() -> str:
     project_name = ProjectName.parse(name)
+    handoff_path = store.handoff_database_path(project_name)
     with store.open_project(project_name) as connection:
-      data = read_handoff(
-        connection, store.handoff_database_path(project_name)
-      )
-    view = _handoff_view(data)
-    if as_json:
-      return json.dumps(
-        _handoff_json(view).to_dict(), indent=2, sort_keys=True
-      )
+      if as_json:
+        json_data = read_handoff(connection, handoff_path)
+        json_view = _handoff_view(json_data)
+        return json.dumps(
+          _handoff_json(json_view).to_dict(), indent=2, sort_keys=True
+        )
+      text_data = read_text_handoff(connection, handoff_path)
+    text_view = _text_handoff_view(text_data)
     return format_handoff(
-      view,
+      text_view,
       lambda path: _handoff_full_value_command(
-        view, data.project.name, path
+        text_view, text_data.project.name, path
       ),
     )
 

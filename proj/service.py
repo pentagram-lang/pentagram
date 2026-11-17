@@ -1,3 +1,4 @@
+import codecs
 import sqlite3
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
@@ -8,7 +9,9 @@ from .core import (
   BLOCKER_STATUSES,
   GOAL_STATUSES,
   HANDOFF_LIMIT,
+  HANDOFF_TEXT_LIMIT,
   TASK_STATUSES,
+  UNICODE_WHITESPACE,
   UNSET,
   BlockerFilterStatus,
   BlockerStatus,
@@ -35,13 +38,14 @@ from .core import (
   parse_goal_reference,
   parse_stage_reference,
 )
-from .schema import connection_time
+from .schema import connection_time, ensure_utf8_encoding
 
 __all__ = [
   'ActiveGoalRef',
   'BlockedGoalSummary',
   'BlockedTaskSummary',
   'BlockerRecord',
+  'BoundedText',
   'CharterHistoryRecord',
   'DecisionRecord',
   'EvidenceRecord',
@@ -73,6 +77,18 @@ __all__ = [
   'TaskLogRecord',
   'TaskPatch',
   'TaskRecord',
+  'TextBlockedGoalSummary',
+  'TextBlockedTaskSummary',
+  'TextHandoffBlockerSummary',
+  'TextHandoffData',
+  'TextHandoffDecisionSummary',
+  'TextHandoffEvidenceSummary',
+  'TextHandoffGoal',
+  'TextHandoffLogEntry',
+  'TextHandoffProject',
+  'TextHandoffStage',
+  'TextHandoffState',
+  'TextHandoffTask',
   'achieve_goal',
   'achieve_stage',
   'activate_goal',
@@ -105,6 +121,7 @@ __all__ = [
   'read_task',
   'read_task_logs',
   'read_tasks',
+  'read_text_handoff',
   'remove_stage_dependency',
   'remove_task_tags',
   'reopen_goal',
@@ -610,6 +627,131 @@ class HandoffData:
 
   def to_dict(self) -> dict[str, object]:
     return dataclass_to_dict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class BoundedText:
+  prefix: str
+  characters: int
+
+  def __post_init__(self) -> None:
+    if not isinstance(self.prefix, str):
+      raise ProjectError('BoundedText prefix must be str')
+    if (
+      isinstance(self.characters, bool)
+      or not isinstance(self.characters, int)
+      or self.characters < 0
+    ):
+      raise ProjectError(
+        'BoundedText characters must be a non-negative int'
+      )
+    expected_len = min(self.characters, HANDOFF_TEXT_LIMIT + 1)
+    if len(self.prefix) != expected_len:
+      raise ProjectError(
+        f'BoundedText prefix length must be {expected_len}; '
+        f'received {len(self.prefix)}'
+      )
+
+
+@dataclass(frozen=True, slots=True)
+class TextHandoffProject:
+  name: BoundedText
+  status: ProjectStatus
+  objective: BoundedText
+  charter_context_status: CharterContextStatus
+
+
+@dataclass(frozen=True, slots=True)
+class TextHandoffState:
+  summary: BoundedText
+  next_action: BoundedText
+
+
+@dataclass(frozen=True, slots=True)
+class TextHandoffGoal:
+  id: int
+  status: GoalStatus
+  text: BoundedText
+
+
+@dataclass(frozen=True, slots=True)
+class TextHandoffStage:
+  id: int
+  name: BoundedText
+
+
+@dataclass(frozen=True, slots=True)
+class TextHandoffTask:
+  id: int
+  goal_id: int | None
+  stage_id: int | None
+  title: BoundedText
+  title_status: TitleStatus
+
+
+@dataclass(frozen=True, slots=True)
+class TextBlockedTaskSummary:
+  id: int
+  title: BoundedText
+  goal_id: int | None
+  stage_id: int | None
+  stage_name: BoundedText | None
+  title_status: TitleStatus
+
+
+@dataclass(frozen=True, slots=True)
+class TextBlockedGoalSummary:
+  id: int
+  text: BoundedText
+  status_reason: BoundedText
+
+
+@dataclass(frozen=True, slots=True)
+class TextHandoffBlockerSummary:
+  id: int
+  description: BoundedText
+  required: BoundedText
+  target_kind: FocusKind
+  target_id: int
+
+
+@dataclass(frozen=True, slots=True)
+class TextHandoffDecisionSummary:
+  id: int
+  summary: BoundedText
+  context_status: RecordContextStatus
+
+
+@dataclass(frozen=True, slots=True)
+class TextHandoffEvidenceSummary:
+  id: int
+  claim: BoundedText
+  context_status: RecordContextStatus
+  claim_status: ClaimStatus
+
+
+@dataclass(frozen=True, slots=True)
+class TextHandoffLogEntry:
+  kind: BoundedText
+  message: BoundedText
+
+
+@dataclass(frozen=True, slots=True)
+class TextHandoffData:
+  path: str
+  project: TextHandoffProject
+  state: TextHandoffState
+  goal: TextHandoffGoal | None
+  stage: TextHandoffStage | None
+  task: TextHandoffTask | None
+  blocked_tasks: tuple[TextBlockedTaskSummary, ...]
+  blocked_goals: tuple[TextBlockedGoalSummary, ...]
+  blockers: tuple[TextHandoffBlockerSummary, ...]
+  decisions: tuple[TextHandoffDecisionSummary, ...]
+  evidence: tuple[TextHandoffEvidenceSummary, ...]
+  logs: tuple[TextHandoffLogEntry, ...]
+  focus: HandoffFocus
+  pages: HandoffPages
 
 
 def _coerce_stage_ref(raw: StageReference | int | str) -> StageReference:
@@ -1316,9 +1458,15 @@ def _unachieved_dependency_name(
 ) -> str | None:
   if stage_id is None:
     return None
+  ensure_utf8_encoding(connection)
   dependency = connection.execute(
     """
-    SELECT dependency_stage.name
+    SELECT
+      typeof(dependency_stage.name) AS name_type,
+      CAST(
+        substr(CAST(dependency_stage.name AS BLOB), 1, ?) AS BLOB
+      ) AS name_prefix,
+      octet_length(dependency_stage.name) AS name_bytes
     FROM stage_dependency
     JOIN stage dependency_stage
       ON dependency_stage.id = stage_dependency.dependency_id
@@ -1329,9 +1477,30 @@ def _unachieved_dependency_name(
       AND stage_achievement.id IS NULL
     LIMIT 1
     """,
-    (stage_id,),
+    (_HANDOFF_BYTE_LIMIT, stage_id),
   ).fetchone()
-  return _req_str(dependency, 'name') if dependency is not None else None
+  if dependency is None:
+    return None
+  if dependency['name_type'] != 'text':
+    raise ProjectError("Column 'name' must be text")
+  prefix_blob = dependency['name_prefix']
+  total_bytes = _req_int(dependency, 'name_bytes')
+  if total_bytes == 0 and prefix_blob is None:
+    return ''
+  if not isinstance(prefix_blob, (bytes, bytearray, memoryview)):
+    raise ProjectError("Column 'name' prefix must be bytes")
+  decoder = codecs.getincrementaldecoder('utf-8')('strict')
+  try:
+    decoded = decoder.decode(
+      bytes(prefix_blob), final=(total_bytes <= _HANDOFF_BYTE_LIMIT)
+    )
+  except UnicodeDecodeError as error:
+    raise ProjectError(f'Database error: {error}') from error
+  if (
+    len(decoded) > HANDOFF_TEXT_LIMIT or total_bytes > _HANDOFF_BYTE_LIMIT
+  ):
+    return f'{decoded[:HANDOFF_TEXT_LIMIT]}…'
+  return decoded
 
 
 def _ensure_task_dependencies_are_achieved(
@@ -3420,6 +3589,7 @@ def _handoff_page(
   query: str,
   count_query: str,
   parameters: Sequence[object] = (),
+  query_prefix: Sequence[object] = (),
 ) -> tuple[list[sqlite3.Row], HandoffPage]:
   count_row = connection.execute(count_query, parameters).fetchone()
   if count_row is None:
@@ -3428,7 +3598,7 @@ def _handoff_page(
   if isinstance(total, bool) or not isinstance(total, int):
     raise ProjectError('Handoff page count was not an integer')
   rows = connection.execute(
-    f'{query} LIMIT ?', (*parameters, HANDOFF_LIMIT)
+    f'{query} LIMIT ?', (*query_prefix, *parameters, HANDOFF_LIMIT)
   ).fetchall()
   return rows, HandoffPage(
     shown=len(rows),
@@ -3437,8 +3607,21 @@ def _handoff_page(
   )
 
 
+@contextmanager
+def _read_snapshot(connection: sqlite3.Connection) -> Iterator[None]:
+  if connection.in_transaction:
+    yield
+    return
+  connection.execute('BEGIN')
+  try:
+    yield
+  finally:
+    if connection.in_transaction:
+      connection.rollback()
+
+
 def read_handoff(connection: sqlite3.Connection, path: str) -> HandoffData:
-  with _sqlite_boundary():
+  with _sqlite_boundary(), _read_snapshot(connection):
     project = _decode_project_record(connection)
     state = _decode_project_state(connection)
     active_goal_id = _active_goal_id(connection)
@@ -3647,3 +3830,645 @@ def read_handoff(connection: sqlite3.Connection, path: str) -> HandoffData:
         task_log=log_page,
       ),
     )
+
+
+_BLOB_CHUNK_BYTES: Final[int] = 65536
+_HANDOFF_BYTE_LIMIT: Final[int] = 4 * (HANDOFF_TEXT_LIMIT + 1)
+
+
+def _bounded_col_sql(expr: str, alias: str) -> str:
+  return (
+    f'typeof({expr}) AS {alias}_type, '
+    f'CAST(substr(CAST({expr} AS BLOB), 1, ?) AS BLOB) '
+    f'AS {alias}_prefix, '
+    f'octet_length({expr}) AS {alias}_bytes'
+  )
+
+
+def _stream_utf8_char_count(
+  connection: sqlite3.Connection,
+  table_name: str,
+  column_name: str,
+  row_id: int,
+) -> int:
+  decoder = codecs.getincrementaldecoder('utf-8')('strict')
+  total = 0
+  try:
+    with connection.blobopen(
+      table_name, column_name, row_id, readonly=True
+    ) as blob:
+      while chunk := blob.read(_BLOB_CHUNK_BYTES):
+        total += len(decoder.decode(chunk, final=False))
+      total += len(decoder.decode(b'', final=True))
+  except UnicodeDecodeError as error:
+    raise ProjectError(f'Database error: {error}') from error
+  return total
+
+
+def _decode_bounded_text(
+  connection: sqlite3.Connection,
+  row: sqlite3.Row,
+  alias: str,
+  *,
+  table_name: str,
+  column_name: str,
+  row_id: int,
+  error_col: str | None = None,
+) -> BoundedText:
+  col_label = alias if error_col is None else error_col
+  col_type = row[f'{alias}_type']
+  if col_type != 'text':
+    raise ProjectError(f'Column {col_label!r} must be text')
+  prefix_blob = row[f'{alias}_prefix']
+  total_bytes = _req_int(row, f'{alias}_bytes')
+  if total_bytes == 0 and prefix_blob is None:
+    return BoundedText('', 0)
+  if not isinstance(prefix_blob, (bytes, bytearray, memoryview)):
+    raise ProjectError(f'Column {col_label!r} prefix must be bytes')
+  decoder = codecs.getincrementaldecoder('utf-8')('strict')
+  try:
+    prefix = decoder.decode(
+      bytes(prefix_blob), final=(total_bytes <= _HANDOFF_BYTE_LIMIT)
+    )
+  except UnicodeDecodeError as error:
+    raise ProjectError(f'Database error: {error}') from error
+  if total_bytes <= _HANDOFF_BYTE_LIMIT:
+    characters = len(prefix)
+  else:
+    characters = _stream_utf8_char_count(
+      connection, table_name, column_name, row_id
+    )
+  return BoundedText(prefix[: HANDOFF_TEXT_LIMIT + 1], characters)
+
+
+def _opt_bounded_text(
+  connection: sqlite3.Connection,
+  row: sqlite3.Row,
+  alias: str,
+  *,
+  table_name: str,
+  column_name: str,
+  row_id: int | None,
+  error_col: str | None = None,
+) -> BoundedText | None:
+  col_label = alias if error_col is None else error_col
+  col_type = row[f'{alias}_type']
+  if col_type == 'null':
+    return None
+  if col_type != 'text':
+    raise ProjectError(f'Column {col_label!r} must be text or null')
+  if row_id is None:
+    raise ProjectError(f'Column {col_label!r} is missing row identity')
+  return _decode_bounded_text(
+    connection,
+    row,
+    alias,
+    table_name=table_name,
+    column_name=column_name,
+    row_id=row_id,
+    error_col=col_label,
+  )
+
+
+def _decode_text_project(
+  connection: sqlite3.Connection,
+) -> TextHandoffProject:
+  row = connection.execute(
+    f"""
+    SELECT id,
+      {_bounded_col_sql('name', 'name')},
+      {_bounded_col_sql('objective', 'objective')},
+      charter_context_status
+    FROM project
+    """,
+    (_HANDOFF_BYTE_LIMIT, _HANDOFF_BYTE_LIMIT),
+  ).fetchone()
+  if row is None:
+    raise ProjectError('Project database has no project record')
+  row_id = _req_int(row, 'id')
+  status = _project_status(connection)
+  return TextHandoffProject(
+    name=_decode_bounded_text(
+      connection,
+      row,
+      'name',
+      table_name='project',
+      column_name='name',
+      row_id=row_id,
+    ),
+    status=status,
+    objective=_decode_bounded_text(
+      connection,
+      row,
+      'objective',
+      table_name='project',
+      column_name='objective',
+      row_id=row_id,
+    ),
+    charter_context_status=_req_charter_context(row),
+  )
+
+
+def _decode_text_state(
+  connection: sqlite3.Connection,
+) -> TextHandoffState:
+  row = connection.execute(
+    f"""
+    SELECT id,
+      {_bounded_col_sql('summary', 'summary')},
+      {_bounded_col_sql('next_action', 'next_action')}
+    FROM project_state
+    """,
+    (_HANDOFF_BYTE_LIMIT, _HANDOFF_BYTE_LIMIT),
+  ).fetchone()
+  if row is None:
+    raise ProjectError('Project state record does not exist')
+  row_id = _req_int(row, 'id')
+  return TextHandoffState(
+    summary=_decode_bounded_text(
+      connection,
+      row,
+      'summary',
+      table_name='project_state',
+      column_name='summary',
+      row_id=row_id,
+    ),
+    next_action=_decode_bounded_text(
+      connection,
+      row,
+      'next_action',
+      table_name='project_state',
+      column_name='next_action',
+      row_id=row_id,
+    ),
+  )
+
+
+def _active_text_task_row(
+  connection: sqlite3.Connection,
+) -> sqlite3.Row | None:
+  return connection.execute(
+    f"""
+    SELECT id, goal_id, stage_id,
+      {_bounded_col_sql('title', 'title')},
+      (typeof(title) = 'text' AND octet_length(ltrim(title, ?)) > 0)
+        AS title_substantive,
+      typeof(purpose) AS purpose_type,
+      (typeof(purpose) = 'text' AND octet_length(ltrim(purpose, ?)) > 0)
+        AS purpose_substantive,
+      typeof(scope) AS scope_type,
+      (typeof(scope) = 'text' AND octet_length(ltrim(scope, ?)) > 0)
+        AS scope_substantive,
+      typeof(exclusions) AS exclusions_type,
+      (
+        typeof(exclusions) = 'text'
+        AND octet_length(ltrim(exclusions, ?)) > 0
+      ) AS exclusions_substantive,
+      typeof(result) AS result_type,
+      (typeof(result) = 'text' AND octet_length(ltrim(result, ?)) > 0)
+        AS result_substantive,
+      typeof(completion_evidence) AS completion_evidence_type,
+      (
+        typeof(completion_evidence) = 'text'
+        AND octet_length(ltrim(completion_evidence, ?)) > 0
+      ) AS completion_evidence_substantive
+    FROM task
+    WHERE status = 'active'
+    """,
+    (
+      _HANDOFF_BYTE_LIMIT,
+      UNICODE_WHITESPACE,
+      UNICODE_WHITESPACE,
+      UNICODE_WHITESPACE,
+      UNICODE_WHITESPACE,
+      UNICODE_WHITESPACE,
+      UNICODE_WHITESPACE,
+    ),
+  ).fetchone()
+
+
+def _validate_active_text_task(
+  connection: sqlite3.Connection,
+  goal_id: int | None,
+  task_row: sqlite3.Row | None,
+) -> None:
+  if task_row is None:
+    return
+  missing: list[str] = []
+  for field_name in (
+    'title',
+    'purpose',
+    'scope',
+    'exclusions',
+    'result',
+    'completion_evidence',
+  ):
+    if task_row[f'{field_name}_type'] != 'text':
+      raise ProjectError(f'Column {field_name!r} must be text')
+    if not task_row[f'{field_name}_substantive']:
+      missing.append(field_name.replace('_', ' '))
+  if missing:
+    raise ProjectError(
+      'Starting a task requires documented ' + ', '.join(missing)
+    )
+  stage_id = _opt_int(task_row, 'stage_id')
+  if stage_id is None:
+    raise ProjectError('Active task has no stage relationship')
+  task_goal_id = _opt_int(task_row, 'goal_id')
+  if task_goal_id is not None and task_goal_id != goal_id:
+    raise ProjectError('Active task goal does not match the active goal')
+  _ensure_goal_stage(connection, task_goal_id, stage_id, 'Active task')
+  _ensure_task_dependencies_are_achieved(connection, stage_id)
+  if connection.execute(
+    "SELECT 1 FROM blocker WHERE task_id = ? AND status = 'open'",
+    (_req_int(task_row, 'id'),),
+  ).fetchone():
+    raise ProjectError('Active task has an open blocker')
+
+
+def _text_blocked_goal_reason(
+  connection: sqlite3.Connection, goal_id: int
+) -> BoundedText:
+  blocker = connection.execute(
+    f"""
+    SELECT id, {_bounded_col_sql('description', 'description')}
+    FROM blocker
+    WHERE goal_id = ? AND task_id IS NULL AND status = 'open'
+    ORDER BY opened_at DESC, id DESC
+    LIMIT 1
+    """,
+    (_HANDOFF_BYTE_LIMIT, goal_id),
+  ).fetchone()
+  if blocker is None:
+    return BoundedText('', 0)
+  return _decode_bounded_text(
+    connection,
+    blocker,
+    'description',
+    table_name='blocker',
+    column_name='description',
+    row_id=_req_int(blocker, 'id'),
+  )
+
+
+def read_text_handoff(
+  connection: sqlite3.Connection, path: str
+) -> TextHandoffData:
+  with _sqlite_boundary():
+    ensure_utf8_encoding(connection)
+    with _read_snapshot(connection):
+      project = _decode_text_project(connection)
+      state = _decode_text_state(connection)
+      active_goal_id = _active_goal_id(connection)
+      active_task_row = _active_text_task_row(connection)
+      _validate_active_text_task(
+        connection, active_goal_id, active_task_row
+      )
+
+      goal: TextHandoffGoal | None = None
+      if active_goal_id is not None:
+        goal_row = connection.execute(
+          f'SELECT id, status, {_bounded_col_sql("text", "text")} '
+          'FROM goal WHERE id = ?',
+          (_HANDOFF_BYTE_LIMIT, active_goal_id),
+        ).fetchone()
+        if goal_row is not None:
+          goal_id = _req_int(goal_row, 'id')
+          goal = TextHandoffGoal(
+            id=goal_id,
+            status=_req_goal_status(goal_row),
+            text=_decode_bounded_text(
+              connection,
+              goal_row,
+              'text',
+              table_name='goal',
+              column_name='text',
+              row_id=goal_id,
+            ),
+          )
+
+      task: TextHandoffTask | None = None
+      if active_task_row is not None:
+        active_task_id = _req_int(active_task_row, 'id')
+        task = TextHandoffTask(
+          id=active_task_id,
+          goal_id=_opt_int(active_task_row, 'goal_id'),
+          stage_id=_opt_int(active_task_row, 'stage_id'),
+          title=_decode_bounded_text(
+            connection,
+            active_task_row,
+            'title',
+            table_name='task',
+            column_name='title',
+            row_id=active_task_id,
+          ),
+          title_status='substantive',
+        )
+
+      stage: TextHandoffStage | None = None
+      if task is not None and task.stage_id is not None:
+        stage_row = connection.execute(
+          f'SELECT id, {_bounded_col_sql("name", "name")} '
+          'FROM stage WHERE id = ?',
+          (_HANDOFF_BYTE_LIMIT, task.stage_id),
+        ).fetchone()
+        if stage_row is None:
+          raise ProjectError(f'Stage does not exist: {task.stage_id}')
+        stage_id = _req_int(stage_row, 'id')
+        stage = TextHandoffStage(
+          id=stage_id,
+          name=_decode_bounded_text(
+            connection,
+            stage_row,
+            'name',
+            table_name='stage',
+            column_name='name',
+            row_id=stage_id,
+          ),
+        )
+
+      blocked_task_rows, blocked_task_page = _handoff_page(
+        connection,
+        f"""
+        SELECT task.id,
+          {_bounded_col_sql('task.title', 'title')},
+          (
+            typeof(task.title) = 'text'
+            AND octet_length(ltrim(task.title, ?)) > 0
+          ) AS title_substantive,
+          task.status, task.goal_id, task.stage_id,
+          {_bounded_col_sql('stage.name', 'stage_name')}
+        FROM task
+        LEFT JOIN stage ON stage.id = task.stage_id
+        WHERE task.status = 'blocked'
+        ORDER BY task.updated_at DESC, task.id DESC
+        """,
+        "SELECT count(*) FROM task WHERE status = 'blocked'",
+        query_prefix=(
+          _HANDOFF_BYTE_LIMIT,
+          UNICODE_WHITESPACE,
+          _HANDOFF_BYTE_LIMIT,
+        ),
+      )
+      blocked_tasks_list: list[TextBlockedTaskSummary] = []
+      for row in blocked_task_rows:
+        _req_task_status(row)
+        task_id = _req_int(row, 'id')
+        row_stage_id = _opt_int(row, 'stage_id')
+        blocked_title_status: TitleStatus = (
+          'substantive' if row['title_substantive'] else 'legacy-blank'
+        )
+        blocked_tasks_list.append(
+          TextBlockedTaskSummary(
+            id=task_id,
+            title=_decode_bounded_text(
+              connection,
+              row,
+              'title',
+              table_name='task',
+              column_name='title',
+              row_id=task_id,
+            ),
+            goal_id=_opt_int(row, 'goal_id'),
+            stage_id=row_stage_id,
+            stage_name=_opt_bounded_text(
+              connection,
+              row,
+              'stage_name',
+              table_name='stage',
+              column_name='name',
+              row_id=row_stage_id,
+              error_col='stage_name',
+            ),
+            title_status=blocked_title_status,
+          )
+        )
+      blocked_tasks = tuple(blocked_tasks_list)
+
+      blocked_goal_rows, blocked_goal_page = _handoff_page(
+        connection,
+        f"""
+        SELECT id, status, {_bounded_col_sql('text', 'text')}
+        FROM goal
+        WHERE status = 'blocked'
+        ORDER BY updated_at DESC, id DESC
+        """,
+        "SELECT count(*) FROM goal WHERE status = 'blocked'",
+        query_prefix=(_HANDOFF_BYTE_LIMIT,),
+      )
+      blocked_goals_list: list[TextBlockedGoalSummary] = []
+      for row in blocked_goal_rows:
+        _req_goal_status(row)
+        blocked_goal_id = _req_int(row, 'id')
+        blocked_goals_list.append(
+          TextBlockedGoalSummary(
+            id=blocked_goal_id,
+            text=_decode_bounded_text(
+              connection,
+              row,
+              'text',
+              table_name='goal',
+              column_name='text',
+              row_id=blocked_goal_id,
+            ),
+            status_reason=_text_blocked_goal_reason(
+              connection, blocked_goal_id
+            ),
+          )
+        )
+      blocked_goals = tuple(blocked_goals_list)
+
+      blocker_rows, blocker_page = _handoff_page(
+        connection,
+        f"""
+        SELECT id,
+          {_bounded_col_sql('description', 'description')},
+          {_bounded_col_sql('required', 'required')},
+          CASE WHEN task_id IS NOT NULL THEN 'task' ELSE 'goal' END
+            AS target_kind,
+          COALESCE(task_id, goal_id) AS target_id
+        FROM blocker
+        WHERE status = 'open'
+        ORDER BY opened_at DESC, id DESC
+        """,
+        "SELECT count(*) FROM blocker WHERE status = 'open'",
+        query_prefix=(_HANDOFF_BYTE_LIMIT, _HANDOFF_BYTE_LIMIT),
+      )
+      blockers = tuple(
+        TextHandoffBlockerSummary(
+          id=(blocker_id := _req_int(row, 'id')),
+          description=_decode_bounded_text(
+            connection,
+            row,
+            'description',
+            table_name='blocker',
+            column_name='description',
+            row_id=blocker_id,
+          ),
+          required=_decode_bounded_text(
+            connection,
+            row,
+            'required',
+            table_name='blocker',
+            column_name='required',
+            row_id=blocker_id,
+          ),
+          target_kind=_req_focus_kind(row, 'target_kind'),
+          target_id=_req_int(row, 'target_id'),
+        )
+        for row in blocker_rows
+      )
+
+      focus_task_id = (
+        task.id
+        if task is not None
+        else blocked_tasks[0].id
+        if blocked_tasks
+        else None
+      )
+      focus_goal_id = (
+        active_goal_id
+        if active_goal_id is not None
+        else blocked_goals[0].id
+        if blocked_goals
+        else None
+      )
+      if focus_task_id is not None:
+        focus_clause = 'task_id = ?'
+        focus_parameters: tuple[object, ...] = (focus_task_id,)
+        focus_kind: FocusKind | None = 'task'
+        focus_id: int | None = focus_task_id
+      elif focus_goal_id is not None:
+        focus_clause = 'goal_id = ? AND task_id IS NULL'
+        focus_parameters = (focus_goal_id,)
+        focus_kind = 'goal'
+        focus_id = focus_goal_id
+      else:
+        focus_clause = '0'
+        focus_parameters = ()
+        focus_kind = None
+        focus_id = None
+
+      decision_rows, decision_page = _handoff_page(
+        connection,
+        f"""
+        SELECT id,
+          {_bounded_col_sql('summary', 'summary')},
+          context_status
+        FROM decision
+        WHERE {focus_clause}
+        ORDER BY decided_at DESC, id DESC
+        """,
+        f'SELECT count(*) FROM decision WHERE {focus_clause}',
+        focus_parameters,
+        (_HANDOFF_BYTE_LIMIT,),
+      )
+      decisions = tuple(
+        TextHandoffDecisionSummary(
+          id=(decision_id := _req_int(row, 'id')),
+          summary=_decode_bounded_text(
+            connection,
+            row,
+            'summary',
+            table_name='decision',
+            column_name='summary',
+            row_id=decision_id,
+          ),
+          context_status=_req_record_context(row),
+        )
+        for row in decision_rows
+      )
+
+      evidence_rows, evidence_page = _handoff_page(
+        connection,
+        f"""
+        SELECT id,
+          {_bounded_col_sql('claim', 'claim')},
+          context_status, claim_status
+        FROM evidence
+        WHERE {focus_clause}
+        ORDER BY captured_at DESC, id DESC
+        """,
+        f'SELECT count(*) FROM evidence WHERE {focus_clause}',
+        focus_parameters,
+        (_HANDOFF_BYTE_LIMIT,),
+      )
+      evidence = tuple(
+        TextHandoffEvidenceSummary(
+          id=(evidence_id := _req_int(row, 'id')),
+          claim=_decode_bounded_text(
+            connection,
+            row,
+            'claim',
+            table_name='evidence',
+            column_name='claim',
+            row_id=evidence_id,
+          ),
+          context_status=_req_record_context(row),
+          claim_status=_req_claim_status(row),
+        )
+        for row in evidence_rows
+      )
+
+      logs: tuple[TextHandoffLogEntry, ...] = ()
+      log_page = HandoffPage(shown=0, total=0, truncated=False)
+      if focus_task_id is not None:
+        log_rows, log_page = _handoff_page(
+          connection,
+          f"""
+          SELECT id,
+            {_bounded_col_sql('kind', 'kind')},
+            {_bounded_col_sql('message', 'message')}
+          FROM task_log
+          WHERE task_id = ?
+          ORDER BY occurred_at DESC, id DESC
+          """,
+          'SELECT count(*) FROM task_log WHERE task_id = ?',
+          (focus_task_id,),
+          (_HANDOFF_BYTE_LIMIT, _HANDOFF_BYTE_LIMIT),
+        )
+        logs = tuple(
+          TextHandoffLogEntry(
+            kind=_decode_bounded_text(
+              connection,
+              row,
+              'kind',
+              table_name='task_log',
+              column_name='kind',
+              row_id=(log_id := _req_int(row, 'id')),
+            ),
+            message=_decode_bounded_text(
+              connection,
+              row,
+              'message',
+              table_name='task_log',
+              column_name='message',
+              row_id=log_id,
+            ),
+          )
+          for row in log_rows
+        )
+
+      return TextHandoffData(
+        path=path,
+        project=project,
+        state=state,
+        goal=goal,
+        stage=stage,
+        task=task,
+        blocked_tasks=blocked_tasks,
+        blocked_goals=blocked_goals,
+        blockers=blockers,
+        decisions=decisions,
+        evidence=evidence,
+        logs=logs,
+        focus=HandoffFocus(kind=focus_kind, id=focus_id),
+        pages=HandoffPages(
+          blocked_tasks=blocked_task_page,
+          blocked_goals=blocked_goal_page,
+          blockers=blocker_page,
+          decisions=decision_page,
+          evidence=evidence_page,
+          task_log=log_page,
+        ),
+      )

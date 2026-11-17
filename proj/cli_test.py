@@ -1,9 +1,11 @@
 import base64
 import errno
+import gc
 import json
 import os
 import shlex
-from collections.abc import Iterator
+import tracemalloc
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path, PurePosixPath
 
@@ -12,7 +14,7 @@ import pytest
 from click.testing import CliRunner
 from pytest import MonkeyPatch
 
-from proj import cli, core, render, service, store
+from proj import cli, core, render, schema, service, store
 from proj.schema_test import downgrade_v7_to_v6
 from proj.store_test import MemdbBackend
 
@@ -2161,4 +2163,369 @@ def test_list_skips_non_project_databases_and_rejects_broken_projects(
       'components of at most 200 characters without the .sqlite3 suffix: '
       '/memdb-root/.tmp/bad\\nInjected\\u001b]52;\\u0007.sqlite3\n',
     ),
+  )
+
+
+def _measure_peak_traced_bytes[T](fn: Callable[[], T]) -> tuple[T, int]:
+  gc.collect()
+  already_tracing = tracemalloc.is_tracing()
+  if not already_tracing:
+    tracemalloc.start()
+  try:
+    tracemalloc.reset_peak()
+    baseline, _ = tracemalloc.get_traced_memory()
+    result = fn()
+    _, peak = tracemalloc.get_traced_memory()
+  finally:
+    if not already_tracing:
+      tracemalloc.stop()
+  return result, peak - baseline
+
+
+def _seed_megabyte_handoff_project(
+  backend: MemdbBackend,
+  project_store: store.ProjectStore,
+  size: int,
+) -> None:
+  project_store.create_project(
+    _NAME,
+    core.CharterInput.parse(
+      objective='O',
+      scope='S',
+      non_goals='NG',
+      constraints='C',
+      acceptance='A',
+    ),
+  )
+  rel = PurePosixPath('.tmp/demo.sqlite3')
+  conn = backend.open_raw(rel, mode='rw')
+  try:
+    schema.configure_connection(conn)
+    head = size // 2
+    tail = size - head - 1
+    conn.execute(
+      'UPDATE project SET objective = '
+      "CAST((CAST(printf('%.*c', ?, 'x') AS BLOB) || X'00' "
+      "|| CAST(printf('%.*c', ?, 'x') AS BLOB)) AS TEXT), "
+      "scope = printf('%.*c', ?, 'x') WHERE id = 1",
+      (head, tail, size),
+    )
+    conn.execute(
+      "UPDATE project_state SET summary = printf('%.*c', ?, 'x'), "
+      "next_action = printf('%.*c', ?, 'x') WHERE id = 1",
+      (size, size),
+    )
+    sid = core.PositiveInt(
+      service.add_stage(
+        conn,
+        core.SubstantiveText('stage-one'),
+        core.SubstantiveText('Outcome'),
+      )
+    )
+    conn.execute(
+      "UPDATE stage SET name = printf('%.*c', ?, 'x'), "
+      "outcome = printf('%.*c', ?, 'x') WHERE id = ?",
+      (size, size, sid.value),
+    )
+    gid = core.PositiveInt(
+      service.create_goal(
+        conn,
+        core.GoalText('Goal text'),
+        service.GoalStages.parse([sid]),
+      )
+    )
+    tid = core.PositiveInt(
+      service.add_task(
+        conn,
+        core.SubstantiveText('Task title'),
+        stage=sid,
+        goal=gid,
+        purpose='P',
+        scope='S',
+        exclusions='E',
+        result='R',
+        completion_evidence='CE',
+      )
+    )
+    head = size // 2
+    tail = size - head - 1
+    conn.execute(
+      'UPDATE task SET title = '
+      "CAST((CAST(printf('%.*c', ?, 'x') AS BLOB) || X'00' "
+      "|| CAST(printf('%.*c', ?, 'x') AS BLOB)) AS TEXT), "
+      "scope = printf('%.*c', ?, 'x') WHERE id = ?",
+      (head, tail, size, tid.value),
+    )
+    service.start_task(conn, tid)
+    btid = core.PositiveInt(
+      service.add_task(conn, core.SubstantiveText('Blocked task'))
+    )
+    service.block_task(
+      conn,
+      btid,
+      core.SubstantiveText('B desc'),
+      required=core.SubstantiveText('B req'),
+    )
+    conn.execute(
+      "UPDATE blocker SET description = printf('%.*c', ?, 'x'), "
+      "required = printf('%.*c', ?, 'x')",
+      (size, size),
+    )
+    service.add_decision(conn, core.SubstantiveText('D sum'), task=tid)
+    conn.execute(
+      "UPDATE decision SET summary = printf('%.*c', ?, 'x'), "
+      "rationale = printf('%.*c', ?, 'x')",
+      (size, size),
+    )
+    service.add_evidence(
+      conn, core.SubstantiveText('Ev claim'), source='Src', task=tid
+    )
+    conn.execute(
+      "UPDATE evidence SET claim = printf('%.*c', ?, 'x'), "
+      "source = printf('%.*c', ?, 'x')",
+      (size, size),
+    )
+    conn.execute(
+      'INSERT INTO task_log (task_id, occurred_at, kind, message) '
+      "VALUES (?, ?, printf('%.*c', ?, 'x'), printf('%.*c', ?, 'x'))",
+      (tid.value, _NOW, size, size),
+    )
+    conn.commit()
+  finally:
+    conn.close()
+
+
+def test_handoff_text_allocation_bounds_and_oversized_json(
+  monkeypatch: MonkeyPatch,
+) -> None:
+  runner = CliRunner()
+  monkeypatch.setattr(schema, 'connection_time', lambda _conn: _NOW)
+  schema._canonical_schema_definitions()
+  truncated_x = ('x' * 999) + '…'
+  expected_text = (
+    'Project: demo\n'
+    'Status: active\n'
+    f'Objective: {truncated_x}\n'
+    'Project database: .tmp/demo.sqlite3\n'
+    'Active goal: 1 (active)\n'
+    'Goal text: Goal text\n'
+    f'Active stage: {truncated_x}\n'
+    f'Active task: 1 {truncated_x}\n'
+    f'Summary: {truncated_x}\n'
+    f'Next action: {truncated_x}\n'
+    'Open blockers (1 of 1):\n'
+    f'- 1 [task 2]: {truncated_x}; required: {truncated_x}\n'
+    'Blocked tasks (1 of 1):\n'
+    '- 2 Blocked task (stage: -; goal: -)\n'
+    'Relevant task decisions (1 of 1):\n'
+    f'- 1: {truncated_x}\n'
+    'Relevant task evidence (1 of 1):\n'
+    f'- 1: {truncated_x}\n'
+    'Recent task log (2 of 2):\n'
+    '- started: Task started\n'
+    f'- {truncated_x}: {truncated_x}\n'
+    'Text projection: 11 fields truncated at 1000 rendered characters.\n'
+    '- Full values: 0 proj blocker list --json -- demo\n'
+    '- Full values: 0 proj decision list --task 1 --limit 1 --json '
+    '-- demo\n'
+    '- Full values: 0 proj evidence list --task 1 --limit 1 --json '
+    '-- demo\n'
+    '- Full values: 0 proj handoff --json -- demo\n'
+    '- Full values: 0 proj stage list --json -- demo\n'
+    '- Full values: 0 proj task list-logs --limit 2 --json -- demo 1\n'
+    '- Full values: 0 proj task show --json -- demo 1\n'
+  )
+
+  with _memdb_cli() as (backend_2m, store_2m):
+    _seed_megabyte_handoff_project(backend_2m, store_2m, 2_000_000)
+    res_2m, peak_2m = _measure_peak_traced_bytes(
+      lambda: runner.invoke(
+        cli.project_group, ('handoff', 'demo'), obj=store_2m
+      )
+    )
+
+  with _memdb_cli() as (backend_4m, store_4m):
+    _seed_megabyte_handoff_project(backend_4m, store_4m, 4_000_000)
+    res_4m, peak_4m = _measure_peak_traced_bytes(
+      lambda: runner.invoke(
+        cli.project_group, ('handoff', 'demo'), obj=store_4m
+      )
+    )
+
+  with _memdb_cli() as (backend_utf16, store_utf16):
+    utf16_conn = backend_utf16.open_raw(
+      PurePosixPath('.tmp/demo.sqlite3'), mode='rwc'
+    )
+    try:
+      utf16_conn.execute("PRAGMA encoding = 'UTF-16le'")
+      utf16_conn.create_function('substantive', 1, core.is_substantive)
+      for sql in schema._canonical_schema_definitions().values():
+        utf16_conn.execute(sql)
+      utf16_conn.execute(f'PRAGMA user_version = {schema.SCHEMA_VERSION}')
+      utf16_conn.execute(
+        'INSERT INTO project (id, name, objective, scope, non_goals, '
+        'constraints_text, acceptance, created_at, updated_at) '
+        "VALUES (1, 'demo', 'O', 'S', 'N', 'C', 'A', 1, 1)"
+      )
+      utf16_conn.execute(
+        'INSERT INTO project_state (id, summary, next_action, updated_at) '
+        "VALUES (1, '', '', 1)"
+      )
+      utf16_conn.commit()
+    finally:
+      utf16_conn.close()
+    res_utf16 = runner.invoke(
+      cli.project_group, ('handoff', 'demo'), obj=store_utf16
+    )
+
+  with _memdb_cli() as (backend_json, store_json):
+    store_json.create_project(_NAME, _CHARTER)
+    conn = backend_json.open_raw(
+      PurePosixPath('.tmp/demo.sqlite3'), mode='rw'
+    )
+    try:
+      schema.configure_connection(conn)
+      conn.execute(
+        "UPDATE project SET objective = printf('%.*c', ?, 'x') "
+        'WHERE id = 1',
+        (1_200_000,),
+      )
+      conn.commit()
+    finally:
+      conn.close()
+    res_json = runner.invoke(
+      cli.project_group, ('handoff', 'demo', '--json'), obj=store_json
+    )
+    decoded_json = json.loads(res_json.output)
+
+  oversized_name_data = service.TextHandoffData(
+    path='.tmp/demo.sqlite3',
+    project=service.TextHandoffProject(
+      name=service.BoundedText('n' * 1001, 1001),
+      status='active',
+      objective=service.BoundedText('obj', 3),
+      charter_context_status='current',
+    ),
+    state=service.TextHandoffState(
+      summary=service.BoundedText('', 0),
+      next_action=service.BoundedText('', 0),
+    ),
+    goal=None,
+    stage=None,
+    task=None,
+    blocked_tasks=(),
+    blocked_goals=(),
+    blockers=(),
+    decisions=(),
+    evidence=(),
+    logs=(),
+    focus=service.HandoffFocus(kind=None, id=None),
+    pages=service.HandoffPages(
+      blocked_tasks=service.HandoffPage(shown=0, total=0, truncated=False),
+      blocked_goals=service.HandoffPage(shown=0, total=0, truncated=False),
+      blockers=service.HandoffPage(shown=0, total=0, truncated=False),
+      decisions=service.HandoffPage(shown=0, total=0, truncated=False),
+      evidence=service.HandoffPage(shown=0, total=0, truncated=False),
+      task_log=service.HandoffPage(shown=0, total=0, truncated=False),
+    ),
+  )
+  with pytest.raises(core.ProjectError) as long_name_err:
+    cli._handoff_retrieval_commands(oversized_name_data)
+
+  assert (
+    res_2m.exit_code,
+    res_2m.output,
+    res_4m.exit_code,
+    res_4m.output,
+    max(peak_2m, 512_000),
+    max(peak_4m, 512_000),
+    max(abs(peak_4m - peak_2m), 65_536),
+    res_utf16.exit_code,
+    res_utf16.output,
+    res_json.exit_code,
+    decoded_json,
+    str(long_name_err.value),
+  ) == (
+    0,
+    expected_text,
+    0,
+    expected_text,
+    512_000,
+    512_000,
+    65_536,
+    1,
+    "Error: Unsupported project database encoding 'UTF-16le'; "
+    "expected 'UTF-8': /memdb-root/.tmp/demo.sqlite3\n",
+    0,
+    {
+      'path': '.tmp/demo.sqlite3',
+      'project': {
+        'id': 1,
+        'name': 'demo',
+        'objective': 'x' * 1_200_000,
+        'scope': 'Commands and formatting',
+        'non_goals': 'Zero dependency',
+        'constraints_text': 'Deterministic memdb',
+        'acceptance': 'All tests pass',
+        'created_at': _NOW,
+        'updated_at': _NOW,
+        'charter_context_status': 'current',
+        'status': 'active',
+        'completed_at': None,
+      },
+      'state': {
+        'id': 1,
+        'summary': '',
+        'next_action': '',
+        'updated_at': _NOW,
+        'revision': 0,
+      },
+      'goal': None,
+      'stage': None,
+      'task': None,
+      'blocked_tasks': [],
+      'blocked_goals': [],
+      'blockers': [],
+      'decisions': [],
+      'evidence': [],
+      'logs': [],
+      'focus': {'kind': None, 'id': None},
+      'pages': {
+        'blocked_tasks': {'shown': 0, 'total': 0, 'truncated': False},
+        'blocked_goals': {'shown': 0, 'total': 0, 'truncated': False},
+        'blockers': {'shown': 0, 'total': 0, 'truncated': False},
+        'decisions': {'shown': 0, 'total': 0, 'truncated': False},
+        'evidence': {'shown': 0, 'total': 0, 'truncated': False},
+        'task_log': {'shown': 0, 'total': 0, 'truncated': False},
+      },
+      'retrieval': {
+        'project': '0 proj show --json -- demo',
+        'goal': None,
+        'stage': None,
+        'task': None,
+        'blocked_tasks': (
+          '0 proj task list --status blocked --json -- demo'
+        ),
+        'blocked_goals': (
+          '0 proj goal list --status blocked --json -- demo'
+        ),
+        'blockers': '0 proj blocker list --json -- demo',
+        'ready_tasks': '0 proj task ready -- demo',
+        'decisions': '0 proj decision list --json -- demo',
+        'evidence': '0 proj evidence list --json -- demo',
+        'task_log': None,
+      },
+      'text_projection': {
+        'character_limit': 1000,
+        'truncated_fields': [
+          {
+            'path': 'project.objective',
+            'characters': 1_200_000,
+            'retrieval': '0 proj handoff --json -- demo',
+          }
+        ],
+        'full_value_commands': ['0 proj handoff --json -- demo'],
+      },
+    },
+    'Generated project recovery command exceeds the handoff text limit',
   )
