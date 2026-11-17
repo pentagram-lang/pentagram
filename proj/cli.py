@@ -1,31 +1,61 @@
 import base64
 import json
-import sqlite3
-from collections.abc import Callable, Mapping, Sequence
-from datetime import UTC, datetime
+import shlex
+from collections.abc import Callable, Sequence
 from pathlib import Path
-from typing import Literal, ParamSpec, TypedDict, TypeVar, cast
+from typing import ParamSpec, TypeVar
 
 import click
-from wcwidth import wcswidth
 
-from zero import lib
-
-from .errors import ProjectError
-from .project import (
+from .core import (
   BLOCKER_STATUSES,
   GOAL_STATUSES,
   TASK_STATUSES,
   UNSET,
-  BlockerStatus,
-  GoalDetails,
+  BlockerFilterStatus,
+  CharterInput,
+  FocusKind,
+  GoalReference,
   GoalStatus,
-  HandoffData,
-  HandoffRetrievalInput,
-  ProjectRoot,
-  ProjectView,
-  TaskDetails,
+  GoalText,
+  PositiveInt,
+  ProjectError,
+  ProjectName,
+  StageReference,
+  SubstantiveText,
   TaskStatus,
+  TaskTag,
+  parse_goal_reference,
+  parse_stage_reference,
+)
+from .render import (
+  HANDOFF_TEXT_LIMIT,
+  HandoffJson,
+  HandoffRetrieval,
+  HandoffView,
+  build_handoff_json,
+  format_blocker_list,
+  format_decision_list,
+  format_evidence_list,
+  format_goal_details,
+  format_goal_list,
+  format_handoff,
+  format_project_details,
+  format_project_list,
+  format_ready_task_list,
+  format_stage_list,
+  format_task_details,
+  format_task_list,
+  format_task_log_list,
+)
+from .service import (
+  GoalStages,
+  HandoffData,
+  ProjectPatch,
+  ProjectStatePatch,
+  RecordListFilter,
+  StagePatch,
+  TaskPatch,
   achieve_goal,
   achieve_stage,
   activate_goal,
@@ -37,16 +67,13 @@ from .project import (
   add_task,
   add_task_tags,
   append_task_log,
-  archive_project,
   block_goal,
   block_task,
   cancel_goal,
   cancel_task,
   complete_task,
   create_goal,
-  create_project,
   goal_text,
-  list_projects,
   read_blockers,
   read_decisions,
   read_evidence,
@@ -56,6 +83,7 @@ from .project import (
   read_project,
   read_stages,
   read_task,
+  read_task_logs,
   read_tasks,
   remove_stage_dependency,
   remove_task_tags,
@@ -67,74 +95,12 @@ from .project import (
   update_stage,
   update_task,
 )
+from .store import ProjectStore
 
-HANDOFF_TEXT_LIMIT = 1000
-_TEXT_ESCAPES = {
-  **{codepoint: f'\\u{codepoint:04x}' for codepoint in range(0x7F, 0xA0)},
-  0x2028: '\\u2028',
-  0x2029: '\\u2029',
-}
-
-type StageReference = int | str
-type GoalReference = int | Literal['active']
-
-type HandoffPageKey = Literal[
-  'blocked_tasks',
-  'blocked_goals',
-  'blockers',
-  'decisions',
-  'evidence',
-  'task_log',
-]
+__all__ = ['project_group']
 
 P = ParamSpec('P')
 R = TypeVar('R')
-
-
-class TruncatedField(TypedDict):
-  path: str
-  characters: int
-  retrieval: str
-
-
-class HandoffProjection(TypedDict):
-  character_limit: int
-  truncated_fields: list[TruncatedField]
-  full_value_commands: list[str]
-
-
-class HandoffRetrieval(TypedDict):
-  project: str
-  goal: str | None
-  stage: str | None
-  task: str | None
-  blocked_tasks: str
-  blocked_goals: str
-  blockers: str
-  ready_tasks: str
-  decisions: str
-  evidence: str
-  task_log: str | None
-
-
-class HandoffView(HandoffData):
-  retrieval: HandoffRetrieval
-
-
-class HandoffJson(HandoffView):
-  text_projection: HandoffProjection
-
-
-def _positive_id(value: object) -> int:
-  if isinstance(value, int) and not isinstance(value, bool):
-    result = value
-  elif isinstance(value, str) and value.isdigit():
-    result = int(value)
-  else:
-    raise ValueError('Expected a positive integer ID')
-  if result < 1:
-    raise ValueError('Expected a positive integer ID')
-  return result
 
 
 class StageReferenceType(click.ParamType):
@@ -148,12 +114,14 @@ class StageReferenceType(click.ParamType):
   ) -> StageReference | None:
     if value is None:
       return None
-    if isinstance(value, str) and not value.isdigit():
-      return value
-    try:
-      return _positive_id(value)
-    except ValueError:
-      self.fail('Expected a stage name or positive stage ID.', param, ctx)
+    if isinstance(value, str) or (
+      isinstance(value, int) and not isinstance(value, bool)
+    ):
+      try:
+        return parse_stage_reference(value)
+      except ProjectError:
+        pass
+    self.fail('Expected a stage name or positive stage ID.', param, ctx)
 
 
 class GoalReferenceType(click.ParamType):
@@ -167,14 +135,16 @@ class GoalReferenceType(click.ParamType):
   ) -> GoalReference | None:
     if value is None:
       return None
-    if isinstance(value, str) and value == 'active':
-      return 'active'
-    try:
-      return _positive_id(value)
-    except ValueError:
-      self.fail(
-        'Expected a positive goal ID or the active keyword.', param, ctx
-      )
+    if isinstance(value, str) or (
+      isinstance(value, int) and not isinstance(value, bool)
+    ):
+      try:
+        return parse_goal_reference(value)
+      except ProjectError:
+        pass
+    self.fail(
+      'Expected a positive goal ID or the active keyword.', param, ctx
+    )
 
 
 STAGE_REFERENCE = StageReferenceType()
@@ -182,281 +152,49 @@ GOAL_REFERENCE = GoalReferenceType()
 POSITIVE_INTEGER = click.IntRange(min=1)
 
 
-def repository_root() -> Path:
+def _repository_root() -> Path:
   return Path(__file__).resolve().parent.parent
 
 
-def _handoff_retrieval_commands(
-  data: HandoffRetrievalInput,
-) -> HandoffRetrieval:
-  name = data['project']['name']
-  goal = data['goal']['goal'] if data['goal'] is not None else None
-  task = data['task']
-  stage = data['stage']
-  focus_kind = data['focus']['kind']
-  focus_id = data['focus']['id']
-  if focus_kind is not None and focus_id is None:
-    raise ProjectError('Handoff focus is missing its record ID')
-  decision_count = data['pages']['decisions']['total']
-  evidence_count = data['pages']['evidence']['total']
-  log_count = data['pages']['task_log']['total']
-  return cast(
-    HandoffRetrieval,
-    {
-      'project': _project_command(('show',), name, options=('--json',)),
-      'goal': (
-        _project_command(
-          ('goal', 'show'), name, (goal['id'],), ('--json',)
-        )
-        if goal is not None
-        else None
-      ),
-      'stage': (
-        _project_command(('stage', 'list'), name, options=('--json',))
-        if stage is not None
-        else None
-      ),
-      'task': (
-        _project_command(
-          ('task', 'show'), name, (task['id'],), ('--json',)
-        )
-        if task is not None
-        else None
-      ),
-      'blocked_tasks': _project_command(
-        ('task', 'list'),
-        name,
-        options=('--status', 'blocked', '--json'),
-      ),
-      'blocked_goals': _project_command(
-        ('goal', 'list'),
-        name,
-        options=('--status', 'blocked', '--json'),
-      ),
-      'blockers': _project_command(
-        ('blocker', 'list'), name, options=('--json',)
-      ),
-      'ready_tasks': _project_command(('task', 'ready'), name),
-      'decisions': (
-        _project_command(
-          ('decision', 'list'),
-          name,
-          options=_handoff_filter_options(
-            focus_kind, focus_id, decision_count
-          ),
-        )
-        if focus_kind is not None
-        else _project_command(
-          ('decision', 'list'), name, options=('--json',)
-        )
-      ),
-      'evidence': (
-        _project_command(
-          ('evidence', 'list'),
-          name,
-          options=_handoff_filter_options(
-            focus_kind, focus_id, evidence_count
-          ),
-        )
-        if focus_kind is not None
-        else _project_command(
-          ('evidence', 'list'), name, options=('--json',)
-        )
-      ),
-      'task_log': (
-        _project_command(
-          ('task', 'list-logs'),
-          name,
-          (focus_id,),
-          ('--limit', max(log_count, 1), '--json'),
-        )
-        if focus_kind == 'task' and focus_id is not None
-        else None
-      ),
-    },
-  )
+def _project_store(ctx: click.Context) -> ProjectStore:
+  if not isinstance(ctx.obj, ProjectStore):
+    raise RuntimeError('Project store missing from Click context')
+  return ctx.obj
 
 
-def _handoff_filter_options(
-  focus_kind: Literal['task', 'goal'] | None,
-  focus_id: int | None,
-  count: int,
-) -> list[str | int]:
-  if focus_kind is None:
-    raise ProjectError('A filtered handoff command needs a focus kind')
-  if focus_id is None:
-    raise ProjectError('A filtered handoff command needs a record ID')
-  options: list[str | int] = [f'--{focus_kind}', focus_id]
-  if focus_kind == 'goal':
-    options.append('--no-task')
-  options.extend(('--limit', max(count, 1), '--json'))
-  return options
+def _invoke(
+  function: Callable[P, R], *args: P.args, **kwargs: P.kwargs
+) -> R:
+  try:
+    return function(*args, **kwargs)
+  except ProjectError as error:
+    raise click.ClickException(str(error)) from error
 
 
-def _handoff_view(data: HandoffData) -> HandoffView:
-  return cast(
-    HandoffView, {**data, 'retrieval': _handoff_retrieval_commands(data)}
-  )
+def _json_echo(value: object) -> None:
+  click.echo(json.dumps(value, indent=2, sort_keys=True))
 
 
-def _handoff_json(data: HandoffData) -> HandoffJson:
-  view = _handoff_view(data)
-  _, projection = _render_handoff(view)
-  return cast(HandoffJson, {**view, 'text_projection': projection})
-
-
-def format_time(value: int | None) -> str:
-  if value is None:
-    return '-'
-  return datetime.fromtimestamp(value, UTC).isoformat()
-
-
-def _format_text(value: object, default: str = '-') -> str:
-  if value is None or value == '':
-    return default
-  rendered = _escape_text(value)
-  return f'"{rendered}"' if rendered == default else rendered
-
-
-def _escape_text(value: object) -> str:
-  return json.dumps(str(value), ensure_ascii=False)[1:-1].translate(
-    _TEXT_ESCAPES
-  )
-
-
-def _display_width(value: str) -> int:
-  width = wcswidth(value)
-  return width if width >= 0 else len(value)
-
-
-def _format_table(
-  headers: Sequence[str], rows: Sequence[Sequence[object]]
-) -> str:
-  cells = [tuple(_format_text(value) for value in row) for row in rows]
-  widths = [_display_width(header) for header in headers]
-  for row in cells:
-    for index, value in enumerate(row):
-      widths[index] = max(widths[index], _display_width(value))
-
-  def render_row(row: Sequence[str]) -> str:
-    return '  '.join(
-      value + ' ' * (widths[index] - _display_width(value))
-      if index < len(row) - 1
-      else value
-      for index, value in enumerate(row)
+def _shell_quote(value: str | int) -> str:
+  text = str(value)
+  if any(not character.isprintable() for character in text):
+    raise ProjectError(
+      'Recovery command token contains non-printable characters'
     )
-
-  lines = [render_row(headers), '  '.join('-' * width for width in widths)]
-  lines.extend(render_row(row) for row in cells)
-  return '\n'.join(lines)
-
-
-def _format_limit_notice(shown: int, limit: int) -> str | None:
-  if shown < limit:
-    return None
-  return (
-    f'Limit reached ({limit} rows); more records may exist. '
-    'Increase --limit to retrieve more.'
-  )
-
-
-def _format_limited_table(
-  headers: Sequence[str], rows: Sequence[Sequence[object]], limit: int
-) -> str:
-  table = _format_table(headers, rows)
-  notice = _format_limit_notice(len(rows), limit)
-  return f'{table}\n{notice}' if notice else table
-
-
-def _field_label(name: str) -> str:
-  if name == 'non_goals':
-    return 'Non-goals'
-  if name == 'constraints_text':
-    return 'Constraints'
-  return ' '.join(
-    part.upper() if part == 'id' else part.capitalize()
-    for part in name.split('_')
-  )
-
-
-def _field_value(name: str, value: object) -> str:
-  if name.endswith('_at'):
-    if value is not None and not isinstance(value, int):
-      raise ProjectError(f'Timestamp field {name} is not an integer')
-    return format_time(value)
-  if isinstance(value, bool):
-    return 'yes' if value else 'no'
-  return _format_text(value)
-
-
-def _format_fields(
-  fields: Mapping[str, object], indent: int = 0
-) -> list[str]:
-  prefix = '  ' * indent
-  return [
-    f'{prefix}{_field_label(name)}: {_field_value(name, value)}'
-    for name, value in fields.items()
-  ]
-
-
-def _format_record_list(
-  label: str,
-  records: Sequence[Mapping[str, object]],
-  indent: int = 0,
-) -> list[str]:
-  prefix = '  ' * indent
-  item_label = label[:-1] if label.endswith('s') else label
-  lines = [f'{prefix}{label} ({len(records)}):']
-  for index, record in enumerate(records, 1):
-    lines.append(f'{prefix}  {item_label} {index}:')
-    lines.extend(_format_fields(record, indent + 2))
-  return lines
-
-
-def _format_goal_details(
-  data: GoalDetails, label: str = 'Goal', indent: int = 0
-) -> list[str]:
-  prefix = '  ' * indent
-  lines = [f'{prefix}{label}:']
-  lines.extend(_format_fields(data['goal'], indent + 1))
-  for key, section in (
-    ('stages', 'Stages'),
-    ('tasks', 'Tasks'),
-    ('blockers', 'Blockers'),
-    ('evidence', 'Evidence'),
-    ('decisions', 'Decisions'),
-  ):
-    lines.extend(_format_record_list(section, data[key], indent + 1))
-  return lines
-
-
-def _shell_quote(value: object) -> str:
-  value = str(value)
-  if not value:
+  if not text:
     return "''"
-  return ''.join(
-    character
-    if character.isascii()
-    and (character.isalnum() or character in '_@%+=:,./-')
-    else f'\\{character}'
-    for character in value
+  single_quoted = shlex.quote(text)
+  backslash_escaped = ''.join(
+    ch
+    if ch.isascii() and (ch.isalnum() or ch in '_@%+=:,./-')
+    else f'\\{ch}'
+    for ch in text
   )
-
-
-def _bounded_escaped_text(value: str, limit: int) -> tuple[str, bool]:
-  if value == '-':
-    return '"-"', False
-  rendered = []
-  rendered_length = 0
-  for character in value:
-    encoded = _escape_text(character)
-    if rendered_length + len(encoded) > limit:
-      while rendered_length + 1 > limit:
-        rendered_length -= len(rendered.pop())
-      return ''.join(rendered) + '…', True
-    rendered.append(encoded)
-    rendered_length += len(encoded)
-  return ''.join(rendered), False
+  return (
+    single_quoted
+    if len(single_quoted) <= len(backslash_escaped)
+    else backslash_escaped
+  )
 
 
 def _project_command(
@@ -474,26 +212,102 @@ def _project_command(
   return rendered
 
 
-def _handoff_retrieval(
-  data: HandoffView, key: HandoffPageKey
-) -> str | None:
-  match key:
-    case 'blocked_tasks':
-      return data['retrieval']['blocked_tasks']
-    case 'blocked_goals':
-      return data['retrieval']['blocked_goals']
-    case 'blockers':
-      return data['retrieval']['blockers']
-    case 'decisions':
-      return data['retrieval']['decisions']
-    case 'evidence':
-      return data['retrieval']['evidence']
-    case 'task_log':
-      return data['retrieval']['task_log']
+def _handoff_filter_options(
+  focus_kind: FocusKind,
+  focus_id: int,
+  count: int,
+) -> tuple[str | int, ...]:
+  options: list[str | int] = [f'--{focus_kind}', focus_id]
+  if focus_kind == 'goal':
+    options.append('--no-task')
+  options.extend(('--limit', max(count, 1), '--json'))
+  return tuple(options)
+
+
+def _handoff_retrieval_commands(data: HandoffData) -> HandoffRetrieval:
+  name = data.project.name
+  goal_ref = data.goal.goal if data.goal is not None else None
+  focus_kind = data.focus.kind
+  focus_id = data.focus.id
+  decision_count = data.pages.decisions.total
+  evidence_count = data.pages.evidence.total
+  log_count = data.pages.task_log.total
+  return HandoffRetrieval(
+    project=_project_command(('show',), name, options=('--json',)),
+    goal=(
+      _project_command(('goal', 'show'), name, (goal_ref.id,), ('--json',))
+      if goal_ref is not None
+      else None
+    ),
+    stage=(
+      _project_command(('stage', 'list'), name, options=('--json',))
+      if data.stage is not None
+      else None
+    ),
+    task=(
+      _project_command(
+        ('task', 'show'), name, (data.task.id,), ('--json',)
+      )
+      if data.task is not None
+      else None
+    ),
+    blocked_tasks=_project_command(
+      ('task', 'list'),
+      name,
+      options=('--status', 'blocked', '--json'),
+    ),
+    blocked_goals=_project_command(
+      ('goal', 'list'),
+      name,
+      options=('--status', 'blocked', '--json'),
+    ),
+    blockers=_project_command(
+      ('blocker', 'list'), name, options=('--json',)
+    ),
+    ready_tasks=_project_command(('task', 'ready'), name),
+    decisions=(
+      _project_command(
+        ('decision', 'list'),
+        name,
+        options=_handoff_filter_options(
+          focus_kind, focus_id, decision_count
+        ),
+      )
+      if focus_kind is not None and focus_id is not None
+      else _project_command(
+        ('decision', 'list'), name, options=('--json',)
+      )
+    ),
+    evidence=(
+      _project_command(
+        ('evidence', 'list'),
+        name,
+        options=_handoff_filter_options(
+          focus_kind, focus_id, evidence_count
+        ),
+      )
+      if focus_kind is not None and focus_id is not None
+      else _project_command(
+        ('evidence', 'list'), name, options=('--json',)
+      )
+    ),
+    task_log=(
+      _project_command(
+        ('task', 'list-logs'),
+        name,
+        (focus_id,),
+        ('--limit', max(log_count, 1), '--json'),
+      )
+      if focus_kind == 'task' and focus_id is not None
+      else None
+    ),
+  )
 
 
 def _handoff_full_value_command(
-  data: HandoffView | None, name: str, path: Sequence[str | int]
+  view: HandoffView,
+  name: str,
+  path: Sequence[str | int],
 ) -> str:
   if not path or not isinstance(path[0], str):
     raise ProjectError(
@@ -502,281 +316,83 @@ def _handoff_full_value_command(
   root = path[0]
   if root in ('path', 'project', 'state'):
     return _project_command(('handoff',), name, options=('--json',))
-  if data is None:
-    raise ProjectError(f'No handoff retrieval data for {root}')
+  data = view.data
   if root == 'goal':
-    goal = data['goal']
-    if goal is None:
+    if data.goal is None:
       raise ProjectError('There is no active goal to retrieve')
     return _project_command(
       ('goal', 'show'),
       name,
-      (goal['goal']['id'],),
+      (data.goal.goal.id,),
       ('--json',),
     )
   if root == 'stage':
     return _project_command(('stage', 'list'), name, options=('--json',))
   if root == 'task':
-    task = data['task']
-    if task is None:
+    if data.task is None:
       raise ProjectError('There is no active task to retrieve')
     return _project_command(
-      ('task', 'show'), name, (task['id'],), ('--json',)
+      ('task', 'show'), name, (data.task.id,), ('--json',)
     )
   if root in ('blocked_tasks', 'blocked_goals'):
     if len(path) < 2 or not isinstance(path[1], int):
       raise ProjectError(f'Handoff {root} retrieval needs a numeric index')
     index = path[1]
     if root == 'blocked_tasks':
-      task = data['blocked_tasks'][index]
       return _project_command(
-        ('task', 'show'), name, (task['id'],), ('--json',)
+        ('task', 'show'),
+        name,
+        (data.blocked_tasks[index].id,),
+        ('--json',),
       )
-    goal = data['blocked_goals'][index]
     return _project_command(
-      ('goal', 'show'), name, (goal['id'],), ('--json',)
+      ('goal', 'show'),
+      name,
+      (data.blocked_goals[index].id,),
+      ('--json',),
     )
-  if root in ('blockers', 'decisions', 'evidence', 'logs'):
-    key: HandoffPageKey = (
-      'task_log' if root == 'logs' else cast(HandoffPageKey, root)
-    )
-    command = _handoff_retrieval(data, key)
+  retrieval_map: dict[str, str | None] = {
+    'blockers': view.retrieval.blockers,
+    'decisions': view.retrieval.decisions,
+    'evidence': view.retrieval.evidence,
+    'logs': view.retrieval.task_log,
+  }
+  if root in retrieval_map:
+    command = retrieval_map[root]
     if command is None:
       raise ProjectError(f'No handoff retrieval command for {root}')
     return command
   raise ProjectError(f'No handoff retrieval path for {root}')
 
 
-def _handoff_page_suffix(data: HandoffView, key: HandoffPageKey) -> str:
-  page = data['pages'][key]
-  parts = [f'{page["shown"]} of {page["total"]}']
-  if page['truncated']:
-    command = _handoff_retrieval(data, key)
-    if command is None:
-      raise ProjectError(f'No handoff retrieval command for {key}')
-    parts.append(f'more: {command}')
-  return f' ({"; ".join(parts)})'
-
-
-def _record_compatibility_markers(item: Mapping[str, object]) -> str:
-  markers = []
-  if item['context_status'] != 'complete':
-    markers.append('legacy unresolved context')
-  if item.get('claim_status') not in (None, 'substantive'):
-    markers.append('legacy blank claim')
-  return ''.join(f' [{marker}]' for marker in markers)
-
-
-def _task_compatibility_markers(item: Mapping[str, object]) -> str:
-  if item.get('title_status') == 'legacy-blank':
-    return ' [legacy blank title]'
-  return ''
-
-
-def _render_handoff(data: HandoffView) -> tuple[str, HandoffProjection]:
-  project = data['project']
-  state = data['state']
-  stage = data['stage']
-  task = data['task']
-  goal = data['goal']
-  name = project['name']
-  truncations: list[TruncatedField] = []
-  commands: set[str] = set()
-
-  def text(
-    value: object, path: Sequence[str | int], default: str = '-'
-  ) -> str:
-    if value is None or value == '':
-      return default
-    value = str(value)
-    rendered, truncated = _bounded_escaped_text(value, HANDOFF_TEXT_LIMIT)
-    if not truncated:
-      return rendered
-    command = _handoff_full_value_command(data, name, path)
-    commands.add(command)
-    truncations.append(
-      {
-        'path': '.'.join(str(part) for part in path),
-        'characters': len(value),
-        'retrieval': command,
-      }
-    )
-    return rendered
-
-  lines = [
-    f'Project: {text(project["name"], ("project", "name"))}',
-    f'Status: {project["status"]}',
-    f'Objective: {text(project["objective"], ("project", "objective"))}',
-    *(
-      ['Charter context: legacy incomplete']
-      if project['charter_context_status'] == 'legacy-incomplete'
-      else []
-    ),
-    f'Project database: {text(data["path"], ("path",))}',
-    f'Active goal: {goal["goal"]["id"]} ({goal["goal"]["status"]})'
-    if goal
-    else 'Active goal: -',
-    f'Goal text: {text(goal["goal"]["text"], ("goal", "goal", "text"))}'
-    if goal
-    else 'Goal text: -',
-    f'Active stage: {text(stage["name"], ("stage", "name"))}'
-    if stage
-    else 'Active stage: -',
-    f'Active task: {task["id"]}'
-    f'{_task_compatibility_markers(task)} '
-    f'{text(task["title"], ("task", "title"))}'
-    if task
-    else 'Active task: -',
-    f'Summary: {text(state["summary"], ("state", "summary"))}',
-    f'Next action: {text(state["next_action"], ("state", "next_action"))}',
-  ]
-  if data['blockers']:
-    lines.append(f'Open blockers{_handoff_page_suffix(data, "blockers")}:')
-    for index, item in enumerate(data['blockers']):
-      lines.append(
-        f'- {item["id"]} [{item["target_kind"]} '
-        f'{item["target_id"]}]: '
-        f'{text(item["description"], ("blockers", index, "description"))}'
-        '; '
-        f'required: '
-        f'{text(item["required"], ("blockers", index, "required"))}'
-      )
-  for key, label in (
-    ('blocked_tasks', 'Blocked tasks'),
-    ('blocked_goals', 'Blocked goals'),
-  ):
-    if not data[key]:
-      continue
-    lines.append(f'{label}{_handoff_page_suffix(data, key)}:')
-    if key == 'blocked_tasks':
-      for index, item in enumerate(data[key]):
-        lines.append(
-          f'- {item["id"]}{_task_compatibility_markers(item)} '
-          f'{text(item["title"], (key, index, "title"))} '
-          f'(stage: '
-          f'{text(item["stage_name"], (key, index, "stage_name"))}; '
-          f'goal: {item["goal_id"] or "-"})'
-        )
-    else:
-      for index, item in enumerate(data[key]):
-        lines.append(
-          f'- {item["id"]}: {text(item["text"], (key, index, "text"))}; '
-          f'reason: '
-          f'{text(item["status_reason"], (key, index, "status_reason"))}'
-        )
-  if data['decisions']:
-    lines.append(
-      f'Relevant {data["focus"]["kind"]} decisions'
-      + _handoff_page_suffix(data, 'decisions')
-      + ':'
-    )
-    for index, item in enumerate(data['decisions']):
-      lines.append(
-        f'- {item["id"]}'
-        f'{_record_compatibility_markers(item)}'
-        f': {text(item["summary"], ("decisions", index, "summary"))}'
-      )
-  if data['evidence']:
-    lines.append(
-      f'Relevant {data["focus"]["kind"]} evidence'
-      + _handoff_page_suffix(data, 'evidence')
-      + ':'
-    )
-    for index, item in enumerate(data['evidence']):
-      lines.append(
-        f'- {item["id"]}'
-        f'{_record_compatibility_markers(item)}'
-        f': {text(item["claim"], ("evidence", index, "claim"))}'
-      )
-  if data['logs']:
-    lines.append(
-      'Recent task log' + _handoff_page_suffix(data, 'task_log') + ':'
-    )
-    for reverse_index, item in enumerate(reversed(data['logs'])):
-      index = len(data['logs']) - reverse_index - 1
-      lines.append(
-        f'- {text(item["kind"], ("logs", index, "kind"))}: '
-        f'{text(item["message"], ("logs", index, "message"))}'
-      )
-  projection: HandoffProjection = {
-    'character_limit': HANDOFF_TEXT_LIMIT,
-    'truncated_fields': truncations,
-    'full_value_commands': sorted(commands),
-  }
-  if projection['truncated_fields']:
-    lines.append(
-      f'Text projection: {len(projection["truncated_fields"])} fields '
-      f'truncated at {projection["character_limit"]} rendered characters.'
-    )
-    lines.extend(
-      f'- Full values: {command}'
-      for command in projection['full_value_commands']
-    )
-  return '\n'.join(lines), projection
-
-
-def format_handoff(data: HandoffData) -> str:
-  return _render_handoff(_handoff_view(data))[0]
-
-
-def format_project_details(data: ProjectView) -> str:
-  lines = ['Project:', *_format_fields(data['project'], 1)]
-  lines.append(f'Database path: {_format_text(data["path"])}')
-  lines.extend(['Project state:', *_format_fields(data['state'], 1)])
-  if data['goal'] is None:
-    lines.append('Active goal: -')
-  else:
-    lines.extend(_format_goal_details(data['goal'], 'Active goal'))
-  lines.extend(
-    _format_record_list('Previous charters', data['charter_history'])
+def _handoff_view(data: HandoffData) -> HandoffView:
+  return HandoffView(
+    data=data, retrieval=_handoff_retrieval_commands(data)
   )
-  return '\n'.join(lines)
 
 
-def _format_task_details(data: TaskDetails, limit: int) -> str:
-  lines = [
-    'Task:',
-    *_format_fields(data['task'], 1),
-    *_format_record_list('Logs', data['logs']),
-  ]
-  notice = _format_limit_notice(len(data['logs']), limit)
-  if notice:
-    lines.append(f'Logs: {notice}')
-  return '\n'.join(lines)
+def _handoff_json(view: HandoffView) -> HandoffJson:
+  name = view.data.project.name
+  return build_handoff_json(
+    view, lambda path: _handoff_full_value_command(view, name, path)
+  )
 
 
-def _project_root(ctx: click.Context) -> ProjectRoot:
-  return cast(ProjectRoot, ctx.obj['project_root'])
-
-
-def _json_or_echo(value: object, as_json: bool) -> None:
-  if as_json:
-    click.echo(json.dumps(value, indent=2, sort_keys=True))
-  else:
-    click.echo(value)
-
-
-def _invoke(
-  function: Callable[P, R], *args: P.args, **kwargs: P.kwargs
-) -> R:
-  try:
-    return function(*args, **kwargs)
-  except (OSError, ProjectError, sqlite3.Error) as error:
-    raise click.ClickException(str(error)) from error
-
-
-@click.group(cls=lib.AliasedGroup)
+@click.group()
 @click.option(
   '--root', type=click.Path(file_okay=False, path_type=Path), hidden=True
 )
 @click.pass_context
 def project_group(ctx: click.Context, root: Path | None) -> None:
   """Manage provisional SQLite project control planes."""
-  ctx.ensure_object(dict)
-  ctx.obj['project_root'] = root.resolve() if root else repository_root()
-
-
-project_group.aliases = ['p']
+  if root is not None:
+    ctx.obj = _invoke(ProjectStore.from_root, root)
+  elif isinstance(ctx.obj, ProjectStore):
+    return
+  elif isinstance(ctx.obj, Path):
+    ctx.obj = _invoke(ProjectStore.from_root, ctx.obj)
+  else:
+    ctx.obj = _invoke(ProjectStore.from_root, _repository_root())
 
 
 @project_group.command('create')
@@ -797,17 +413,16 @@ def create_command(
   acceptance: str,
 ) -> None:
   """Create a project, archiving an existing same-name project."""
-  path = _invoke(
-    create_project,
-    _project_root(ctx),
-    name,
-    objective,
-    scope,
-    non_goals,
-    constraints,
-    acceptance,
-  )
-  click.echo(path)
+  store = _project_store(ctx)
+
+  def _run() -> Path:
+    project_name = ProjectName.parse(name)
+    charter = CharterInput.parse(
+      objective, scope, non_goals, constraints, acceptance
+    )
+    return store.create_project(project_name, charter)
+
+  click.echo(_invoke(_run))
 
 
 @project_group.command('list')
@@ -820,24 +435,11 @@ def create_command(
 @click.pass_context
 def list_command(ctx: click.Context, as_json: bool) -> None:
   """List unarchived project databases."""
-  projects = _invoke(list_projects, _project_root(ctx))
+  projects = _invoke(_project_store(ctx).list_projects)
   if as_json:
-    _json_or_echo(projects, True)
+    _json_echo([item.to_dict() for item in projects])
     return
-  click.echo(
-    _format_table(
-      ('Name', 'Status', 'Updated', 'Objective'),
-      [
-        (
-          project['name'],
-          project['status'],
-          format_time(project['updated_at']),
-          project['objective'],
-        )
-        for project in projects
-      ],
-    )
-  )
+  click.echo(format_project_list(projects))
 
 
 @project_group.command('handoff')
@@ -851,11 +453,27 @@ def list_command(ctx: click.Context, as_json: bool) -> None:
 @click.pass_context
 def handoff_command(ctx: click.Context, name: str, as_json: bool) -> None:
   """Produce a compact handoff for a new session."""
-  data = _invoke(read_handoff, _project_root(ctx), name)
-  if as_json:
-    _json_or_echo(_handoff_json(data), True)
-  else:
-    click.echo(format_handoff(data))
+  store = _project_store(ctx)
+
+  def _run() -> str:
+    project_name = ProjectName.parse(name)
+    with store.open_project(project_name) as connection:
+      data = read_handoff(
+        connection, store.handoff_database_path(project_name)
+      )
+    view = _handoff_view(data)
+    if as_json:
+      return json.dumps(
+        _handoff_json(view).to_dict(), indent=2, sort_keys=True
+      )
+    return format_handoff(
+      view,
+      lambda path: _handoff_full_value_command(
+        view, data.project.name, path
+      ),
+    )
+
+  click.echo(_invoke(_run))
 
 
 @project_group.command('show')
@@ -869,10 +487,19 @@ def handoff_command(ctx: click.Context, name: str, as_json: bool) -> None:
 @click.pass_context
 def show_command(ctx: click.Context, name: str, as_json: bool) -> None:
   """Read the project charter and compact state."""
-  data = _invoke(read_project, _project_root(ctx), name)
-  _json_or_echo(data, as_json) if as_json else click.echo(
-    format_project_details(data)
-  )
+  store = _project_store(ctx)
+
+  def _run() -> object:
+    project_name = ProjectName.parse(name)
+    with store.open_project(project_name) as connection:
+      view = read_project(connection, store.database_path(project_name))
+      return view.to_dict() if as_json else format_project_details(view)
+
+  result = _invoke(_run)
+  if as_json:
+    _json_echo(result)
+  else:
+    click.echo(result)
 
 
 @project_group.command('update')
@@ -897,25 +524,25 @@ def update_command(
   next_action: str | None,
 ) -> None:
   """Update charter or compact project state."""
-  root = _project_root(ctx)
-  _invoke(
-    update_project_and_state,
-    root,
-    name,
-    {
-      'objective': objective if objective is not None else UNSET,
-      'scope': scope if scope is not None else UNSET,
-      'non_goals': non_goals if non_goals is not None else UNSET,
-      'constraints_text': constraints
-      if constraints is not None
-      else UNSET,
-      'acceptance': acceptance if acceptance is not None else UNSET,
-    },
-    {
-      'summary': summary if summary is not None else UNSET,
-      'next_action': next_action if next_action is not None else UNSET,
-    },
-  )
+  store = _project_store(ctx)
+
+  def _run() -> None:
+    project_name = ProjectName.parse(name)
+    project_patch = ProjectPatch(
+      objective=objective if objective is not None else UNSET,
+      scope=scope if scope is not None else UNSET,
+      non_goals=non_goals if non_goals is not None else UNSET,
+      constraints_text=constraints if constraints is not None else UNSET,
+      acceptance=acceptance if acceptance is not None else UNSET,
+    )
+    state_patch = ProjectStatePatch(
+      summary=summary if summary is not None else UNSET,
+      next_action=next_action if next_action is not None else UNSET,
+    )
+    with store.open_project(project_name) as connection:
+      update_project_and_state(connection, project_patch, state_patch)
+
+  _invoke(_run)
 
 
 @project_group.command('archive')
@@ -923,10 +550,15 @@ def update_command(
 @click.pass_context
 def archive_command(ctx: click.Context, name: str) -> None:
   """Move an unarchived project database into the archive."""
-  click.echo(_invoke(archive_project, _project_root(ctx), name))
+  store = _project_store(ctx)
+
+  def _run() -> Path:
+    return store.archive_project(ProjectName.parse(name))
+
+  click.echo(_invoke(_run))
 
 
-@project_group.group(cls=lib.AliasedGroup)
+@project_group.group()
 def goal() -> None:
   """Manage the project's durable goal."""
 
@@ -944,19 +576,23 @@ def goal() -> None:
 def goal_list_command(
   ctx: click.Context, name: str, status: GoalStatus | None, as_json: bool
 ) -> None:
-  goals = _invoke(read_goals, _project_root(ctx), name, status)
+  store = _project_store(ctx)
+
+  def _run() -> object:
+    project_name = ProjectName.parse(name)
+    with store.open_project(project_name) as connection:
+      goals = read_goals(connection, status)
+      return (
+        [item.to_dict() for item in goals]
+        if as_json
+        else format_goal_list(goals)
+      )
+
+  result = _invoke(_run)
   if as_json:
-    _json_or_echo(goals, True)
-    return
-  click.echo(
-    _format_table(
-      ('ID', 'Status', 'Stages', 'Text'),
-      [
-        (item['id'], item['status'], item['stage_names'], item['text'])
-        for item in goals
-      ],
-    )
-  )
+    _json_echo(result)
+  else:
+    click.echo(result)
 
 
 @goal.command('create')
@@ -978,7 +614,16 @@ def goal_create_command(
   stages: tuple[StageReference, ...],
 ) -> None:
   """Create and activate a goal, handing off active goal-linked work."""
-  click.echo(_invoke(create_goal, _project_root(ctx), name, text, stages))
+  store = _project_store(ctx)
+
+  def _run() -> int:
+    project_name = ProjectName.parse(name)
+    parsed_text = GoalText.parse(text)
+    parsed_stages = GoalStages.parse(stages)
+    with store.open_project(project_name) as connection:
+      return create_goal(connection, parsed_text, parsed_stages)
+
+  click.echo(_invoke(_run))
 
 
 @goal.command('activate')
@@ -989,7 +634,14 @@ def goal_activate_command(
   ctx: click.Context, name: str, goal_reference: GoalReference
 ) -> None:
   """Activate a pending goal, handing off active goal-linked work."""
-  _invoke(activate_goal, _project_root(ctx), name, goal_reference)
+  store = _project_store(ctx)
+
+  def _run() -> None:
+    project_name = ProjectName.parse(name)
+    with store.open_project(project_name) as connection:
+      activate_goal(connection, goal_reference)
+
+  _invoke(_run)
 
 
 @goal.command('show')
@@ -1005,10 +657,19 @@ def goal_activate_command(
 def goal_show_command(
   ctx: click.Context, name: str, goal: GoalReference | None, as_json: bool
 ) -> None:
-  data = _invoke(read_goal, _project_root(ctx), name, goal)
-  _json_or_echo(data, True) if as_json else click.echo(
-    '\n'.join(_format_goal_details(data))
-  )
+  store = _project_store(ctx)
+
+  def _run() -> object:
+    project_name = ProjectName.parse(name)
+    with store.open_project(project_name) as connection:
+      details = read_goal(connection, goal)
+      return details.to_dict() if as_json else format_goal_details(details)
+
+  result = _invoke(_run)
+  if as_json:
+    _json_echo(result)
+  else:
+    click.echo(result)
 
 
 @goal.command('text')
@@ -1018,11 +679,14 @@ def goal_show_command(
 def goal_text_command(
   ctx: click.Context, name: str, goal: GoalReference | None
 ) -> None:
-  click.echo(
-    _invoke(goal_text, _project_root(ctx), name, goal),
-    nl=False,
-    color=True,
-  )
+  store = _project_store(ctx)
+
+  def _run() -> str:
+    project_name = ProjectName.parse(name)
+    with store.open_project(project_name) as connection:
+      return goal_text(connection, goal)
+
+  click.echo(_invoke(_run), nl=False, color=True)
 
 
 @goal.command('copy')
@@ -1032,8 +696,15 @@ def goal_text_command(
 def goal_copy_command(
   ctx: click.Context, name: str, goal: GoalReference | None
 ) -> None:
-  text = _invoke(goal_text, _project_root(ctx), name, goal)
-  payload = base64.b64encode(text.encode('utf-8')).decode('ascii')
+  store = _project_store(ctx)
+
+  def _run() -> str:
+    project_name = ProjectName.parse(name)
+    with store.open_project(project_name) as connection:
+      return goal_text(connection, goal)
+
+  text_value = _invoke(_run)
+  payload = base64.b64encode(text_value.encode('utf-8')).decode('ascii')
   click.echo(f'\x1b]52;c;{payload}\x07', nl=False)
 
 
@@ -1044,7 +715,14 @@ def goal_copy_command(
 def goal_achieve_command(
   ctx: click.Context, name: str, goal: GoalReference | None
 ) -> None:
-  _invoke(achieve_goal, _project_root(ctx), name, goal)
+  store = _project_store(ctx)
+
+  def _run() -> None:
+    project_name = ProjectName.parse(name)
+    with store.open_project(project_name) as connection:
+      achieve_goal(connection, goal)
+
+  _invoke(_run)
 
 
 @goal.command('block')
@@ -1064,18 +742,27 @@ def goal_block_command(
   attempts: str,
   required: str,
 ) -> None:
-  click.echo(
-    _invoke(
-      block_goal,
-      _project_root(ctx),
-      name,
-      goal,
-      description,
-      impact,
-      attempts,
-      required,
+  store = _project_store(ctx)
+
+  def _run() -> int:
+    project_name = ProjectName.parse(name)
+    parsed_description = SubstantiveText.parse(
+      description, 'Blocker description'
     )
-  )
+    parsed_required = SubstantiveText.parse(
+      required, 'Blocker requirement'
+    )
+    with store.open_project(project_name) as connection:
+      return block_goal(
+        connection,
+        goal,
+        parsed_description,
+        required=parsed_required,
+        impact=impact,
+        attempts=attempts,
+      )
+
+  click.echo(_invoke(_run))
 
 
 @goal.command('reopen')
@@ -1086,7 +773,14 @@ def goal_reopen_command(
   ctx: click.Context, name: str, goal_reference: GoalReference
 ) -> None:
   """Reopen a repaired goal, handing off active goal-linked work."""
-  _invoke(reopen_goal, _project_root(ctx), name, goal_reference)
+  store = _project_store(ctx)
+
+  def _run() -> None:
+    project_name = ProjectName.parse(name)
+    with store.open_project(project_name) as connection:
+      reopen_goal(connection, goal_reference)
+
+  _invoke(_run)
 
 
 @goal.command('cancel')
@@ -1097,16 +791,17 @@ def goal_reopen_command(
 def goal_cancel_command(
   ctx: click.Context, name: str, goal: GoalReference | None, reason: str
 ) -> None:
-  _invoke(
-    cancel_goal,
-    _project_root(ctx),
-    name,
-    goal,
-    reason,
-  )
+  store = _project_store(ctx)
+
+  def _run() -> None:
+    project_name = ProjectName.parse(name)
+    with store.open_project(project_name) as connection:
+      cancel_goal(connection, goal, reason=reason)
+
+  _invoke(_run)
 
 
-@project_group.group(cls=lib.AliasedGroup)
+@project_group.group()
 def stage() -> None:
   """Manage project stages."""
 
@@ -1123,19 +818,23 @@ def stage() -> None:
 def stage_list_command(
   ctx: click.Context, name: str, as_json: bool
 ) -> None:
-  stages = _invoke(read_stages, _project_root(ctx), name)
+  store = _project_store(ctx)
+
+  def _run() -> object:
+    project_name = ProjectName.parse(name)
+    with store.open_project(project_name) as connection:
+      stages = read_stages(connection)
+      return (
+        [item.to_dict() for item in stages]
+        if as_json
+        else format_stage_list(stages)
+      )
+
+  result = _invoke(_run)
   if as_json:
-    _json_or_echo(stages, True)
-    return
-  click.echo(
-    _format_table(
-      ('ID', 'Status', 'Name', 'Outcome'),
-      [
-        (item['id'], item['status'], item['name'], item['outcome'])
-        for item in stages
-      ],
-    )
-  )
+    _json_echo(result)
+  else:
+    click.echo(result)
 
 
 @stage.command('create')
@@ -1156,18 +855,23 @@ def stage_create_command(
   exit_evidence: str,
 ) -> None:
   """Create a stage with an outcome contract."""
-  click.echo(
-    _invoke(
-      add_stage,
-      _project_root(ctx),
-      name,
-      stage_name,
-      outcome,
-      purpose,
-      entry_conditions,
-      exit_evidence,
-    )
-  )
+  store = _project_store(ctx)
+
+  def _run() -> int:
+    project_name = ProjectName.parse(name)
+    parsed_name = SubstantiveText.parse(stage_name, 'Stage name')
+    parsed_outcome = SubstantiveText.parse(outcome, 'Stage outcome')
+    with store.open_project(project_name) as connection:
+      return add_stage(
+        connection,
+        parsed_name,
+        parsed_outcome,
+        purpose=purpose,
+        entry_conditions=entry_conditions,
+        exit_evidence=exit_evidence,
+      )
+
+  click.echo(_invoke(_run))
 
 
 @stage.command('update')
@@ -1189,19 +893,23 @@ def stage_update_command(
   entry_conditions: str | None,
   exit_evidence: str | None,
 ) -> None:
-  _invoke(
-    update_stage,
-    _project_root(ctx),
-    name,
-    stage_reference,
-    name=stage_name if stage_name is not None else UNSET,
-    outcome=outcome if outcome is not None else UNSET,
-    purpose=purpose if purpose is not None else UNSET,
-    entry_conditions=entry_conditions
-    if entry_conditions is not None
-    else UNSET,
-    exit_evidence=exit_evidence if exit_evidence is not None else UNSET,
-  )
+  store = _project_store(ctx)
+
+  def _run() -> None:
+    project_name = ProjectName.parse(name)
+    patch = StagePatch.parse(
+      name=stage_name if stage_name is not None else UNSET,
+      outcome=outcome if outcome is not None else UNSET,
+      purpose=purpose if purpose is not None else UNSET,
+      entry_conditions=entry_conditions
+      if entry_conditions is not None
+      else UNSET,
+      exit_evidence=exit_evidence if exit_evidence is not None else UNSET,
+    )
+    with store.open_project(project_name) as connection:
+      update_stage(connection, stage_reference, patch)
+
+  _invoke(_run)
 
 
 @stage.command('achieve')
@@ -1220,13 +928,15 @@ def stage_achieve_command(
   stage_reference: StageReference,
   evidence: int,
 ) -> None:
-  _invoke(
-    achieve_stage,
-    _project_root(ctx),
-    name,
-    stage_reference,
-    evidence,
-  )
+  store = _project_store(ctx)
+
+  def _run() -> None:
+    project_name = ProjectName.parse(name)
+    parsed_evidence = PositiveInt.parse(evidence, 'Evidence ID')
+    with store.open_project(project_name) as connection:
+      achieve_stage(connection, stage_reference, parsed_evidence)
+
+  _invoke(_run)
 
 
 @stage.command('add-dependency')
@@ -1241,13 +951,14 @@ def stage_add_dependency_command(
   dependency: StageReference,
 ) -> None:
   """Add a prerequisite edge to a stage."""
-  _invoke(
-    add_stage_dependency,
-    _project_root(ctx),
-    name,
-    stage_reference,
-    dependency,
-  )
+  store = _project_store(ctx)
+
+  def _run() -> None:
+    project_name = ProjectName.parse(name)
+    with store.open_project(project_name) as connection:
+      add_stage_dependency(connection, stage_reference, dependency)
+
+  _invoke(_run)
 
 
 @stage.command('remove-dependency')
@@ -1262,16 +973,17 @@ def stage_remove_dependency_command(
   dependency: StageReference,
 ) -> None:
   """Remove one stage dependency when dependent work is inactive."""
-  _invoke(
-    remove_stage_dependency,
-    _project_root(ctx),
-    name,
-    stage_reference,
-    dependency,
-  )
+  store = _project_store(ctx)
+
+  def _run() -> None:
+    project_name = ProjectName.parse(name)
+    with store.open_project(project_name) as connection:
+      remove_stage_dependency(connection, stage_reference, dependency)
+
+  _invoke(_run)
 
 
-@project_group.group(cls=lib.AliasedGroup)
+@project_group.group()
 def task() -> None:
   """Manage project tasks."""
 
@@ -1296,26 +1008,23 @@ def task_list_command(
   tag: str | None,
   as_json: bool,
 ) -> None:
-  tasks = _invoke(read_tasks, _project_root(ctx), name, status, stage, tag)
+  store = _project_store(ctx)
+
+  def _run() -> object:
+    project_name = ProjectName.parse(name)
+    with store.open_project(project_name) as connection:
+      tasks = read_tasks(connection, status=status, stage=stage, tag=tag)
+      return (
+        [item.to_dict() for item in tasks]
+        if as_json
+        else format_task_list(tasks)
+      )
+
+  result = _invoke(_run)
   if as_json:
-    _json_or_echo(tasks, True)
-    return
-  click.echo(
-    _format_table(
-      ('ID', 'Status', 'Stage', 'Goal', 'Title', 'Tags'),
-      [
-        (
-          f'{item["id"]}{_task_compatibility_markers(item)}',
-          item['status'],
-          item['stage_name'],
-          item['goal_id'],
-          item['title'],
-          item['tags'],
-        )
-        for item in tasks
-      ],
-    )
-  )
+    _json_echo(result)
+  else:
+    click.echo(result)
 
 
 @task.command('ready')
@@ -1332,25 +1041,23 @@ def task_ready_command(
   ctx: click.Context, name: str, tag: str | None, as_json: bool
 ) -> None:
   """List eligible pending tasks even when one task is active."""
-  tasks = _invoke(
-    read_tasks, _project_root(ctx), name, tag=tag, ready=True
-  )
+  store = _project_store(ctx)
+
+  def _run() -> object:
+    project_name = ProjectName.parse(name)
+    with store.open_project(project_name) as connection:
+      tasks = read_tasks(connection, tag=tag, ready=True)
+      return (
+        [item.to_dict() for item in tasks]
+        if as_json
+        else format_ready_task_list(tasks)
+      )
+
+  result = _invoke(_run)
   if as_json:
-    _json_or_echo(tasks, True)
-    return
-  click.echo(
-    _format_table(
-      ('ID', 'Stage', 'Title'),
-      [
-        (
-          f'{item["id"]}{_task_compatibility_markers(item)}',
-          item['stage_name'],
-          item['title'],
-        )
-        for item in tasks
-      ],
-    )
-  )
+    _json_echo(result)
+  else:
+    click.echo(result)
 
 
 @task.command('create')
@@ -1381,23 +1088,28 @@ def task_create_command(
   goal: GoalReference | None,
 ) -> None:
   """Create a pending project task."""
-  click.echo(
-    _invoke(
-      add_task,
-      _project_root(ctx),
-      name,
-      title,
-      purpose,
-      stage,
-      priority,
-      tag,
-      goal,
-      scope,
-      exclusions,
-      result,
-      completion_evidence,
-    )
-  )
+  store = _project_store(ctx)
+
+  def _run() -> int:
+    project_name = ProjectName.parse(name)
+    parsed_title = SubstantiveText.parse(title, 'Task title')
+    parsed_tags = tuple(TaskTag.parse(item) for item in tag)
+    with store.open_project(project_name) as connection:
+      return add_task(
+        connection,
+        parsed_title,
+        purpose=purpose,
+        stage=stage,
+        priority=priority,
+        tags=parsed_tags,
+        goal=goal,
+        scope=scope,
+        exclusions=exclusions,
+        result=result,
+        completion_evidence=completion_evidence,
+      )
+
+  click.echo(_invoke(_run))
 
 
 @task.command('show')
@@ -1427,17 +1139,27 @@ def task_show_command(
   since: int | None,
   as_json: bool,
 ) -> None:
-  data = _invoke(
-    read_task,
-    _project_root(ctx),
-    name,
-    task_reference,
-    limit,
-    since,
-  )
-  _json_or_echo(data, True) if as_json else click.echo(
-    _format_task_details(data, limit)
-  )
+  store = _project_store(ctx)
+
+  def _run() -> object:
+    project_name = ProjectName.parse(name)
+    parsed_task = PositiveInt.parse(task_reference, 'Task ID')
+    parsed_limit = PositiveInt.parse(limit, 'Task log limits')
+    with store.open_project(project_name) as connection:
+      details = read_task(
+        connection, parsed_task, limit=parsed_limit, since=since
+      )
+      return (
+        details.to_dict()
+        if as_json
+        else format_task_details(details, parsed_limit.value)
+      )
+
+  result = _invoke(_run)
+  if as_json:
+    _json_echo(result)
+  else:
+    click.echo(result)
 
 
 @task.command('list-logs')
@@ -1468,32 +1190,27 @@ def task_list_logs_command(
   as_json: bool,
 ) -> None:
   """List a task's log entries."""
-  data = _invoke(
-    read_task,
-    _project_root(ctx),
-    name,
-    task_reference,
-    limit,
-    since,
-  )
-  logs = data['logs']
+  store = _project_store(ctx)
+
+  def _run() -> object:
+    project_name = ProjectName.parse(name)
+    parsed_task = PositiveInt.parse(task_reference, 'Task ID')
+    parsed_limit = PositiveInt.parse(limit, 'Task log limits')
+    with store.open_project(project_name) as connection:
+      logs = read_task_logs(
+        connection, parsed_task, limit=parsed_limit, since=since
+      )
+      return (
+        [entry.to_dict() for entry in logs]
+        if as_json
+        else format_task_log_list(logs, parsed_limit.value)
+      )
+
+  result = _invoke(_run)
   if as_json:
-    _json_or_echo(logs, True)
-    return
-  click.echo(
-    _format_limited_table(
-      ('Time', 'Kind', 'Message'),
-      [
-        (
-          format_time(entry['occurred_at']),
-          entry['kind'],
-          entry['message'],
-        )
-        for entry in logs
-      ],
-      limit,
-    )
-  )
+    _json_echo(result)
+  else:
+    click.echo(result)
 
 
 @task.command('update')
@@ -1527,23 +1244,28 @@ def task_update_command(
 ) -> None:
   if goal is not None and no_goal:
     raise click.UsageError('--goal and --no-goal cannot be combined')
-  _invoke(
-    update_task,
-    _project_root(ctx),
-    name,
-    task_reference,
-    title=title if title is not None else UNSET,
-    purpose=purpose if purpose is not None else UNSET,
-    scope=scope if scope is not None else UNSET,
-    exclusions=exclusions if exclusions is not None else UNSET,
-    result=result if result is not None else UNSET,
-    completion_evidence=completion_evidence
-    if completion_evidence is not None
-    else UNSET,
-    priority=priority if priority is not None else UNSET,
-    stage_id=stage if stage is not None else UNSET,
-    goal_id=None if no_goal else goal if goal is not None else UNSET,
-  )
+  store = _project_store(ctx)
+
+  def _run() -> None:
+    project_name = ProjectName.parse(name)
+    parsed_task = PositiveInt.parse(task_reference, 'Task ID')
+    patch = TaskPatch.parse(
+      title=title if title is not None else UNSET,
+      purpose=purpose if purpose is not None else UNSET,
+      scope=scope if scope is not None else UNSET,
+      exclusions=exclusions if exclusions is not None else UNSET,
+      result=result if result is not None else UNSET,
+      completion_evidence=completion_evidence
+      if completion_evidence is not None
+      else UNSET,
+      priority=priority if priority is not None else UNSET,
+      stage_id=stage if stage is not None else UNSET,
+      goal_id=None if no_goal else goal if goal is not None else UNSET,
+    )
+    with store.open_project(project_name) as connection:
+      update_task(connection, parsed_task, patch)
+
+  _invoke(_run)
 
 
 @task.command('activate')
@@ -1554,7 +1276,15 @@ def task_activate_command(
   ctx: click.Context, name: str, task_reference: int
 ) -> None:
   """Activate an eligible task, returning any current task to pending."""
-  _invoke(start_task, _project_root(ctx), name, task_reference)
+  store = _project_store(ctx)
+
+  def _run() -> None:
+    project_name = ProjectName.parse(name)
+    parsed_task = PositiveInt.parse(task_reference, 'Task ID')
+    with store.open_project(project_name) as connection:
+      start_task(connection, parsed_task)
+
+  _invoke(_run)
 
 
 @task.command('complete')
@@ -1564,7 +1294,15 @@ def task_activate_command(
 def task_complete_command(
   ctx: click.Context, name: str, task_reference: int
 ) -> None:
-  _invoke(complete_task, _project_root(ctx), name, task_reference)
+  store = _project_store(ctx)
+
+  def _run() -> None:
+    project_name = ProjectName.parse(name)
+    parsed_task = PositiveInt.parse(task_reference, 'Task ID')
+    with store.open_project(project_name) as connection:
+      complete_task(connection, parsed_task)
+
+  _invoke(_run)
 
 
 @task.command('reopen')
@@ -1574,7 +1312,15 @@ def task_complete_command(
 def task_reopen_command(
   ctx: click.Context, name: str, task_reference: int
 ) -> None:
-  _invoke(reopen_task, _project_root(ctx), name, task_reference)
+  store = _project_store(ctx)
+
+  def _run() -> None:
+    project_name = ProjectName.parse(name)
+    parsed_task = PositiveInt.parse(task_reference, 'Task ID')
+    with store.open_project(project_name) as connection:
+      reopen_task(connection, parsed_task)
+
+  _invoke(_run)
 
 
 @task.command('cancel')
@@ -1585,7 +1331,15 @@ def task_reopen_command(
 def task_cancel_command(
   ctx: click.Context, name: str, task_reference: int, reason: str
 ) -> None:
-  _invoke(cancel_task, _project_root(ctx), name, task_reference, reason)
+  store = _project_store(ctx)
+
+  def _run() -> None:
+    project_name = ProjectName.parse(name)
+    parsed_task = PositiveInt.parse(task_reference, 'Task ID')
+    with store.open_project(project_name) as connection:
+      cancel_task(connection, parsed_task, reason=reason)
+
+  _invoke(_run)
 
 
 @task.command('add-log')
@@ -1602,14 +1356,15 @@ def task_add_log_command(
   kind: str,
 ) -> None:
   """Append an entry to a task log."""
-  _invoke(
-    append_task_log,
-    _project_root(ctx),
-    name,
-    task_reference,
-    message,
-    kind,
-  )
+  store = _project_store(ctx)
+
+  def _run() -> None:
+    project_name = ProjectName.parse(name)
+    parsed_task = PositiveInt.parse(task_reference, 'Task ID')
+    with store.open_project(project_name) as connection:
+      append_task_log(connection, parsed_task, message, kind=kind)
+
+  _invoke(_run)
 
 
 @task.command('block')
@@ -1629,18 +1384,28 @@ def task_block_command(
   attempts: str,
   required: str,
 ) -> None:
-  click.echo(
-    _invoke(
-      block_task,
-      _project_root(ctx),
-      name,
-      task_reference,
-      description,
-      impact,
-      attempts,
-      required,
+  store = _project_store(ctx)
+
+  def _run() -> int:
+    project_name = ProjectName.parse(name)
+    parsed_task = PositiveInt.parse(task_reference, 'Task ID')
+    parsed_description = SubstantiveText.parse(
+      description, 'Blocker description'
     )
-  )
+    parsed_required = SubstantiveText.parse(
+      required, 'Blocker requirement'
+    )
+    with store.open_project(project_name) as connection:
+      return block_task(
+        connection,
+        parsed_task,
+        parsed_description,
+        required=parsed_required,
+        impact=impact,
+        attempts=attempts,
+      )
+
+  click.echo(_invoke(_run))
 
 
 @task.command('add-tag')
@@ -1652,7 +1417,16 @@ def task_add_tag_command(
   ctx: click.Context, name: str, task_reference: int, tags: tuple[str, ...]
 ) -> None:
   """Add metadata tags to a task."""
-  _invoke(add_task_tags, _project_root(ctx), name, task_reference, tags)
+  store = _project_store(ctx)
+
+  def _run() -> None:
+    project_name = ProjectName.parse(name)
+    parsed_task = PositiveInt.parse(task_reference, 'Task ID')
+    parsed_tags = tuple(TaskTag.parse(item) for item in tags)
+    with store.open_project(project_name) as connection:
+      add_task_tags(connection, parsed_task, parsed_tags)
+
+  _invoke(_run)
 
 
 @task.command('remove-tag')
@@ -1664,10 +1438,19 @@ def task_remove_tag_command(
   ctx: click.Context, name: str, task_reference: int, tags: tuple[str, ...]
 ) -> None:
   """Remove metadata tags from a task."""
-  _invoke(remove_task_tags, _project_root(ctx), name, task_reference, tags)
+  store = _project_store(ctx)
+
+  def _run() -> None:
+    project_name = ProjectName.parse(name)
+    parsed_task = PositiveInt.parse(task_reference, 'Task ID')
+    parsed_tags = tuple(TaskTag.parse(item) for item in tags)
+    with store.open_project(project_name) as connection:
+      remove_task_tags(connection, parsed_task, parsed_tags)
+
+  _invoke(_run)
 
 
-@project_group.group(cls=lib.AliasedGroup)
+@project_group.group()
 def decision() -> None:
   """Manage project decisions."""
 
@@ -1694,20 +1477,27 @@ def decision_create_command(
   goal: GoalReference | None,
 ) -> None:
   """Create a project decision record."""
-  click.echo(
-    _invoke(
-      add_decision,
-      _project_root(ctx),
-      name,
-      summary,
-      rationale,
-      alternatives,
-      consequences,
-      stage,
-      task,
-      goal,
+  store = _project_store(ctx)
+
+  def _run() -> int:
+    project_name = ProjectName.parse(name)
+    parsed_summary = SubstantiveText.parse(summary, 'Decision summary')
+    parsed_task = (
+      PositiveInt.parse(task, 'Task ID') if task is not None else None
     )
-  )
+    with store.open_project(project_name) as connection:
+      return add_decision(
+        connection,
+        parsed_summary,
+        rationale=rationale,
+        alternatives=alternatives,
+        consequences=consequences,
+        stage=stage,
+        task=parsed_task,
+        goal=goal,
+      )
+
+  click.echo(_invoke(_run))
 
 
 @decision.command('list')
@@ -1741,36 +1531,34 @@ def decision_list_command(
   no_task: bool,
   as_json: bool,
 ) -> None:
-  decisions = _invoke(
-    read_decisions,
-    _project_root(ctx),
-    name,
-    limit,
-    stage,
-    task,
-    goal,
-    no_task,
-  )
-  if as_json:
-    _json_or_echo(decisions, True)
-    return
-  click.echo(
-    _format_limited_table(
-      ('ID', 'Decided', 'Summary'),
-      [
-        (
-          f'{item["id"]}{_record_compatibility_markers(item)}',
-          format_time(item['decided_at']),
-          item['summary'],
-        )
-        for item in decisions
-      ],
-      limit,
+  store = _project_store(ctx)
+
+  def _run() -> object:
+    project_name = ProjectName.parse(name)
+    filters = RecordListFilter.parse(
+      'Decision',
+      limit=limit,
+      stage=stage,
+      task=task,
+      goal=goal,
+      no_task=no_task,
     )
-  )
+    with store.open_project(project_name) as connection:
+      decisions = read_decisions(connection, filters)
+      return (
+        [item.to_dict() for item in decisions]
+        if as_json
+        else format_decision_list(decisions, filters.limit.value)
+      )
+
+  result = _invoke(_run)
+  if as_json:
+    _json_echo(result)
+  else:
+    click.echo(result)
 
 
-@project_group.group(cls=lib.AliasedGroup)
+@project_group.group()
 def blocker() -> None:
   """Manage project blockers."""
 
@@ -1797,20 +1585,34 @@ def blocker_create_command(
   goal: GoalReference | None,
 ) -> None:
   """Create a blocker for a task or goal."""
-  click.echo(
-    _invoke(
-      add_blocker,
-      _project_root(ctx),
-      name,
-      description,
-      impact,
-      attempts,
-      required,
-      stage,
-      task,
-      goal,
+  store = _project_store(ctx)
+
+  def _run() -> int:
+    project_name = ProjectName.parse(name)
+    parsed_description = SubstantiveText.parse(
+      description, 'Blocker description'
     )
-  )
+    parsed_required = SubstantiveText.parse(
+      required, 'Blocker requirement'
+    )
+    parsed_task = (
+      PositiveInt.parse(task, 'Task ID') if task is not None else None
+    )
+    if parsed_task is None and goal is None:
+      raise ProjectError('A blocker must target a task or goal')
+    with store.open_project(project_name) as connection:
+      return add_blocker(
+        connection,
+        parsed_description,
+        required=parsed_required,
+        impact=impact,
+        attempts=attempts,
+        stage=stage,
+        task=parsed_task,
+        goal=goal,
+      )
+
+  click.echo(_invoke(_run))
 
 
 @blocker.command('list')
@@ -1832,43 +1634,26 @@ def blocker_create_command(
 def blocker_list_command(
   ctx: click.Context,
   name: str,
-  status: BlockerStatus | Literal['all'],
+  status: BlockerFilterStatus,
   as_json: bool,
 ) -> None:
-  blockers = _invoke(read_blockers, _project_root(ctx), name, status)
+  store = _project_store(ctx)
+
+  def _run() -> object:
+    project_name = ProjectName.parse(name)
+    with store.open_project(project_name) as connection:
+      blockers = read_blockers(connection, status)
+      return (
+        [item.to_dict() for item in blockers]
+        if as_json
+        else format_blocker_list(blockers, status)
+      )
+
+  result = _invoke(_run)
   if as_json:
-    _json_or_echo(blockers, True)
-    return
-  click.echo(
-    f'Status filter: {status}\n'
-    + _format_table(
-      (
-        'ID',
-        'Status',
-        'Target',
-        'Stage',
-        'Goal',
-        'Description',
-        'Impact',
-        'Attempts',
-        'Required',
-      ),
-      [
-        (
-          item['id'],
-          item['status'],
-          f'{item["target_kind"]} {item["target_id"]}',
-          item['stage_id'],
-          item['goal_id'],
-          item['description'],
-          item['impact'],
-          item['attempts'],
-          item['required'],
-        )
-        for item in blockers
-      ],
-    )
-  )
+    _json_echo(result)
+  else:
+    click.echo(result)
 
 
 @blocker.command('resolve')
@@ -1882,16 +1667,21 @@ def blocker_resolve_command(
   ctx: click.Context, name: str, blocker_reference: int, resolution: str
 ) -> None:
   """Resolve a blocker, handing off work on final goal recovery."""
-  _invoke(
-    resolve_blocker,
-    _project_root(ctx),
-    name,
-    blocker_reference,
-    resolution,
-  )
+  store = _project_store(ctx)
+
+  def _run() -> None:
+    project_name = ProjectName.parse(name)
+    parsed_blocker = PositiveInt.parse(blocker_reference, 'Blocker ID')
+    parsed_resolution = SubstantiveText.parse(
+      resolution, 'Blocker resolution'
+    )
+    with store.open_project(project_name) as connection:
+      resolve_blocker(connection, parsed_blocker, parsed_resolution)
+
+  _invoke(_run)
 
 
-@project_group.group(cls=lib.AliasedGroup)
+@project_group.group()
 def evidence() -> None:
   """Manage project evidence."""
 
@@ -1916,19 +1706,26 @@ def evidence_create_command(
   goal: GoalReference | None,
 ) -> None:
   """Create a project evidence record."""
-  click.echo(
-    _invoke(
-      add_evidence,
-      _project_root(ctx),
-      name,
-      claim,
-      source,
-      result,
-      stage,
-      task,
-      goal,
+  store = _project_store(ctx)
+
+  def _run() -> int:
+    project_name = ProjectName.parse(name)
+    parsed_claim = SubstantiveText.parse(claim, 'Evidence claim')
+    parsed_task = (
+      PositiveInt.parse(task, 'Task ID') if task is not None else None
     )
-  )
+    with store.open_project(project_name) as connection:
+      return add_evidence(
+        connection,
+        parsed_claim,
+        source=source,
+        result=result,
+        stage=stage,
+        task=parsed_task,
+        goal=goal,
+      )
+
+  click.echo(_invoke(_run))
 
 
 @evidence.command('list')
@@ -1962,30 +1759,28 @@ def evidence_list_command(
   no_task: bool,
   as_json: bool,
 ) -> None:
-  entries = _invoke(
-    read_evidence,
-    _project_root(ctx),
-    name,
-    limit,
-    stage,
-    task,
-    goal,
-    no_task,
-  )
-  if as_json:
-    _json_or_echo(entries, True)
-    return
-  click.echo(
-    _format_limited_table(
-      ('ID', 'Captured', 'Claim'),
-      [
-        (
-          f'{item["id"]}{_record_compatibility_markers(item)}',
-          format_time(item['captured_at']),
-          item['claim'],
-        )
-        for item in entries
-      ],
-      limit,
+  store = _project_store(ctx)
+
+  def _run() -> object:
+    project_name = ProjectName.parse(name)
+    filters = RecordListFilter.parse(
+      'Evidence',
+      limit=limit,
+      stage=stage,
+      task=task,
+      goal=goal,
+      no_task=no_task,
     )
-  )
+    with store.open_project(project_name) as connection:
+      entries = read_evidence(connection, filters)
+      return (
+        [item.to_dict() for item in entries]
+        if as_json
+        else format_evidence_list(entries, filters.limit.value)
+      )
+
+  result = _invoke(_run)
+  if as_json:
+    _json_echo(result)
+  else:
+    click.echo(result)

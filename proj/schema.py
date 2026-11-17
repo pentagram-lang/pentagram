@@ -1,29 +1,25 @@
-import re
+import contextlib
 import sqlite3
-import time
-from pathlib import Path
+from typing import Final
 
-from .errors import ProjectError
+from .core import CharterInput, ProjectError, ProjectName, is_substantive
 
+__all__ = [
+  'SCHEMA_VERSION',
+  'configure_connection',
+  'connection_time',
+  'initialize_project',
+  'validate_project',
+]
 
-def is_substantive(value: str) -> bool:
-  return bool(value and value.strip())
+SCHEMA_VERSION: Final[int] = 7
 
+type _SchemaDefinitionKey = tuple[str, str]
+type _SchemaDefinitions = dict[int, dict[_SchemaDefinitionKey, str]]
 
-SCHEMA_VERSION = 7
+_SCHEMA_DEFINITIONS: _SchemaDefinitions = {}
 
-PROJECT_SUFFIX = '.sqlite3'
-
-PROJECT_NAME_PATTERN = re.compile(r'^[^/\\\x00]+$')
-
-MAX_PROJECT_NAME_LENGTH = 200
-
-type SchemaDefinitionKey = tuple[str, str]
-type SchemaDefinitions = dict[int, dict[SchemaDefinitionKey, str]]
-
-_SCHEMA_DEFINITIONS: SchemaDefinitions = {}
-
-GOAL_TABLE_SQL = """CREATE TABLE goal (
+_GOAL_TABLE_SQL: Final[str] = """CREATE TABLE goal (
   id INTEGER PRIMARY KEY,
   text TEXT NOT NULL
     CHECK (
@@ -48,7 +44,7 @@ GOAL_TABLE_SQL = """CREATE TABLE goal (
   )
 )"""
 
-GOAL_TABLE_SQL_V6 = """CREATE TABLE goal (
+_GOAL_TABLE_SQL_V6: Final[str] = """CREATE TABLE goal (
   id INTEGER PRIMARY KEY,
   text TEXT NOT NULL
     CHECK (
@@ -71,21 +67,21 @@ GOAL_TABLE_SQL_V6 = """CREATE TABLE goal (
   )
 )"""
 
-PROJECT_CHARTER_STABLE_ERROR = (
+_PROJECT_CHARTER_STABLE_ERROR: Final[str] = (
   'active task or active/pending/blocked goal requires a stable project '
   'charter; end the task and cancel active, pending, or blocked goals '
   'before re-chartering'
 )
 
-TASK_START_TIME_ERROR = (
+_TASK_START_TIME_ERROR: Final[str] = (
   'task start time must be positive and not in the future'
 )
 
-TASK_COMPLETION_TIME_ERROR = (
+_TASK_COMPLETION_TIME_ERROR: Final[str] = (
   'task completion time must follow activation and not be in the future'
 )
 
-SCHEMA_SQL = f"""
+_SCHEMA_SQL: Final[str] = f"""
 CREATE TABLE project (
   id INTEGER PRIMARY KEY CHECK (id = 1),
   name TEXT NOT NULL,
@@ -110,7 +106,7 @@ CREATE TABLE project_charter_history (
   replaced_at INTEGER NOT NULL
 );
 
-{GOAL_TABLE_SQL};
+{_GOAL_TABLE_SQL};
 
 CREATE TABLE stage (
   id INTEGER PRIMARY KEY,
@@ -309,7 +305,7 @@ CREATE UNIQUE INDEX one_valid_stage_achievement_index
   ON stage_achievement(stage_id) WHERE invalidated_at IS NULL;
 """
 
-LIFECYCLE_TRIGGER_SQL = f"""
+_LIFECYCLE_TRIGGER_SQL: Final[str] = f"""
 CREATE TRIGGER project_charter_update
 BEFORE UPDATE OF objective, scope, non_goals, constraints_text, acceptance
 ON project
@@ -351,7 +347,7 @@ AND EXISTS (
 )
 BEGIN
   SELECT RAISE(
-    ABORT, {PROJECT_CHARTER_STABLE_ERROR!r}
+    ABORT, {_PROJECT_CHARTER_STABLE_ERROR!r}
   );
 END;
 
@@ -552,7 +548,7 @@ WHEN NEW.started_at IS NOT NULL AND (
   OR NEW.started_at > CAST(strftime('%s', 'now') AS INTEGER)
 )
 BEGIN
-  SELECT RAISE(ABORT, {TASK_START_TIME_ERROR!r});
+  SELECT RAISE(ABORT, {_TASK_START_TIME_ERROR!r});
 END;
 
 CREATE TRIGGER started_task_stage_update
@@ -599,7 +595,7 @@ WHEN NEW.status = 'completed' AND (
 )
 BEGIN
   SELECT RAISE(
-    ABORT, {TASK_COMPLETION_TIME_ERROR!r}
+    ABORT, {_TASK_COMPLETION_TIME_ERROR!r}
   );
 END;
 
@@ -1656,12 +1652,14 @@ BEGIN
 END;
 """
 
-PROJECT_CHARTER_STABLE_ERROR_V6 = (
+_PROJECT_CHARTER_STABLE_ERROR_V6: Final[str] = (
   'active task or active/blocked goal requires a stable project charter; '
   'end the task and cancel the goal before re-chartering'
 )
 
-GOAL_STATUS_TRANSITION_SQL_V6 = """CREATE TRIGGER goal_status_transition
+_GOAL_STATUS_TRANSITION_SQL_V6: Final[
+  str
+] = """CREATE TRIGGER goal_status_transition
 BEFORE UPDATE OF status, ever_activated ON goal
 WHEN (
   NEW.status <> OLD.status
@@ -1684,7 +1682,7 @@ BEGIN
   SELECT RAISE(ABORT, 'invalid goal status transition');
 END"""
 
-V6_TRIGGER_SQL = (
+_V6_TRIGGER_SQL: Final[tuple[str, ...]] = (
   f"""CREATE TRIGGER project_charter_active_task
 BEFORE UPDATE OF objective, scope, non_goals, constraints_text, acceptance
 ON project
@@ -1704,7 +1702,7 @@ AND EXISTS (
 )
 BEGIN
   SELECT RAISE(
-    ABORT, {PROJECT_CHARTER_STABLE_ERROR_V6!r}
+    ABORT, {_PROJECT_CHARTER_STABLE_ERROR_V6!r}
   );
 END""",
   """CREATE TRIGGER task_status_transition
@@ -1721,7 +1719,7 @@ WHEN NEW.status <> OLD.status AND NOT (
 BEGIN
   SELECT RAISE(ABORT, 'invalid task status transition');
 END""",
-  GOAL_STATUS_TRANSITION_SQL_V6,
+  _GOAL_STATUS_TRANSITION_SQL_V6,
   """CREATE TRIGGER open_blocker_target
 BEFORE INSERT ON blocker
 WHEN NEW.status = 'open' AND (
@@ -1739,7 +1737,7 @@ BEGIN
 END""",
 )
 
-V6_TRIGGER_NAMES = (
+_V6_TRIGGER_NAMES: Final[tuple[str, ...]] = (
   'project_charter_active_task',
   'task_status_transition',
   'goal_status_transition',
@@ -1747,80 +1745,121 @@ V6_TRIGGER_NAMES = (
 )
 
 
-def current_time() -> int:
-  return int(time.time())
-
-
-def validate_project_name(name: str) -> str:
-  if (
-    not name
-    or name in ('.', '..')
-    or name.endswith(PROJECT_SUFFIX)
-    or PROJECT_NAME_PATTERN.fullmatch(name) is None
-    or not name.isprintable()
-    or len(name) > MAX_PROJECT_NAME_LENGTH
-  ):
-    raise ProjectError(
-      'Project names must be printable, non-empty single path components '
-      f'of at most {MAX_PROJECT_NAME_LENGTH} characters without the '
-      '.sqlite3 suffix.'
+def configure_connection(
+  connection: sqlite3.Connection,
+) -> sqlite3.Connection:
+  try:
+    connection.row_factory = sqlite3.Row
+    connection.create_function(
+      'substantive', 1, is_substantive, deterministic=True
     )
-  return name
-
-
-def project_directory(root: str | Path) -> Path:
-  return Path(root) / '.tmp'
-
-
-def database_path(root: str | Path, name: str) -> Path:
-  validate_project_name(name)
-  return project_directory(root) / f'{name}{PROJECT_SUFFIX}'
-
-
-def connect(path: str | Path) -> sqlite3.Connection:
-  connection = sqlite3.connect(path, timeout=5)
-  connection.row_factory = sqlite3.Row
-  connection.create_function(
-    'substantive', 1, is_substantive, deterministic=True
-  )
-  connection.execute('PRAGMA foreign_keys = ON')
-  connection.execute('PRAGMA busy_timeout = 5000')
+    connection.execute('PRAGMA foreign_keys = ON')
+    connection.execute('PRAGMA busy_timeout = 5000')
+  except sqlite3.Error as error:
+    raise ProjectError(
+      f'Project database connection could not be configured: {error}'
+    ) from error
   return connection
 
 
-def open_project(root: str | Path, name: str) -> sqlite3.Connection:
-  path = database_path(root, name)
-  if not path.is_file():
-    raise ProjectError(f'Project does not exist: {name}')
-  connection = connect(path)
+def connection_time(connection: sqlite3.Connection) -> int:
   try:
-    _validate_project(connection, path)
-    return connection
+    row = connection.execute('SELECT unixepoch()').fetchone()
   except sqlite3.Error as error:
-    connection.close()
     raise ProjectError(
-      f'Project database could not be validated: {path}: {error}'
+      f'Project database clock query failed: {error}'
     ) from error
-  except ProjectError:
-    connection.close()
-    raise
+  if row is None or not isinstance(row[0], int):
+    raise ProjectError('Project database clock query returned no integer')
+  return row[0]
 
 
-def _validate_project(connection: sqlite3.Connection, path: Path) -> None:
-  version = connection.execute('PRAGMA user_version').fetchone()[0]
+def initialize_project(
+  connection: sqlite3.Connection,
+  name: ProjectName,
+  charter: CharterInput,
+) -> None:
+  try:
+    connection.executescript(
+      f'BEGIN;\n{_SCHEMA_SQL}\n{_LIFECYCLE_TRIGGER_SQL}'
+    )
+    connection.execute(f'PRAGMA user_version = {SCHEMA_VERSION}')
+    timestamp = connection_time(connection)
+    connection.execute(
+      """
+      INSERT INTO project
+        (id, name, objective, scope, non_goals, constraints_text,
+         acceptance, created_at, updated_at)
+      VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?)
+      """,
+      (
+        name.value,
+        charter.objective.value,
+        charter.scope,
+        charter.non_goals,
+        charter.constraints_text,
+        charter.acceptance,
+        timestamp,
+        timestamp,
+      ),
+    )
+    connection.execute(
+      """
+      INSERT INTO project_state (id, updated_at)
+      VALUES (1, ?)
+      """,
+      (timestamp,),
+    )
+    connection.commit()
+  except (sqlite3.Error, ProjectError) as error:
+    with contextlib.suppress(sqlite3.Error):
+      if connection.in_transaction:
+        connection.rollback()
+    raise ProjectError(
+      f'Project database could not be initialized: {error}'
+    ) from error
+
+
+def validate_project(
+  connection: sqlite3.Connection,
+  *,
+  expected_name: ProjectName,
+  display_path: str,
+) -> None:
+  try:
+    _validate_project_inner(
+      connection,
+      expected_name=expected_name.value,
+      display_path=display_path,
+    )
+  except sqlite3.Error as error:
+    raise ProjectError(
+      f'Project database could not be validated: {display_path}: {error}'
+    ) from error
+
+
+def _validate_project_inner(
+  connection: sqlite3.Connection,
+  *,
+  expected_name: str,
+  display_path: str,
+) -> None:
+  version_row = connection.execute('PRAGMA user_version').fetchone()
+  version = version_row[0] if version_row is not None else 0
   if version == 6:
-    _validate_project_singletons(connection, path.stem)
+    _validate_project_singletons(connection, expected_name)
     _validate_project_schema(connection, _canonical_schema_definitions(6))
     _validate_project_integrity(connection)
     _validate_current_lifecycle(connection)
     _migrate_schema_6_to_7(connection)
-    version = connection.execute('PRAGMA user_version').fetchone()[0]
+    version_row = connection.execute('PRAGMA user_version').fetchone()
+    version = version_row[0] if version_row is not None else 0
   if version != SCHEMA_VERSION:
     raise ProjectError(
       f'Unsupported project schema version {version}; expected '
-      f'{SCHEMA_VERSION}: {path}'
+      f'{SCHEMA_VERSION}: {display_path}'
     )
-  _validate_project_singletons(connection, path.stem)
+  _validate_project_singletons(connection, expected_name)
   _validate_project_schema(connection)
   _validate_project_integrity(connection)
   _validate_current_lifecycle(connection)
@@ -1843,7 +1882,7 @@ def _migrate_schema_6_to_7(connection: sqlite3.Connection) -> None:
       started_at, achieved_at, updated_at
     FROM goal;
   DROP TABLE goal;
-  {GOAL_TABLE_SQL};
+  {_GOAL_TABLE_SQL};
   INSERT INTO goal (
     id, text, status, status_reason, ever_activated, created_at,
     started_at, achieved_at, updated_at
@@ -1855,9 +1894,14 @@ def _migrate_schema_6_to_7(connection: sqlite3.Connection) -> None:
   CREATE INDEX goal_status_index ON goal(status);
   CREATE UNIQUE INDEX one_active_goal_index
     ON goal(status) WHERE status = 'active';
-  {LIFECYCLE_TRIGGER_SQL}
+  {_LIFECYCLE_TRIGGER_SQL}
   PRAGMA user_version = {SCHEMA_VERSION};
   """
+  if connection.in_transaction:
+    raise ProjectError(
+      'Cannot migrate schema version 6 database inside an active '
+      'transaction'
+    )
   connection.execute('PRAGMA foreign_keys = OFF')
   try:
     connection.executescript(migration)
@@ -1866,14 +1910,17 @@ def _migrate_schema_6_to_7(connection: sqlite3.Connection) -> None:
     _validate_current_lifecycle(connection)
     connection.commit()
   finally:
-    if connection.in_transaction:
-      connection.rollback()
-    connection.execute('PRAGMA foreign_keys = ON')
+    try:
+      if connection.in_transaction:
+        with contextlib.suppress(sqlite3.Error):
+          connection.rollback()
+    finally:
+      connection.execute('PRAGMA foreign_keys = ON')
 
 
 def _validate_project_schema(
   connection: sqlite3.Connection,
-  expected: dict[SchemaDefinitionKey, str] | None = None,
+  expected: dict[_SchemaDefinitionKey, str] | None = None,
 ) -> None:
   expected = (
     _canonical_schema_definitions() if expected is None else expected
@@ -1995,7 +2042,7 @@ def _normalize_schema_definition(definition: str) -> str:
 
 def _canonical_schema_definitions(
   version: int = SCHEMA_VERSION,
-) -> dict[SchemaDefinitionKey, str]:
+) -> dict[_SchemaDefinitionKey, str]:
   if version not in (6, SCHEMA_VERSION):
     raise ValueError(f'Unsupported schema definition version: {version}')
   if version not in _SCHEMA_DEFINITIONS:
@@ -2005,16 +2052,16 @@ def _canonical_schema_definitions(
       'substantive', 1, is_substantive, deterministic=True
     )
     try:
-      schema_sql = SCHEMA_SQL
+      schema_sql = _SCHEMA_SQL
       if version == 6:
         schema_sql = schema_sql.replace(
-          f'{GOAL_TABLE_SQL};', f'{GOAL_TABLE_SQL_V6};'
+          f'{_GOAL_TABLE_SQL};', f'{_GOAL_TABLE_SQL_V6};'
         )
       _execute_sql(expected, schema_sql)
-      _execute_sql(expected, LIFECYCLE_TRIGGER_SQL)
+      _execute_sql(expected, _LIFECYCLE_TRIGGER_SQL)
       if version == 6:
         for trigger_name, trigger_sql in zip(
-          V6_TRIGGER_NAMES, V6_TRIGGER_SQL, strict=True
+          _V6_TRIGGER_NAMES, _V6_TRIGGER_SQL, strict=True
         ):
           expected.execute(f'DROP TRIGGER "{trigger_name}"')
           expected.execute(trigger_sql)
@@ -2031,23 +2078,6 @@ def _canonical_schema_definitions(
     finally:
       expected.close()
   return _SCHEMA_DEFINITIONS[version]
-
-
-def _project_charter_complete(project: sqlite3.Row) -> bool:
-  return all(
-    is_substantive(project[field])
-    for field in (
-      'objective',
-      'scope',
-      'non_goals',
-      'constraints_text',
-      'acceptance',
-    )
-  )
-
-
-def _stage_contract_complete(stage: sqlite3.Row) -> bool:
-  return is_substantive(stage['name']) and is_substantive(stage['outcome'])
 
 
 def _validate_current_lifecycle(connection: sqlite3.Connection) -> None:
@@ -2572,127 +2602,3 @@ def _validate_current_lifecycle(connection: sqlite3.Connection) -> None:
       'Project has invalid stage-achievement history: '
       f'{invalid_achievement_history["id"]}'
     )
-
-
-def _archive_path(path: Path) -> Path:
-  archive_directory = path.parent / 'archive'
-  archive_directory.mkdir(parents=True, exist_ok=True)
-  ctime = path.stat().st_ctime_ns
-  destination = archive_directory / f'{path.stem}-{ctime}{path.suffix}'
-  suffix = 1
-  while destination.exists():
-    destination = (
-      archive_directory / f'{path.stem}-{ctime}-{suffix}{path.suffix}'
-    )
-    suffix += 1
-  return destination
-
-
-def archive_database(root: str | Path, name: str) -> Path:
-  path = database_path(root, name)
-  if not path.is_file():
-    raise ProjectError(f'Project does not exist: {name}')
-  destination = _archive_path(path)
-  path.rename(destination)
-  return destination
-
-
-def _initialize_project(
-  connection: sqlite3.Connection,
-  name: str,
-  objective: str,
-  scope: str,
-  non_goals: str,
-  constraints: str,
-  acceptance: str,
-) -> None:
-  connection.executescript(
-    f'BEGIN;\n{SCHEMA_SQL}\n{LIFECYCLE_TRIGGER_SQL}'
-  )
-  connection.execute(f'PRAGMA user_version = {SCHEMA_VERSION}')
-  timestamp = current_time()
-  connection.execute(
-    """
-    INSERT INTO project
-      (id, name, objective, scope, non_goals, constraints_text, acceptance,
-       created_at, updated_at)
-    VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?)
-    """,
-    (
-      name,
-      objective,
-      scope,
-      non_goals,
-      constraints,
-      acceptance,
-      timestamp,
-      timestamp,
-    ),
-  )
-  connection.execute(
-    """
-    INSERT INTO project_state (id, updated_at)
-    VALUES (1, ?)
-    """,
-    (timestamp,),
-  )
-  connection.commit()
-
-
-def create_database(
-  root: str | Path,
-  name: str,
-  objective: str,
-  scope: str = '',
-  non_goals: str = '',
-  constraints: str = '',
-  acceptance: str = '',
-) -> Path:
-  validate_project_name(name)
-  project_directory(root).mkdir(parents=True, exist_ok=True)
-  path = database_path(root, name)
-  temporary_path = (
-    project_directory(root) / f'.{name}-{time.time_ns()}.tmp'
-  )
-  connection = connect(temporary_path)
-  try:
-    _initialize_project(
-      connection,
-      name,
-      objective,
-      scope,
-      non_goals,
-      constraints,
-      acceptance,
-    )
-  except Exception:
-    connection.close()
-    temporary_path.unlink(missing_ok=True)
-    raise
-  connection.close()
-  archived_path = None
-  try:
-    if path.exists():
-      archived_path = archive_database(root, name)
-    temporary_path.rename(path)
-  except OSError as error:
-    if archived_path is not None:
-      try:
-        archived_path.rename(path)
-      except OSError as restore_error:
-        raise ProjectError(
-          f'Could not install project database at {path}: {error}; '
-          f'the previous database could not be restored from '
-          f'{archived_path}: {restore_error}; the new database remains at '
-          f'{temporary_path}'
-        ) from restore_error
-    try:
-      temporary_path.unlink(missing_ok=True)
-    except OSError as cleanup_error:
-      raise ProjectError(
-        f'Could not install project database at {path}: {error}; '
-        f'the temporary database remains at {temporary_path}: '
-        f'{cleanup_error}'
-      ) from cleanup_error
-    raise
-  return path

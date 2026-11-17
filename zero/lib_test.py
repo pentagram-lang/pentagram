@@ -1,4 +1,6 @@
+import contextlib
 import os
+from collections.abc import Callable
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -8,6 +10,14 @@ from click.testing import CliRunner
 from pytest import CaptureFixture, MonkeyPatch
 
 from zero import lib
+
+
+@pytest.fixture(autouse=True)
+def _isolate_click_environment(monkeypatch: MonkeyPatch) -> None:
+  monkeypatch.setenv('COLUMNS', '80')
+  for key in list(os.environ):
+    if key.startswith('_') and key.endswith('_COMPLETE'):
+      monkeypatch.delenv(key, raising=False)
 
 
 def test_parse_git_ls_files_and_git_ls_files(
@@ -67,22 +77,34 @@ def test_timer_uses_monotonic_elapsed_time(
 
 
 @pytest.mark.parametrize(
-  ('label', 'duration', 'success', 'use_colour', 'expected'),
+  ('label', 'duration', 'success', 'make_context', 'expected'),
   [
-    ('check-fmt', 0.25, True, False, '[PASS] check-fmt (0.25s)\n'),
-    ('check-lint', 1.5, False, False, '[FAIL] check-lint (1.50s)\n'),
     (
       'check-fmt',
       0.25,
       True,
+      contextlib.nullcontext,
+      '[PASS] check-fmt (0.25s)\n',
+    ),
+    (
+      'check-lint',
+      1.5,
+      False,
+      contextlib.nullcontext,
+      '[FAIL] check-lint (1.50s)\n',
+    ),
+    (
+      'check-fmt',
+      0.25,
       True,
+      lambda: click.Context(click.Command('cmd'), color=True),
       '[\x1b[32m\x1b[1mPASS\x1b[0m] check-fmt (0.25s)\n',
     ),
     (
       'check-lint',
       1.5,
       False,
-      True,
+      lambda: click.Context(click.Command('cmd'), color=True),
       '[\x1b[31m\x1b[1mFAIL\x1b[0m] check-lint (1.50s)\n',
     ),
   ],
@@ -93,13 +115,10 @@ def test_status_formats_pass_and_fail_lines(
   label: str,
   duration: float,
   success: bool,
-  use_colour: bool,
+  make_context: Callable[[], contextlib.AbstractContextManager[object]],
   expected: str,
 ) -> None:
-  if use_colour:
-    with click.Context(click.Command('cmd'), color=True):
-      lib.status(label, duration, success=success)
-  else:
+  with make_context():
     lib.status(label, duration, success=success)
 
   assert capsys.readouterr().out == expected
@@ -190,10 +209,12 @@ def test_nix_files_raises_when_git_invocation_fails(
 
   monkeypatch.setattr(lib.subprocess, 'run', missing_git)
 
-  with pytest.raises(
-    RuntimeError, match=r'Cannot scan Nix files with git: .*git'
-  ):
+  with pytest.raises(RuntimeError) as exc_info:
     lib.nix_files('.')
+  assert str(exc_info.value) == (
+    'Cannot scan Nix files with git: '
+    "[Errno 2] No such file or directory: 'git'"
+  )
 
 
 @pytest.mark.parametrize(
@@ -217,11 +238,11 @@ def test_nix_files_raises_on_git_error_exit(
     ),
   )
 
-  with pytest.raises(
-    RuntimeError,
-    match=f'^Cannot scan Nix files with git: {expected_detail}$',
-  ):
+  with pytest.raises(RuntimeError) as exc_info:
     lib.nix_files(Path('repo'))
+  assert str(exc_info.value) == (
+    f'Cannot scan Nix files with git: {expected_detail}'
+  )
 
 
 @pytest.mark.parametrize(
@@ -248,21 +269,23 @@ def test_nix_files_raises_on_candidate_os_error(
 
   monkeypatch.setattr(lib.Path, failing_method, fail_stat)
 
-  with pytest.raises(
-    RuntimeError,
-    match=(
-      r'^Cannot scan Nix files: \[Errno 13\] Permission denied: '
-      r"'nix/\\udcffbad\.nix'$"
-    ),
-  ):
+  with pytest.raises(RuntimeError) as exc_info:
     lib.nix_files('.')
+  assert str(exc_info.value) == (
+    'Cannot scan Nix files: '
+    "[Errno 13] Permission denied: 'nix/\\udcffbad.nix'"
+  )
 
 
 def test_check_cmd_rejects_empty_commands() -> None:
-  with pytest.raises(ValueError, match='cmd must be non-empty'):
+  with pytest.raises(ValueError) as list_err:
     lib.check_cmd([])
-  with pytest.raises(ValueError, match='cmd must be non-empty'):
+  with pytest.raises(ValueError) as tuple_err:
     lib.check_cmd(())
+  assert (str(list_err.value), str(tuple_err.value)) == (
+    'cmd must be non-empty',
+    'cmd must be non-empty',
+  )
 
 
 @pytest.mark.parametrize(
@@ -488,14 +511,27 @@ def test_aliased_group_and_decorators_resolve_aliases() -> None:
   invoked: list[str] = []
   policy_aliases = ['p']
   group_aliases = ['c']
+  plain_group_aliases = ['pg']
 
   @click.group(cls=lib.AliasedGroup)
   def root() -> None:
     return None
 
-  @root.command()
+  @click.command()
   def plain() -> None:
     click.echo('plain')
+
+  @click.group()
+  def plain_group() -> None:
+    return None
+
+  @plain_group.command('sub')
+  def sub_cmd() -> None:
+    invoked.append('sub')
+    click.echo('sub-ok')
+
+  root.add_command(plain)
+  root.add_command(plain_group, name='pgroup', aliases=plain_group_aliases)
 
   @lib.group_with_aliases(root, aliases=group_aliases)
   def check() -> None:
@@ -512,27 +548,120 @@ def test_aliased_group_and_decorators_resolve_aliases() -> None:
 
   group_aliases.append('mutated-group')
   policy_aliases.append('mutated-cmd')
+  plain_group_aliases.append('mutated-plain-group')
 
   context = click.Context(root)
-  assert isinstance(plain, lib.AliasedCommand)
-  assert plain.aliases == ()
-  assert extra.aliases == ()
-  assert check.aliases == ('c',)
-  assert policy_cmd.aliases == ('p',)
-  assert root.get_command(context, 'plain') is plain
-  assert root.get_command(context, 'check') is check
-  assert root.get_command(context, 'c') is check
-  assert root.get_command(context, 'mutated-group') is None
-  assert root.get_command(context, 'unknown') is None
-  assert check.get_command(context, 'p') is policy_cmd
-  assert check.get_command(context, 'mutated-cmd') is None
+  assert (
+    root.get_command(context, 'plain'),
+    root.get_command(context, 'extra'),
+    root.get_command(context, 'check'),
+    root.get_command(context, 'c'),
+    root.get_command(context, 'pgroup'),
+    root.get_command(context, 'pg'),
+    root.get_command(context, 'mutated-group'),
+    root.get_command(context, 'mutated-plain-group'),
+    root.get_command(context, 'unknown'),
+    check.get_command(context, 'policy'),
+    check.get_command(context, 'p'),
+    check.get_command(context, 'mutated-cmd'),
+  ) == (
+    plain,
+    extra,
+    check,
+    check,
+    plain_group,
+    plain_group,
+    None,
+    None,
+    None,
+    policy_cmd,
+    policy_cmd,
+    None,
+  )
 
   result = CliRunner().invoke(root, ['c', 'p'])
-  assert (result.exit_code, result.output, invoked) == (
-    0,
-    'ok\n',
-    ['policy'],
+  sub_result = CliRunner().invoke(root, ['pg', 'sub'])
+  assert (
+    result.exit_code,
+    result.output,
+    sub_result.exit_code,
+    sub_result.output,
+    invoked,
+  ) == (0, 'ok\n', 0, 'sub-ok\n', ['policy', 'sub'])
+
+
+def test_aliased_group_rejects_collisions_and_clears_stale_aliases() -> (
+  None
+):
+  root = lib.AliasedGroup()
+  first = click.Command('first')
+  second = click.Command('second')
+  replacement = click.Command('first')
+  unnamed = click.Command(None)
+
+  root.add_command(first, aliases=('f', 'fst'))
+  root.add_command(second, aliases=('s',))
+
+  with pytest.raises(ValueError) as unnamed_err:
+    root.add_command(unnamed)
+  with pytest.raises(ValueError) as empty_alias_err:
+    root.add_command(click.Command('third'), aliases=('',))
+  with pytest.raises(ValueError) as duplicate_alias_err:
+    root.add_command(click.Command('third'), aliases=('t', 't'))
+  with pytest.raises(TypeError) as str_alias_err:
+    root.add_command(click.Command('third'), aliases='ab')
+  with pytest.raises(TypeError) as cmd_str_alias_err:
+    lib.command_with_aliases(root, aliases='ab')
+  with pytest.raises(ValueError) as cmd_dup_alias_err:
+    lib.command_with_aliases(root, aliases=('x', 'x'))
+  with pytest.raises(TypeError) as grp_str_alias_err:
+    lib.group_with_aliases(root, aliases='ab')
+  with pytest.raises(ValueError) as grp_dup_alias_err:
+    lib.group_with_aliases(root, aliases=('g', 'g'))
+  with pytest.raises(ValueError) as self_alias_err:
+    root.add_command(click.Command('third'), aliases=('third',))
+  with pytest.raises(ValueError) as cmd_collision_err:
+    root.add_command(click.Command('third'), aliases=('second',))
+  with pytest.raises(ValueError) as taken_alias_err:
+    root.add_command(click.Command('third'), aliases=('f',))
+  with pytest.raises(ValueError) as alias_collision_err:
+    root.add_command(click.Command('f'))
+
+  assert (
+    str(unnamed_err.value),
+    str(empty_alias_err.value),
+    str(duplicate_alias_err.value),
+    str(str_alias_err.value),
+    str(cmd_str_alias_err.value),
+    str(cmd_dup_alias_err.value),
+    str(grp_str_alias_err.value),
+    str(grp_dup_alias_err.value),
+    str(self_alias_err.value),
+    str(cmd_collision_err.value),
+    str(taken_alias_err.value),
+    str(alias_collision_err.value),
+  ) == (
+    'Command must have a name',
+    'Command alias must be non-empty',
+    "Duplicate command alias: 't'",
+    'aliases must not be a string',
+    'aliases must not be a string',
+    "Duplicate command alias: 'x'",
+    'aliases must not be a string',
+    "Duplicate command alias: 'g'",
+    "Alias 'third' cannot match command name 'third'",
+    "Alias 'second' collides with command 'second'",
+    "Alias 'f' is already registered to 'first'",
+    "Command 'f' collides with alias for 'first'",
   )
+
+  root.add_command(replacement, aliases=('r',))
+  context = click.Context(root)
+  assert (
+    root.get_command(context, 'f'),
+    root.get_command(context, 'fst'),
+    root.get_command(context, 'r'),
+  ) == (None, None, replacement)
 
 
 @pytest.mark.parametrize(

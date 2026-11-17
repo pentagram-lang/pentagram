@@ -2,7 +2,7 @@ import os
 import shlex
 import subprocess
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final, ParamSpec, TypeVar
@@ -100,13 +100,69 @@ def nix_files(root: str | os.PathLike[str] = '.') -> list[str]:
   return sorted(matches)
 
 
-class AliasedCommand(click.Command):
-  aliases: tuple[str, ...] | list[str] = ()
+def _validate_aliases(aliases: Sequence[str]) -> tuple[str, ...]:
+  if isinstance(aliases, str):
+    raise TypeError('aliases must not be a string')
+  seen: set[str] = set()
+  validated: list[str] = []
+  for alias in aliases:
+    if not alias:
+      raise ValueError('Command alias must be non-empty')
+    if alias in seen:
+      raise ValueError(f'Duplicate command alias: {alias!r}')
+    seen.add(alias)
+    validated.append(alias)
+  return tuple(validated)
 
 
 class AliasedGroup(click.Group):
-  aliases: tuple[str, ...] | list[str] = ()
-  command_class: type[AliasedCommand] = AliasedCommand
+  _aliases: dict[str, str]
+
+  def _alias_map(self) -> dict[str, str]:
+    aliases = vars(self).get('_aliases')
+    if aliases is None:
+      aliases = {}
+      self._aliases = aliases
+    return aliases
+
+  def add_command(
+    self,
+    cmd: click.Command,
+    name: str | None = None,
+    *,
+    aliases: Sequence[str] = (),
+  ) -> None:
+    cmd_name = name or cmd.name
+    if not cmd_name:
+      raise ValueError('Command must have a name')
+    alias_map = self._alias_map()
+    alias_tuple = _validate_aliases(aliases)
+    for alias in alias_tuple:
+      if alias == cmd_name:
+        raise ValueError(
+          f'Alias {alias!r} cannot match command name {cmd_name!r}'
+        )
+      if alias in self.commands:
+        raise ValueError(
+          f'Alias {alias!r} collides with command {alias!r}'
+        )
+      owner = alias_map.get(alias)
+      if owner is not None and owner != cmd_name:
+        raise ValueError(
+          f'Alias {alias!r} is already registered to {owner!r}'
+        )
+    owner = alias_map.get(cmd_name)
+    if owner is not None:
+      raise ValueError(
+        f'Command {cmd_name!r} collides with alias for {owner!r}'
+      )
+
+    for existing_alias, existing_owner in list(alias_map.items()):
+      if existing_owner == cmd_name:
+        del alias_map[existing_alias]
+    super().add_command(cmd, name=cmd_name)
+    for alias in alias_tuple:
+      alias_map[alias] = cmd_name
 
   def get_command(
     self, ctx: click.Context, cmd_name: str
@@ -114,12 +170,10 @@ class AliasedGroup(click.Group):
     rv = click.Group.get_command(self, ctx, cmd_name)
     if rv is not None:
       return rv
-    for cmd in self.commands.values():
-      if isinstance(cmd, (AliasedCommand, AliasedGroup)) and (
-        cmd_name in cmd.aliases
-      ):
-        return cmd
-    return None
+    canonical = self._alias_map().get(cmd_name)
+    if canonical is None:
+      return None
+    return click.Group.get_command(self, ctx, canonical)
 
 
 def check_cmd(
@@ -166,16 +220,17 @@ def run_cmd(
 
 def command_with_aliases(
   group: AliasedGroup,
-  aliases: list[str] | tuple[str, ...] = (),
-  **kwargs: object,
-) -> Callable[[Callable[P, R]], AliasedCommand]:
-  alias_tuple = tuple(aliases)
+  aliases: Sequence[str] = (),
+  *,
+  name: str | None = None,
+  context_settings: Mapping[str, object] | None = None,
+) -> Callable[[Callable[P, R]], click.Command]:
+  alias_tuple = _validate_aliases(aliases)
+  settings = None if context_settings is None else dict(context_settings)
 
-  def decorator(function: Callable[P, R]) -> AliasedCommand:
-    command = group.command(**kwargs)(function)
-    if not isinstance(command, AliasedCommand):
-      raise TypeError('AliasedGroup created a non-aliased command')
-    command.aliases = alias_tuple
+  def decorator(function: Callable[P, R]) -> click.Command:
+    command = click.command(name=name, context_settings=settings)(function)
+    group.add_command(command, aliases=alias_tuple)
     return command
 
   return decorator
@@ -183,19 +238,29 @@ def command_with_aliases(
 
 def group_with_aliases(
   group: AliasedGroup,
-  aliases: list[str] | tuple[str, ...] = (),
+  aliases: Sequence[str] = (),
   cls: type[AliasedGroup] | None = None,
-  **kwargs: object,
+  *,
+  name: str | None = None,
+  invoke_without_command: bool = False,
+  subcommand_metavar: str | None = None,
+  context_settings: Mapping[str, object] | None = None,
 ) -> Callable[[Callable[P, R]], AliasedGroup]:
-  alias_tuple = tuple(aliases)
-  if cls is None:
-    cls = AliasedGroup
+  alias_tuple = _validate_aliases(aliases)
+  group_cls = AliasedGroup if cls is None else cls
+  settings = None if context_settings is None else dict(context_settings)
 
   def decorator(function: Callable[P, R]) -> AliasedGroup:
-    command = group.group(cls=cls, **kwargs)(function)
+    command = click.group(
+      name=name,
+      cls=group_cls,
+      invoke_without_command=invoke_without_command,
+      subcommand_metavar=subcommand_metavar,
+      context_settings=settings,
+    )(function)
     if not isinstance(command, AliasedGroup):
-      raise TypeError('AliasedGroup created a non-aliased group')
-    command.aliases = alias_tuple
+      raise TypeError('group_with_aliases created a non-aliased group')
+    group.add_command(command, aliases=alias_tuple)
     return command
 
   return decorator

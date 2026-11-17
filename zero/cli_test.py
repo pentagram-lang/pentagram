@@ -18,8 +18,7 @@ _CLI_NODEID = (
   'cli_test.py::test_standalone_check_cmd_subcommands_propagate_exit_codes'
 )
 _PROJ_NODEID = (
-  'test_lifecycle.py::'
-  'test_stage_dependencies_gate_activation_and_reject_cycles'
+  'service_test.py::test_stage_dependencies_and_active_dependent_guards'
 )
 _RUNNER = CliRunner()
 
@@ -132,7 +131,7 @@ def _stub_nodeid_fs(monkeypatch: MonkeyPatch) -> Path:
     files=frozenset(
       {
         Path('/repo/zero/cli_test.py'),
-        Path('/repo/proj/test_lifecycle.py'),
+        Path('/repo/proj/service_test.py'),
         Path('/outside/escape.py'),
       }
     ),
@@ -428,10 +427,9 @@ def test_root_help_invocations_emit_identical_help(
 
 
 def test_help_cmd_requires_parent_context() -> None:
-  with pytest.raises(
-    RuntimeError, match=r'^help command requires root CLI context$'
-  ):
+  with pytest.raises(RuntimeError) as exc_info:
     cli.help_cmd.main([], standalone_mode=False)
+  assert str(exc_info.value) == 'help command requires root CLI context'
 
 
 def test_root_help_subcommand_help_output() -> None:

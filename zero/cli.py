@@ -730,7 +730,7 @@ def watch_cmd(ctx: click.Context) -> None:
   watch.run_watch(_context_repo_root(ctx))
 
 
-cli.add_command(project_runner.project_group, name='proj')
+cli.add_command(project_runner.project_group, name='proj', aliases=('p',))
 
 
 if __name__ == '__main__':
