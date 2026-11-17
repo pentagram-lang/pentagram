@@ -1,4 +1,5 @@
 import base64
+import errno
 import json
 import os
 import shlex
@@ -48,9 +49,7 @@ def _memdb_cli() -> Iterator[tuple[MemdbBackend, store.ProjectStore]]:
 def v7_snapshot() -> bytes:
   with _memdb_cli() as (backend, project_store):
     project_store.create_project(_NAME, _CHARTER)
-    raw = backend.open_raw(
-      PurePosixPath('.tmp/demo.sqlite3'), create=False
-    )
+    raw = backend.open_raw(PurePosixPath('.tmp/demo.sqlite3'), mode='ro')
     try:
       return raw.serialize()
     finally:
@@ -292,7 +291,7 @@ def test_parameter_types_and_handoff_command_builders() -> None:
     '0 proj task list-logs --limit 8 --json -- sample 7',
   )
 
-  with pytest.raises(core.ProjectError) as bad_path:
+  with pytest.raises(ValueError) as bad_path:
     cli._handoff_full_value_command(view, 'sample', ('unknown',))
   assert str(bad_path.value) == 'No handoff retrieval path for unknown'
 
@@ -366,36 +365,45 @@ def test_canonical_command_inventory_and_help_contracts() -> None:
     (('blocker',), ('create', 'list', 'resolve')),
     (('evidence',), ('create', 'list')),
   )
-  observed_groups = tuple(
-    (
-      subject,
-      _help_commands(
-        runner.invoke(cli.project_group, (*subject, '--help')).output
-      ),
+  with _memdb_cli() as (_backend, project_store):
+    group_helps = tuple(
+      (
+        subject,
+        runner.invoke(
+          cli.project_group, (*subject, '--help'), obj=project_store
+        ),
+      )
+      for subject, _ in expected_groups
     )
-    for subject, _ in expected_groups
-  )
-  assert observed_groups == expected_groups
+    observed_groups = tuple(
+      (subject, result.exit_code, _help_commands(result.output))
+      for subject, result in group_helps
+    )
+    assert observed_groups == tuple(
+      (subject, 0, cmds) for subject, cmds in expected_groups
+    )
 
-  goal_show_help = runner.invoke(
-    cli.project_group, ('goal', 'show', '--help')
-  )
-  goal_act_help = runner.invoke(
-    cli.project_group, ('goal', 'activate', '--help')
-  )
-  logs_help = runner.invoke(
-    cli.project_group, ('task', 'list-logs', '--help')
-  )
-  decision_list_help = runner.invoke(
-    cli.project_group, ('decision', 'list', '--help')
-  )
-  blocker_list_help = runner.invoke(
-    cli.project_group, ('blocker', 'list', '--help')
-  )
-  task_create_help = runner.invoke(
-    cli.project_group, ('task', 'create', '--help')
-  )
-  handoff_help = runner.invoke(cli.project_group, ('handoff', '--help'))
+    goal_show_help = runner.invoke(
+      cli.project_group, ('goal', 'show', '--help'), obj=project_store
+    )
+    goal_act_help = runner.invoke(
+      cli.project_group, ('goal', 'activate', '--help'), obj=project_store
+    )
+    logs_help = runner.invoke(
+      cli.project_group, ('task', 'list-logs', '--help'), obj=project_store
+    )
+    decision_list_help = runner.invoke(
+      cli.project_group, ('decision', 'list', '--help'), obj=project_store
+    )
+    blocker_list_help = runner.invoke(
+      cli.project_group, ('blocker', 'list', '--help'), obj=project_store
+    )
+    task_create_help = runner.invoke(
+      cli.project_group, ('task', 'create', '--help'), obj=project_store
+    )
+    handoff_help = runner.invoke(
+      cli.project_group, ('handoff', '--help'), obj=project_store
+    )
   assert (
     (goal_show_help.exit_code, goal_show_help.output),
     (goal_act_help.exit_code, goal_act_help.output),
@@ -484,9 +492,12 @@ def test_canonical_command_inventory_and_help_contracts() -> None:
     ),
   )
 
-  bad_cli = runner.invoke(
-    cli.project_group, ('stage', 'update', 'demo', '0')
-  )
+  with _memdb_cli() as (_backend, project_store):
+    bad_cli = runner.invoke(
+      cli.project_group,
+      ('stage', 'update', 'demo', '0'),
+      obj=project_store,
+    )
   assert (bad_cli.exit_code, bad_cli.output) == (
     2,
     'Usage: project stage update [OPTIONS] NAME STAGE\n'
@@ -503,7 +514,7 @@ def test_pre_open_validation_does_not_migrate_v6_until_valid_op(
   with _memdb_cli() as (backend, project_store):
     db_rel = PurePosixPath('.tmp/demo.sqlite3')
     backend.seed(db_rel, v7_snapshot)
-    raw = backend.open_raw(db_rel, create=False)
+    raw = backend.open_raw(db_rel, mode='rw')
     try:
       downgrade_v7_to_v6(raw)
     finally:
@@ -578,7 +589,7 @@ def test_pre_open_validation_does_not_migrate_v6_until_valid_op(
       obj=project_store,
     )
 
-    check_unmigrated = backend.open_raw(db_rel, create=False)
+    check_unmigrated = backend.open_raw(db_rel, mode='ro')
     try:
       version_before = check_unmigrated.execute(
         'PRAGMA user_version'
@@ -626,7 +637,7 @@ def test_pre_open_validation_does_not_migrate_v6_until_valid_op(
       ('stage', 'list', 'demo'),
       obj=project_store,
     )
-    check_migrated = backend.open_raw(db_rel, create=False)
+    check_migrated = backend.open_raw(db_rel, mode='ro')
     try:
       version_after = check_migrated.execute(
         'PRAGMA user_version'
@@ -1626,26 +1637,109 @@ def test_end_to_end_cli_lifecycle_and_handoff_round_trip() -> None:
 
 
 def test_path_context_forwarding_and_from_root_error_adaptation(
-  tmp_path: Path, monkeypatch: MonkeyPatch
+  monkeypatch: MonkeyPatch,
 ) -> None:
   runner = CliRunner()
-  ok = runner.invoke(cli.project_group, ('list',), obj=tmp_path)
-  assert (ok.exit_code, ok.output, (tmp_path / '.tmp').exists()) == (
+  virtual_root = Path('/virtual-clean-root')
+
+  def missing_scandir(target: str | os.PathLike[str]) -> object:
+    raise FileNotFoundError(
+      errno.ENOENT, os.strerror(errno.ENOENT), os.fspath(target)
+    )
+
+  with monkeypatch.context() as mp:
+    mp.setattr(Path, 'resolve', lambda self: virtual_root)
+    mp.setattr(store.os, 'scandir', missing_scandir)
+    mp.setattr(
+      Path, 'exists', lambda _self, *, follow_symlinks=True: False
+    )
+    ok = runner.invoke(cli.project_group, ('list',), obj=virtual_root)
+  assert (ok.exit_code, ok.output) == (
     0,
     'Name  Status  Updated  Objective\n----  ------  -------  ---------\n',
-    False,
   )
 
   def broken_resolve(self: Path) -> Path:
     raise OSError('unresolvable')
 
-  monkeypatch.setattr(Path, 'resolve', broken_resolve)
-  failed = runner.invoke(
-    cli.project_group, ('--root', str(tmp_path), 'list')
+  with monkeypatch.context() as mp:
+    mp.setattr(Path, 'resolve', broken_resolve)
+    help_without_root = runner.invoke(
+      cli.project_group, ('goal', 'show', '--help')
+    )
+    failed = runner.invoke(
+      cli.project_group, ('--root', str(virtual_root), 'list')
+    )
+  with pytest.raises(RuntimeError) as bad_ctx_err:
+    runner.invoke(
+      cli.project_group,
+      ('list',),
+      obj='bad-context',
+      catch_exceptions=False,
+    )
+
+  bad_root_arg = os.fsdecode(b'/virtual-clean-root/bad-\xff')
+  side_effects: list[Path] = []
+
+  def record_mkdir(
+    self: Path, _mode: int = 0o777, _parents: bool = False, **_kw: object
+  ) -> None:
+    side_effects.append(self)
+
+  def record_rename(self: Path, target: str | os.PathLike[str]) -> Path:
+    side_effects.append(self)
+    return Path(target)
+
+  with monkeypatch.context() as mp:
+    mp.setattr(Path, 'resolve', lambda self: self)
+    mp.setattr(Path, 'mkdir', record_mkdir)
+    mp.setattr(Path, 'rename', record_rename)
+    bad_create = runner.invoke(
+      cli.project_group,
+      ('--root', bad_root_arg, 'create', 'demo', '--objective', 'O'),
+    )
+    bad_list = runner.invoke(
+      cli.project_group, ('--root', bad_root_arg, 'list', '--json')
+    )
+    bad_show = runner.invoke(
+      cli.project_group, ('--root', bad_root_arg, 'show', 'demo')
+    )
+    bad_archive = runner.invoke(
+      cli.project_group, ('--root', bad_root_arg, 'archive', 'demo')
+    )
+  expected_utf8_err = (
+    'Error: Project root path is not valid UTF-8: '
+    '/virtual-clean-root/bad-\\xff\n'
   )
-  assert (failed.exit_code, failed.output) == (
+
+  assert (
+    help_without_root.exit_code,
+    help_without_root.output,
+    failed.exit_code,
+    failed.output,
+    str(bad_ctx_err.value),
+    (bad_create.exit_code, bad_create.output),
+    (bad_list.exit_code, bad_list.output),
+    (bad_show.exit_code, bad_show.output),
+    (bad_archive.exit_code, bad_archive.output),
+    bad_create.output.encode('utf-8'),
+    side_effects,
+  ) == (
+    0,
+    'Usage: project goal show [OPTIONS] NAME [GOAL]\n\n'
+    'Options:\n'
+    '  --json  Output JSON instead of the human-readable view.\n'
+    '  --help  Show this message and exit.\n',
     1,
-    f'Error: Could not resolve project root {tmp_path}: unresolvable\n',
+    f'Error: Could not resolve project root {virtual_root}: '
+    'unresolvable\n',
+    'Unsupported project store context: str',
+    (1, expected_utf8_err),
+    (1, expected_utf8_err),
+    (1, expected_utf8_err),
+    (1, expected_utf8_err),
+    expected_utf8_err.encode('utf-8'),
+    [],
   )
 
 
@@ -1818,3 +1912,253 @@ def test_single_quote_heavy_project_name_handoff_round_trip() -> None:
         },
       ),
     )
+
+
+def test_list_skips_non_project_databases_and_rejects_broken_projects(
+  v7_snapshot: bytes,
+) -> None:
+  runner = CliRunner()
+  with _memdb_cli() as (backend, project_store):
+    project_store.create_project(core.ProjectName.parse('alpha'), _CHARTER)
+    project_store.create_project(core.ProjectName.parse('beta'), _CHARTER)
+    beta_raw = backend.open_raw(
+      PurePosixPath('.tmp/beta.sqlite3'), mode='rw'
+    )
+    try:
+      downgrade_v7_to_v6(beta_raw)
+      beta_raw.commit()
+    finally:
+      beta_raw.close()
+
+    telemetry_raw = backend.open_raw(
+      PurePosixPath('.tmp/task99-abc.sqlite3'), mode='rwc'
+    )
+    try:
+      telemetry_raw.executescript(
+        """
+        PRAGMA user_version = 1;
+        CREATE TABLE run (id INTEGER PRIMARY KEY);
+        CREATE TABLE run_event (id INTEGER PRIMARY KEY);
+        CREATE TABLE test_started (id INTEGER PRIMARY KEY);
+        CREATE TABLE test_result (id INTEGER PRIMARY KEY);
+        CREATE TABLE resource_sample (id INTEGER PRIMARY KEY);
+        """
+      )
+      telemetry_raw.commit()
+    finally:
+      telemetry_raw.close()
+
+    scratch_raw = backend.open_raw(
+      PurePosixPath('.tmp/notes.sqlite3'), mode='rwc'
+    )
+    try:
+      scratch_raw.execute(
+        'CREATE TABLE notes (id INTEGER PRIMARY KEY, body TEXT)'
+      )
+      scratch_raw.commit()
+    finally:
+      scratch_raw.close()
+
+    backend.seed(PurePosixPath('.tmp/zero-byte.sqlite3'), b'')
+    dot_raw = backend.open_raw(PurePosixPath('.tmp/.sqlite3'), mode='rwc')
+    try:
+      dot_raw.execute('CREATE TABLE x (id INT)')
+      dot_raw.commit()
+    finally:
+      dot_raw.close()
+    double_raw = backend.open_raw(
+      PurePosixPath('.tmp/notes.sqlite3.sqlite3'), mode='rwc'
+    )
+    try:
+      double_raw.execute('CREATE TABLE y (id INT)')
+      double_raw.commit()
+    finally:
+      double_raw.close()
+
+    r_list = runner.invoke(cli.project_group, ('list',), obj=project_store)
+    r_list_json = runner.invoke(
+      cli.project_group, ('list', '--json'), obj=project_store
+    )
+    r_show_telemetry = runner.invoke(
+      cli.project_group, ('show', 'task99-abc'), obj=project_store
+    )
+    r_create_scratch = runner.invoke(
+      cli.project_group,
+      ('create', 'notes', '--objective', 'Should fail'),
+      obj=project_store,
+    )
+    r_archive_scratch = runner.invoke(
+      cli.project_group,
+      ('archive', 'notes'),
+      obj=project_store,
+    )
+
+    assert (
+      (r_list.exit_code, r_list.output),
+      (r_list_json.exit_code, json.loads(r_list_json.output)),
+      (r_show_telemetry.exit_code, r_show_telemetry.output),
+      (r_create_scratch.exit_code, r_create_scratch.output),
+      (r_archive_scratch.exit_code, r_archive_scratch.output),
+    ) == (
+      (
+        0,
+        'Name   Status  Updated                    Objective\n'
+        '-----  ------  -------------------------  ------------------\n'
+        f'alpha  active  {_TIME_TEXT}  Deliver CLI parity\n'
+        f'beta   active  {_TIME_TEXT}  Deliver CLI parity\n',
+      ),
+      (
+        0,
+        [
+          {
+            'name': 'alpha',
+            'objective': 'Deliver CLI parity',
+            'path': '/memdb-root/.tmp/alpha.sqlite3',
+            'status': 'active',
+            'updated_at': _NOW,
+          },
+          {
+            'name': 'beta',
+            'objective': 'Deliver CLI parity',
+            'path': '/memdb-root/.tmp/beta.sqlite3',
+            'status': 'active',
+            'updated_at': _NOW,
+          },
+        ],
+      ),
+      (
+        1,
+        'Error: Unsupported project schema version 1; expected 7: '
+        '/memdb-root/.tmp/task99-abc.sqlite3\n',
+      ),
+      (
+        1,
+        'Error: Cannot overwrite non-project SQLite database: '
+        '/memdb-root/.tmp/notes.sqlite3\n',
+      ),
+      (
+        1,
+        'Error: Cannot archive non-project SQLite database: '
+        '/memdb-root/.tmp/notes.sqlite3\n',
+      ),
+    )
+
+  corrupt_bytes = bytearray(v7_snapshot)
+  corrupt_bytes[100:200] = b'\xff' * 100
+  with _memdb_cli() as (backend, project_store):
+    backend.seed(
+      PurePosixPath('.tmp/corrupt.sqlite3'), bytes(corrupt_bytes)
+    )
+    r_corrupt_text = runner.invoke(
+      cli.project_group, ('list',), obj=project_store
+    )
+    r_corrupt_json = runner.invoke(
+      cli.project_group, ('list', '--json'), obj=project_store
+    )
+
+  with _memdb_cli() as (backend, project_store):
+    backend.seed(
+      PurePosixPath('.tmp/not-sqlite.sqlite3'), b'not a sqlite database'
+    )
+    r_non_sqlite_text = runner.invoke(
+      cli.project_group, ('list',), obj=project_store
+    )
+    r_non_sqlite_json = runner.invoke(
+      cli.project_group, ('list', '--json'), obj=project_store
+    )
+
+  with _memdb_cli() as (backend, project_store):
+    project_store.create_project(
+      core.ProjectName.parse('bad-version'), _CHARTER
+    )
+    bad_raw = backend.open_raw(
+      PurePosixPath('.tmp/bad-version.sqlite3'), mode='rw'
+    )
+    try:
+      bad_raw.execute('PRAGMA user_version = 99')
+      bad_raw.commit()
+    finally:
+      bad_raw.close()
+    r_version_text = runner.invoke(
+      cli.project_group, ('list',), obj=project_store
+    )
+    r_version_json = runner.invoke(
+      cli.project_group, ('list', '--json'), obj=project_store
+    )
+
+  with _memdb_cli() as (backend, project_store):
+    backend.seed(PurePosixPath('.tmp/demo.sqlite3'), bytes(corrupt_bytes))
+    r_archive_corrupt = runner.invoke(
+      cli.project_group, ('archive', 'demo'), obj=project_store
+    )
+    backend.seed(
+      PurePosixPath('.tmp/demo.sqlite3'), b'not a sqlite database'
+    )
+    r_create_corrupt = runner.invoke(
+      cli.project_group,
+      ('create', 'demo', '--objective', 'Recovered from corrupt'),
+      obj=project_store,
+    )
+
+  with _memdb_cli() as (backend, project_store):
+    backend.seed(
+      PurePosixPath('.tmp/bad\nInjected\x1b]52;\x07.sqlite3'), v7_snapshot
+    )
+    r_control_stem = runner.invoke(
+      cli.project_group, ('list',), obj=project_store
+    )
+
+  assert (
+    (r_corrupt_text.exit_code, r_corrupt_text.output),
+    (r_corrupt_json.exit_code, r_corrupt_json.output),
+    (r_non_sqlite_text.exit_code, r_non_sqlite_text.output),
+    (r_non_sqlite_json.exit_code, r_non_sqlite_json.output),
+    (r_version_text.exit_code, r_version_text.output),
+    (r_version_json.exit_code, r_version_json.output),
+    (r_archive_corrupt.exit_code, r_archive_corrupt.output),
+    (r_create_corrupt.exit_code, r_create_corrupt.output),
+    (r_control_stem.exit_code, r_control_stem.output),
+  ) == (
+    (
+      1,
+      'Error: Project database could not be validated: '
+      '/memdb-root/.tmp/corrupt.sqlite3: '
+      'database disk image is malformed\n',
+    ),
+    (
+      1,
+      'Error: Project database could not be validated: '
+      '/memdb-root/.tmp/corrupt.sqlite3: '
+      'database disk image is malformed\n',
+    ),
+    (
+      1,
+      'Error: Project database could not be validated: '
+      '/memdb-root/.tmp/not-sqlite.sqlite3: '
+      'file is not a database\n',
+    ),
+    (
+      1,
+      'Error: Project database could not be validated: '
+      '/memdb-root/.tmp/not-sqlite.sqlite3: '
+      'file is not a database\n',
+    ),
+    (
+      1,
+      'Error: Unsupported project schema version 99; expected 7: '
+      '/memdb-root/.tmp/bad-version.sqlite3\n',
+    ),
+    (
+      1,
+      'Error: Unsupported project schema version 99; expected 7: '
+      '/memdb-root/.tmp/bad-version.sqlite3\n',
+    ),
+    (0, '/memdb-root/.tmp/archive/demo-1000.sqlite3\n'),
+    (0, '/memdb-root/.tmp/demo.sqlite3\n'),
+    (
+      1,
+      'Error: Project names must be printable, non-empty single path '
+      'components of at most 200 characters without the .sqlite3 suffix: '
+      '/memdb-root/.tmp/bad\\nInjected\\u001b]52;\\u0007.sqlite3\n',
+    ),
+  )

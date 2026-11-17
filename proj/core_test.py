@@ -36,11 +36,26 @@ def test_core_constants_and_status_tuples() -> None:
     ('\u00a0\u2003', False),
     (' a ', True),
     ('None', True),
+    (b'abc', False),
+    (b'\xc2\xa0', False),
+    (123, False),
+    (None, False),
   ],
-  ids=('empty', 'spaces', 'ascii-ws', 'unicode-ws', 'trimmed', 'text'),
+  ids=(
+    'empty',
+    'spaces',
+    'ascii-ws',
+    'unicode-ws',
+    'trimmed',
+    'text',
+    'bytes-ascii',
+    'bytes-ws',
+    'int',
+    'none',
+  ),
 )
 def test_is_substantive_handles_ascii_and_unicode_whitespace(
-  value: str, expected: bool
+  value: object, expected: bool
 ) -> None:
   assert core.is_substantive(value) is expected
 

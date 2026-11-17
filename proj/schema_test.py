@@ -132,31 +132,27 @@ END""",
 
 
 @contextmanager
-def _memory_db(
-  now: int = _NOW, *, configure: bool = True
-) -> Iterator[sqlite3.Connection]:
+def _memory_db() -> Iterator[sqlite3.Connection]:
   connection = sqlite3.connect(':memory:')
   try:
-    if configure:
-      schema.configure_connection(connection)
-      connection.create_function(
-        'unixepoch', 0, lambda: now, deterministic=False
-      )
-      connection.create_function(
-        'strftime',
-        2,
-        lambda fmt, value: str(now)
-        if (fmt, value) == ('%s', 'now')
-        else '',
-        deterministic=False,
-      )
+    schema.configure_connection(connection)
+    connection.create_function(
+      'unixepoch', 0, lambda: _NOW, deterministic=False
+    )
+    connection.create_function(
+      'strftime',
+      2,
+      lambda fmt, value: str(_NOW)
+      if (fmt, value) == ('%s', 'now')
+      else '',
+      deterministic=False,
+    )
     yield connection
   finally:
     connection.close()
 
 
-def _init_db(connection: sqlite3.Connection, *, now: int = _NOW) -> None:
-  del now
+def _init_db(connection: sqlite3.Connection) -> None:
   schema.initialize_project(connection, _NAME, _CHARTER)
 
 
@@ -262,17 +258,20 @@ def test_configure_connection_and_connection_time_contracts() -> None:
   with _memory_db() as connection:
     fk = connection.execute('PRAGMA foreign_keys').fetchone()
     busy = connection.execute('PRAGMA busy_timeout').fetchone()
-    unicode_ws = connection.execute(
-      "SELECT substantive('\u00a0\u2003'), substantive(' x ')"
+    substantive_values = connection.execute(
+      "SELECT substantive('\u00a0\u2003'), substantive(' x '), "
+      "substantive(X'c2a0'), substantive(X'41'), substantive(123)"
     ).fetchone()
     now = schema.connection_time(connection)
     assert (
       connection.row_factory,
       tuple(fk) if fk is not None else None,
       tuple(busy) if busy is not None else None,
-      tuple(unicode_ws) if unicode_ws is not None else None,
+      tuple(substantive_values)
+      if substantive_values is not None
+      else None,
       now,
-    ) == (sqlite3.Row, (1,), (5000,), (0, 1), _NOW)
+    ) == (sqlite3.Row, (1,), (5000,), (0, 1, 0, 0, 0), _NOW)
 
   with pytest.raises(core.ProjectError) as cfg_err:
     schema.configure_connection(connection)
@@ -498,23 +497,28 @@ def test_validate_project_accepts_private_objects_and_rejects_drift(
   with _memory_db() as drift_db:
     drift_db.deserialize(raw)
 
-    def run_savepoint(
+    def assert_valid_savepoint(statements: tuple[str, ...]) -> None:
+      drift_db.execute('SAVEPOINT drift_case')
+      try:
+        for statement in statements:
+          drift_db.execute(statement)
+        schema.validate_project(
+          drift_db,
+          expected_name=_NAME,
+          display_path='memory://demo',
+        )
+      finally:
+        drift_db.execute('ROLLBACK TO drift_case')
+        drift_db.execute('RELEASE drift_case')
+
+    def capture_error_savepoint(
       statements: tuple[str, ...],
       expected_name: core.ProjectName = _NAME,
-      *,
-      expect_error: bool = True,
     ) -> str:
       drift_db.execute('SAVEPOINT drift_case')
       try:
         for statement in statements:
           drift_db.execute(statement)
-        if not expect_error:
-          schema.validate_project(
-            drift_db,
-            expected_name=expected_name,
-            display_path='memory://demo',
-          )
-          return ''
         with pytest.raises(core.ProjectError) as exc_info:
           schema.validate_project(
             drift_db,
@@ -526,12 +530,11 @@ def test_validate_project_accepts_private_objects_and_rejects_drift(
         drift_db.execute('ROLLBACK TO drift_case')
         drift_db.execute('RELEASE drift_case')
 
-    run_savepoint(
+    assert_valid_savepoint(
       (
         'CREATE TABLE custom_notes (id INTEGER PRIMARY KEY, note TEXT)',
         'CREATE INDEX custom_notes_idx ON custom_notes(note)',
-      ),
-      expect_error=False,
+      )
     )
 
     with _memory_db() as missing_table_db:
@@ -554,25 +557,58 @@ def test_validate_project_accepts_private_objects_and_rejects_drift(
           fk_db, expected_name=_NAME, display_path='memory://demo'
         )
 
+    def capture_singleton_error_savepoint(
+      trigger_name: str,
+      statements: tuple[str, ...],
+    ) -> str:
+      drift_db.execute('SAVEPOINT drift_case')
+      try:
+        trigger_row = drift_db.execute(
+          'SELECT sql FROM sqlite_master '
+          "WHERE type = 'trigger' AND name = ?",
+          (trigger_name,),
+        ).fetchone()
+        assert trigger_row is not None
+        drift_db.execute(f'DROP TRIGGER "{trigger_name}"')
+        for statement in statements:
+          drift_db.execute(statement)
+        drift_db.execute(trigger_row['sql'])
+        with pytest.raises(core.ProjectError) as exc_info:
+          schema.validate_project(
+            drift_db,
+            expected_name=_NAME,
+            display_path='memory://demo',
+          )
+        return str(exc_info.value)
+      finally:
+        drift_db.execute('ROLLBACK TO drift_case')
+        drift_db.execute('RELEASE drift_case')
+
     observed_drift = (
       str(missing_tbl_err.value),
-      run_savepoint(('PRAGMA user_version = 5',)),
-      run_savepoint((), core.ProjectName.parse('other')),
-      run_savepoint(
-        ('DROP TRIGGER project_delete', 'DELETE FROM project')
+      capture_error_savepoint(('PRAGMA user_version = 5',)),
+      capture_singleton_error_savepoint(
+        'project_name_update',
+        ("UPDATE project SET name = X'64656d6f'",),
       ),
-      run_savepoint(
-        ('DROP TRIGGER project_state_delete', 'DELETE FROM project_state')
+      capture_error_savepoint((), core.ProjectName.parse('other')),
+      capture_singleton_error_savepoint(
+        'project_delete', ('DELETE FROM project',)
       ),
-      run_savepoint(('DROP INDEX task_stage_index',)),
-      run_savepoint(
+      capture_singleton_error_savepoint(
+        'project_state_delete', ('DELETE FROM project_state',)
+      ),
+      capture_error_savepoint(('DROP INDEX task_stage_index',)),
+      capture_error_savepoint(
         (
           'DROP INDEX task_stage_index',
           'CREATE INDEX task_stage_index ON task(stage_id, status)',
         )
       ),
-      run_savepoint(('CREATE INDEX extra_task_idx ON task(priority)',)),
-      run_savepoint(
+      capture_error_savepoint(
+        ('CREATE INDEX extra_task_idx ON task(priority)',)
+      ),
+      capture_error_savepoint(
         (
           'CREATE TRIGGER extra_trig AFTER INSERT ON task '
           'BEGIN SELECT 1; END',
@@ -584,27 +620,75 @@ def test_validate_project_accepts_private_objects_and_rejects_drift(
   assert observed_drift == (
     'Unsupported project schema version 0; expected 7: memory://demo',
     'Unsupported project schema version 5; expected 7: memory://demo',
-    "Project name 'demo' does not match database address 'other'",
-    'Project database must contain one project row; found 0',
-    'Project database must contain one project-state row; found 0',
-    'Project schema is incomplete; missing indexes: task_stage_index',
-    'Project schema has incompatible indexes: task_stage_index',
+    'Project database metadata columns must be text: memory://demo',
+    "Project name 'demo' does not match database address 'other': memory://demo",
+    'Project database must contain one project row; found 0: memory://demo',
+    'Project database must contain one project-state row; found 0: '
+    'memory://demo',
+    'Project schema is incomplete; missing indexes: task_stage_index: '
+    'memory://demo',
+    'Project schema has incompatible indexes: task_stage_index: memory://demo',
     'Project schema has unexpected indexes on canonical tables: '
-    'extra_task_idx',
-    'Project schema has unexpected triggers: extra_trig',
-    'Project has a foreign-key violation: task_log row 1 references task',
+    'extra_task_idx: memory://demo',
+    'Project schema has unexpected triggers: extra_trig: memory://demo',
+    'Project has a foreign-key violation: task_log row 1 references task: '
+    'memory://demo',
   )
 
 
-def test_validate_project_handles_missing_core_table_adaptation() -> None:
+def test_validate_project_missing_tables_and_corrupt_page_adaptation(
+  v7_snapshot: bytes,
+) -> None:
   with _memory_db() as db:
     db.execute('PRAGMA user_version = 7')
     with pytest.raises(core.ProjectError) as exc_info:
       schema.validate_project(
         db, expected_name=_NAME, display_path='memory://demo'
       )
-  assert str(exc_info.value) == (
-    'Project schema is incomplete: no such table: project'
+    with pytest.raises(core.ProjectError) as overlap_exc_info:
+      schema.validate_project(
+        db, expected_name=_NAME, display_path='project'
+      )
+
+  corrupt_page_db = sqlite3.connect(':memory:')
+  try:
+    corrupt_page_db.deserialize(v7_snapshot)
+    root_page = corrupt_page_db.execute(
+      'SELECT rootpage FROM sqlite_master '
+      "WHERE type = 'table' AND name = 'project'"
+    ).fetchone()[0]
+    page_offset = (root_page - 1) * 4096
+    corrupt_page_bytes = bytearray(v7_snapshot)
+    corrupt_page_bytes[page_offset : page_offset + 256] = b'\xff' * 256
+    corrupt_page_db.deserialize(bytes(corrupt_page_bytes))
+    schema.configure_connection(corrupt_page_db)
+    classified = schema.classify_database(corrupt_page_db)
+    with pytest.raises(core.ProjectError) as corrupt_page_err:
+      schema.validate_project(
+        corrupt_page_db,
+        expected_name=_NAME,
+        display_path='memory://corrupt-page',
+      )
+  finally:
+    corrupt_page_db.close()
+
+  expected_missing = (
+    'Project schema is incomplete; missing tables: '
+    'blocker, decision, evidence, goal, goal_stage, legacy_lifecycle, '
+    'project, project_charter_history, project_state, stage, '
+    'stage_achievement, stage_dependency, task, task_log, task_tag'
+  )
+  assert (
+    str(exc_info.value),
+    str(overlap_exc_info.value),
+    classified,
+    str(corrupt_page_err.value),
+  ) == (
+    f'{expected_missing}: memory://demo',
+    f'{expected_missing}: project',
+    'project',
+    'Project database could not be validated: '
+    'memory://corrupt-page: database disk image is malformed',
   )
 
 
@@ -700,8 +784,8 @@ def test_v6_migration_upgrades_to_v7_and_rolls_back_atomically(
         schema.validate_project(
           db, expected_name=_NAME, display_path='memory://demo'
         )
-    assert (
-      str(exc_info.value) == 'Simulated mid-migration lifecycle failure'
+    assert str(exc_info.value) == (
+      'Simulated mid-migration lifecycle failure: memory://demo'
     )
     version_after = db.execute('PRAGMA user_version').fetchone()
     fk_after = db.execute('PRAGMA foreign_keys').fetchone()
@@ -875,12 +959,173 @@ def test_validate_project_rejects_forged_lifecycle_states(
     )
 
   assert observed_forged == (
-    'Project has a stage-dependency cycle at stage 1',
-    'Project has an incomplete post-execution charter',
-    'Project has an invalid stage contract: 1',
-    'Project has a blocked task without an open blocker: 1',
-    'Project has incoherent record context: decision 1',
-    'Project has incoherent evidence state: 1',
-    'Project has an invalid goal lifecycle: 1',
-    'Project has invalid task chronology: 1',
+    'Project has a stage-dependency cycle at stage 1: memory://demo',
+    'Project has an incomplete post-execution charter: memory://demo',
+    'Project has an invalid stage contract: 1: memory://demo',
+    'Project has a blocked task without an open blocker: 1: memory://demo',
+    'Project has incoherent record context: decision 1: memory://demo',
+    'Project has incoherent evidence state: 1: memory://demo',
+    'Project has an invalid goal lifecycle: 1: memory://demo',
+    'Project has invalid task chronology: 1: memory://demo',
   )
+
+
+def _classify_raw_database(script: str) -> schema.DatabaseClassification:
+  conn = sqlite3.connect(':memory:')
+  try:
+    if script:
+      conn.executescript(script)
+    return schema.classify_database(conn)
+  finally:
+    conn.close()
+
+
+def test_classify_database_classifies_schemas_and_corruption(
+  v7_snapshot: bytes,
+) -> None:
+  v7_triggers = {
+    name
+    for kind, name in schema._canonical_schema_definitions(7)
+    if kind == 'trigger'
+  }
+  v6_triggers = {
+    name
+    for kind, name in schema._canonical_schema_definitions(6)
+    if kind == 'trigger'
+  }
+  assert schema._PROJECT_TRIGGER_NAMES == v7_triggers
+  assert v7_triggers == v6_triggers
+
+  v7_raw = sqlite3.connect(':memory:')
+  v6_raw = sqlite3.connect(':memory:')
+  damaged_raw = sqlite3.connect(':memory:')
+  try:
+    v7_raw.deserialize(v7_snapshot)
+    v6_raw.deserialize(v7_snapshot)
+    downgrade_v7_to_v6(v6_raw)
+    damaged_raw.deserialize(v7_snapshot)
+    damaged_raw.execute('DROP TABLE project')
+    v7_kind = schema.classify_database(v7_raw)
+    v6_kind = schema.classify_database(v6_raw)
+    damaged_kind = schema.classify_database(damaged_raw)
+  finally:
+    v7_raw.close()
+    v6_raw.close()
+    damaged_raw.close()
+
+  raw_observations = (
+    _classify_raw_database(''),
+    _classify_raw_database(
+      """
+      PRAGMA user_version = 1;
+      CREATE TABLE run (id INTEGER PRIMARY KEY);
+      CREATE TABLE run_event (id INTEGER PRIMARY KEY);
+      CREATE TABLE test_started (id INTEGER PRIMARY KEY);
+      CREATE TABLE test_result (id INTEGER PRIMARY KEY);
+      CREATE TABLE resource_sample (id INTEGER PRIMARY KEY);
+      CREATE TRIGGER append_only_run
+      BEFORE UPDATE ON run
+      BEGIN
+        SELECT RAISE(ABORT, 'append only');
+      END;
+      """
+    ),
+    _classify_raw_database(
+      """
+      CREATE TABLE notes (id INTEGER PRIMARY KEY, body TEXT);
+      CREATE TRIGGER notes_guard BEFORE DELETE ON notes
+      BEGIN
+        SELECT RAISE(ABORT, 'immutable');
+      END;
+      """
+    ),
+    _classify_raw_database(
+      'CREATE TABLE project (id INTEGER PRIMARY KEY);'
+    ),
+    _classify_raw_database(
+      'CREATE TABLE project_state (id INTEGER PRIMARY KEY);'
+    ),
+    _classify_raw_database(
+      'CREATE TABLE project_charter_history (id INTEGER PRIMARY KEY);'
+    ),
+    _classify_raw_database(
+      'CREATE TABLE legacy_lifecycle (id INTEGER PRIMARY KEY);'
+    ),
+    _classify_raw_database(
+      """
+      CREATE TABLE stage (id INTEGER PRIMARY KEY);
+      CREATE TRIGGER stage_delete
+      BEFORE DELETE ON stage
+      BEGIN
+        SELECT RAISE(ABORT, 'stage cannot be deleted');
+      END;
+      """
+    ),
+    v7_kind,
+    v6_kind,
+    damaged_kind,
+  )
+  assert raw_observations == (
+    'non-project',
+    'non-project',
+    'non-project',
+    'project',
+    'project',
+    'project',
+    'project',
+    'project',
+    'project',
+    'project',
+    'project',
+  )
+
+  corrupt_bytes = bytearray(v7_snapshot)
+  corrupt_bytes[100:200] = b'\xff' * 100
+  corrupt_db = sqlite3.connect(':memory:')
+  non_sqlite_db = sqlite3.connect(':memory:')
+  try:
+    corrupt_db.deserialize(bytes(corrupt_bytes))
+    non_sqlite_db.deserialize(b'not a sqlite database')
+    corrupt_result = schema.classify_database(corrupt_db)
+    non_sqlite_result = schema.classify_database(non_sqlite_db)
+    assert (corrupt_result, non_sqlite_result) == (
+      schema.CorruptDatabase('database disk image is malformed'),
+      schema.CorruptDatabase('file is not a database'),
+    )
+  finally:
+    non_sqlite_db.close()
+    corrupt_db.close()
+
+  class _ExtendedCorruptConnection(sqlite3.Connection):
+    def execute(self, sql: str, parameters: object = ()) -> sqlite3.Cursor:
+      del sql, parameters
+      err = sqlite3.OperationalError('corrupt index')
+      err.sqlite_errorcode = sqlite3.SQLITE_CORRUPT | (1 << 8)
+      raise err
+
+  ext_corrupt_db = sqlite3.connect(
+    ':memory:', factory=_ExtendedCorruptConnection
+  )
+  try:
+    ext_corrupt_result = schema.classify_database(ext_corrupt_db)
+    assert ext_corrupt_result == schema.CorruptDatabase('corrupt index')
+  finally:
+    ext_corrupt_db.close()
+
+  class _IoErrConnection(sqlite3.Connection):
+    def execute(self, sql: str, parameters: object = ()) -> sqlite3.Cursor:
+      del sql, parameters
+      err = sqlite3.OperationalError('disk I/O error')
+      err.sqlite_errorcode = sqlite3.SQLITE_IOERR
+      raise err
+
+  io_db = sqlite3.connect(':memory:', factory=_IoErrConnection)
+  try:
+    with pytest.raises(sqlite3.OperationalError) as io_err:
+      schema.classify_database(io_db)
+    assert (
+      str(io_err.value),
+      schema.is_corrupt_sqlite_error(io_err.value),
+    ) == ('disk I/O error', False)
+  finally:
+    io_db.close()

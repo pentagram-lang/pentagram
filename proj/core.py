@@ -94,8 +94,8 @@ class ProjectError(Exception):
   pass
 
 
-def is_substantive(value: str) -> bool:
-  return bool(value and value.strip())
+def is_substantive(value: object) -> bool:
+  return isinstance(value, str) and bool(value.strip())
 
 
 def _is_ascii_digits(value: str) -> bool:

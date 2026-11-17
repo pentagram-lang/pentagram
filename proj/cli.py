@@ -49,13 +49,23 @@ from .render import (
   format_task_log_list,
 )
 from .service import (
+  BlockerRecord,
+  DecisionRecord,
+  EvidenceRecord,
+  GoalDetails,
+  GoalListItem,
   GoalStages,
   HandoffData,
   ProjectPatch,
   ProjectStatePatch,
+  ProjectView,
   RecordListFilter,
+  StageListItem,
   StagePatch,
+  TaskDetails,
+  TaskLogRecord,
   TaskPatch,
+  TaskRecord,
   achieve_goal,
   achieve_stage,
   activate_goal,
@@ -157,9 +167,17 @@ def _repository_root() -> Path:
 
 
 def _project_store(ctx: click.Context) -> ProjectStore:
-  if not isinstance(ctx.obj, ProjectStore):
-    raise RuntimeError('Project store missing from Click context')
-  return ctx.obj
+  if isinstance(ctx.obj, ProjectStore):
+    return ctx.obj
+  if isinstance(ctx.obj, Path):
+    ctx.obj = _invoke(ProjectStore.from_root, ctx.obj)
+    return ctx.obj
+  if ctx.obj is None:
+    ctx.obj = _invoke(ProjectStore.from_root, _repository_root())
+    return ctx.obj
+  raise RuntimeError(
+    f'Unsupported project store context: {type(ctx.obj).__name__}'
+  )
 
 
 def _invoke(
@@ -173,6 +191,18 @@ def _invoke(
 
 def _json_echo(value: object) -> None:
   click.echo(json.dumps(value, indent=2, sort_keys=True))
+
+
+def _run_read(
+  as_json: bool,
+  load: Callable[[], R],
+  to_json: Callable[[R], object],
+  to_text: Callable[[R], str],
+) -> None:
+  if as_json:
+    _json_echo(_invoke(lambda: to_json(load())))
+  else:
+    click.echo(_invoke(lambda: to_text(load())))
 
 
 def _shell_quote(value: str | int) -> str:
@@ -310,16 +340,14 @@ def _handoff_full_value_command(
   path: Sequence[str | int],
 ) -> str:
   if not path or not isinstance(path[0], str):
-    raise ProjectError(
-      'Handoff retrieval path must start with a field name'
-    )
+    raise ValueError('Handoff retrieval path must start with a field name')
   root = path[0]
   if root in ('path', 'project', 'state'):
     return _project_command(('handoff',), name, options=('--json',))
   data = view.data
   if root == 'goal':
     if data.goal is None:
-      raise ProjectError('There is no active goal to retrieve')
+      raise ValueError('There is no active goal to retrieve')
     return _project_command(
       ('goal', 'show'),
       name,
@@ -330,13 +358,13 @@ def _handoff_full_value_command(
     return _project_command(('stage', 'list'), name, options=('--json',))
   if root == 'task':
     if data.task is None:
-      raise ProjectError('There is no active task to retrieve')
+      raise ValueError('There is no active task to retrieve')
     return _project_command(
       ('task', 'show'), name, (data.task.id,), ('--json',)
     )
   if root in ('blocked_tasks', 'blocked_goals'):
     if len(path) < 2 or not isinstance(path[1], int):
-      raise ProjectError(f'Handoff {root} retrieval needs a numeric index')
+      raise ValueError(f'Handoff {root} retrieval needs a numeric index')
     index = path[1]
     if root == 'blocked_tasks':
       return _project_command(
@@ -360,9 +388,9 @@ def _handoff_full_value_command(
   if root in retrieval_map:
     command = retrieval_map[root]
     if command is None:
-      raise ProjectError(f'No handoff retrieval command for {root}')
+      raise ValueError(f'No handoff retrieval command for {root}')
     return command
-  raise ProjectError(f'No handoff retrieval path for {root}')
+  raise ValueError(f'No handoff retrieval path for {root}')
 
 
 def _handoff_view(data: HandoffData) -> HandoffView:
@@ -386,13 +414,7 @@ def _handoff_json(view: HandoffView) -> HandoffJson:
 def project_group(ctx: click.Context, root: Path | None) -> None:
   """Manage provisional SQLite project control planes."""
   if root is not None:
-    ctx.obj = _invoke(ProjectStore.from_root, root)
-  elif isinstance(ctx.obj, ProjectStore):
-    return
-  elif isinstance(ctx.obj, Path):
-    ctx.obj = _invoke(ProjectStore.from_root, ctx.obj)
-  else:
-    ctx.obj = _invoke(ProjectStore.from_root, _repository_root())
+    ctx.obj = root
 
 
 @project_group.command('create')
@@ -435,11 +457,12 @@ def create_command(
 @click.pass_context
 def list_command(ctx: click.Context, as_json: bool) -> None:
   """List unarchived project databases."""
-  projects = _invoke(_project_store(ctx).list_projects)
-  if as_json:
-    _json_echo([item.to_dict() for item in projects])
-    return
-  click.echo(format_project_list(projects))
+  _run_read(
+    as_json,
+    _project_store(ctx).list_projects,
+    lambda projects: [item.to_dict() for item in projects],
+    format_project_list,
+  )
 
 
 @project_group.command('handoff')
@@ -489,17 +512,17 @@ def show_command(ctx: click.Context, name: str, as_json: bool) -> None:
   """Read the project charter and compact state."""
   store = _project_store(ctx)
 
-  def _run() -> object:
+  def _load() -> ProjectView:
     project_name = ProjectName.parse(name)
     with store.open_project(project_name) as connection:
-      view = read_project(connection, store.database_path(project_name))
-      return view.to_dict() if as_json else format_project_details(view)
+      return read_project(connection, store.database_path(project_name))
 
-  result = _invoke(_run)
-  if as_json:
-    _json_echo(result)
-  else:
-    click.echo(result)
+  _run_read(
+    as_json,
+    _load,
+    lambda view: view.to_dict(),
+    format_project_details,
+  )
 
 
 @project_group.command('update')
@@ -578,21 +601,17 @@ def goal_list_command(
 ) -> None:
   store = _project_store(ctx)
 
-  def _run() -> object:
+  def _load() -> tuple[GoalListItem, ...]:
     project_name = ProjectName.parse(name)
     with store.open_project(project_name) as connection:
-      goals = read_goals(connection, status)
-      return (
-        [item.to_dict() for item in goals]
-        if as_json
-        else format_goal_list(goals)
-      )
+      return read_goals(connection, status)
 
-  result = _invoke(_run)
-  if as_json:
-    _json_echo(result)
-  else:
-    click.echo(result)
+  _run_read(
+    as_json,
+    _load,
+    lambda goals: [item.to_dict() for item in goals],
+    format_goal_list,
+  )
 
 
 @goal.command('create')
@@ -659,17 +678,17 @@ def goal_show_command(
 ) -> None:
   store = _project_store(ctx)
 
-  def _run() -> object:
+  def _load() -> GoalDetails:
     project_name = ProjectName.parse(name)
     with store.open_project(project_name) as connection:
-      details = read_goal(connection, goal)
-      return details.to_dict() if as_json else format_goal_details(details)
+      return read_goal(connection, goal)
 
-  result = _invoke(_run)
-  if as_json:
-    _json_echo(result)
-  else:
-    click.echo(result)
+  _run_read(
+    as_json,
+    _load,
+    lambda details: details.to_dict(),
+    format_goal_details,
+  )
 
 
 @goal.command('text')
@@ -820,21 +839,17 @@ def stage_list_command(
 ) -> None:
   store = _project_store(ctx)
 
-  def _run() -> object:
+  def _load() -> tuple[StageListItem, ...]:
     project_name = ProjectName.parse(name)
     with store.open_project(project_name) as connection:
-      stages = read_stages(connection)
-      return (
-        [item.to_dict() for item in stages]
-        if as_json
-        else format_stage_list(stages)
-      )
+      return read_stages(connection)
 
-  result = _invoke(_run)
-  if as_json:
-    _json_echo(result)
-  else:
-    click.echo(result)
+  _run_read(
+    as_json,
+    _load,
+    lambda stages: [item.to_dict() for item in stages],
+    format_stage_list,
+  )
 
 
 @stage.command('create')
@@ -1010,21 +1025,17 @@ def task_list_command(
 ) -> None:
   store = _project_store(ctx)
 
-  def _run() -> object:
+  def _load() -> tuple[TaskRecord, ...]:
     project_name = ProjectName.parse(name)
     with store.open_project(project_name) as connection:
-      tasks = read_tasks(connection, status=status, stage=stage, tag=tag)
-      return (
-        [item.to_dict() for item in tasks]
-        if as_json
-        else format_task_list(tasks)
-      )
+      return read_tasks(connection, status=status, stage=stage, tag=tag)
 
-  result = _invoke(_run)
-  if as_json:
-    _json_echo(result)
-  else:
-    click.echo(result)
+  _run_read(
+    as_json,
+    _load,
+    lambda tasks: [item.to_dict() for item in tasks],
+    format_task_list,
+  )
 
 
 @task.command('ready')
@@ -1043,21 +1054,17 @@ def task_ready_command(
   """List eligible pending tasks even when one task is active."""
   store = _project_store(ctx)
 
-  def _run() -> object:
+  def _load() -> tuple[TaskRecord, ...]:
     project_name = ProjectName.parse(name)
     with store.open_project(project_name) as connection:
-      tasks = read_tasks(connection, tag=tag, ready=True)
-      return (
-        [item.to_dict() for item in tasks]
-        if as_json
-        else format_ready_task_list(tasks)
-      )
+      return read_tasks(connection, tag=tag, ready=True)
 
-  result = _invoke(_run)
-  if as_json:
-    _json_echo(result)
-  else:
-    click.echo(result)
+  _run_read(
+    as_json,
+    _load,
+    lambda tasks: [item.to_dict() for item in tasks],
+    format_ready_task_list,
+  )
 
 
 @task.command('create')
@@ -1141,25 +1148,24 @@ def task_show_command(
 ) -> None:
   store = _project_store(ctx)
 
-  def _run() -> object:
+  def _load() -> tuple[TaskDetails, int]:
     project_name = ProjectName.parse(name)
     parsed_task = PositiveInt.parse(task_reference, 'Task ID')
     parsed_limit = PositiveInt.parse(limit, 'Task log limits')
     with store.open_project(project_name) as connection:
-      details = read_task(
-        connection, parsed_task, limit=parsed_limit, since=since
-      )
       return (
-        details.to_dict()
-        if as_json
-        else format_task_details(details, parsed_limit.value)
+        read_task(
+          connection, parsed_task, limit=parsed_limit, since=since
+        ),
+        parsed_limit.value,
       )
 
-  result = _invoke(_run)
-  if as_json:
-    _json_echo(result)
-  else:
-    click.echo(result)
+  _run_read(
+    as_json,
+    _load,
+    lambda pair: pair[0].to_dict(),
+    lambda pair: format_task_details(pair[0], pair[1]),
+  )
 
 
 @task.command('list-logs')
@@ -1192,25 +1198,24 @@ def task_list_logs_command(
   """List a task's log entries."""
   store = _project_store(ctx)
 
-  def _run() -> object:
+  def _load() -> tuple[tuple[TaskLogRecord, ...], int]:
     project_name = ProjectName.parse(name)
     parsed_task = PositiveInt.parse(task_reference, 'Task ID')
     parsed_limit = PositiveInt.parse(limit, 'Task log limits')
     with store.open_project(project_name) as connection:
-      logs = read_task_logs(
-        connection, parsed_task, limit=parsed_limit, since=since
-      )
       return (
-        [entry.to_dict() for entry in logs]
-        if as_json
-        else format_task_log_list(logs, parsed_limit.value)
+        read_task_logs(
+          connection, parsed_task, limit=parsed_limit, since=since
+        ),
+        parsed_limit.value,
       )
 
-  result = _invoke(_run)
-  if as_json:
-    _json_echo(result)
-  else:
-    click.echo(result)
+  _run_read(
+    as_json,
+    _load,
+    lambda pair: [entry.to_dict() for entry in pair[0]],
+    lambda pair: format_task_log_list(pair[0], pair[1]),
+  )
 
 
 @task.command('update')
@@ -1533,7 +1538,7 @@ def decision_list_command(
 ) -> None:
   store = _project_store(ctx)
 
-  def _run() -> object:
+  def _load() -> tuple[tuple[DecisionRecord, ...], int]:
     project_name = ProjectName.parse(name)
     filters = RecordListFilter.parse(
       'Decision',
@@ -1544,18 +1549,14 @@ def decision_list_command(
       no_task=no_task,
     )
     with store.open_project(project_name) as connection:
-      decisions = read_decisions(connection, filters)
-      return (
-        [item.to_dict() for item in decisions]
-        if as_json
-        else format_decision_list(decisions, filters.limit.value)
-      )
+      return read_decisions(connection, filters), filters.limit.value
 
-  result = _invoke(_run)
-  if as_json:
-    _json_echo(result)
-  else:
-    click.echo(result)
+  _run_read(
+    as_json,
+    _load,
+    lambda pair: [item.to_dict() for item in pair[0]],
+    lambda pair: format_decision_list(pair[0], pair[1]),
+  )
 
 
 @project_group.group()
@@ -1639,21 +1640,17 @@ def blocker_list_command(
 ) -> None:
   store = _project_store(ctx)
 
-  def _run() -> object:
+  def _load() -> tuple[BlockerRecord, ...]:
     project_name = ProjectName.parse(name)
     with store.open_project(project_name) as connection:
-      blockers = read_blockers(connection, status)
-      return (
-        [item.to_dict() for item in blockers]
-        if as_json
-        else format_blocker_list(blockers, status)
-      )
+      return read_blockers(connection, status)
 
-  result = _invoke(_run)
-  if as_json:
-    _json_echo(result)
-  else:
-    click.echo(result)
+  _run_read(
+    as_json,
+    _load,
+    lambda blockers: [item.to_dict() for item in blockers],
+    lambda blockers: format_blocker_list(blockers, status),
+  )
 
 
 @blocker.command('resolve')
@@ -1761,7 +1758,7 @@ def evidence_list_command(
 ) -> None:
   store = _project_store(ctx)
 
-  def _run() -> object:
+  def _load() -> tuple[tuple[EvidenceRecord, ...], int]:
     project_name = ProjectName.parse(name)
     filters = RecordListFilter.parse(
       'Evidence',
@@ -1772,15 +1769,11 @@ def evidence_list_command(
       no_task=no_task,
     )
     with store.open_project(project_name) as connection:
-      entries = read_evidence(connection, filters)
-      return (
-        [item.to_dict() for item in entries]
-        if as_json
-        else format_evidence_list(entries, filters.limit.value)
-      )
+      return read_evidence(connection, filters), filters.limit.value
 
-  result = _invoke(_run)
-  if as_json:
-    _json_echo(result)
-  else:
-    click.echo(result)
+  _run_read(
+    as_json,
+    _load,
+    lambda pair: [item.to_dict() for item in pair[0]],
+    lambda pair: format_evidence_list(pair[0], pair[1]),
+  )

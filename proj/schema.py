@@ -1,18 +1,45 @@
 import contextlib
+import re
 import sqlite3
-from typing import Final
+from dataclasses import dataclass
+from typing import Final, Literal
 
 from .core import CharterInput, ProjectError, ProjectName, is_substantive
 
 __all__ = [
   'SCHEMA_VERSION',
+  'CorruptDatabase',
+  'DatabaseClassification',
+  'classify_database',
   'configure_connection',
   'connection_time',
   'initialize_project',
+  'is_corrupt_sqlite_error',
   'validate_project',
 ]
 
 SCHEMA_VERSION: Final[int] = 7
+
+_CORRUPT_SQLITE_CODES: Final[frozenset[int]] = frozenset(
+  {sqlite3.SQLITE_CORRUPT, sqlite3.SQLITE_NOTADB}
+)
+
+
+@dataclass(frozen=True, slots=True)
+class CorruptDatabase:
+  reason: str
+
+
+type DatabaseClassification = (
+  Literal['project', 'non-project'] | CorruptDatabase
+)
+
+_PROJECT_IDENTITY_TABLES: Final[tuple[str, ...]] = (
+  'project',
+  'project_state',
+  'project_charter_history',
+  'legacy_lifecycle',
+)
 
 type _SchemaDefinitionKey = tuple[str, str]
 type _SchemaDefinitions = dict[int, dict[_SchemaDefinitionKey, str]]
@@ -1744,6 +1771,25 @@ _V6_TRIGGER_NAMES: Final[tuple[str, ...]] = (
   'open_blocker_target',
 )
 
+_PROJECT_TRIGGER_NAMES: Final[frozenset[str]] = frozenset(
+  re.findall(
+    r'^CREATE TRIGGER ([a-z_]+)\b', _LIFECYCLE_TRIGGER_SQL, re.MULTILINE
+  )
+)
+
+_IDENTITY_TABLE_SQL: Final[str] = ', '.join(
+  f"'{name}'" for name in sorted(_PROJECT_IDENTITY_TABLES)
+)
+_PROJECT_TRIGGER_SQL: Final[str] = ', '.join(
+  f"'{name}'" for name in sorted(_PROJECT_TRIGGER_NAMES)
+)
+_IS_PROJECT_DB_SQL: Final[str] = (
+  'SELECT 1 FROM sqlite_master '
+  f"WHERE (type = 'table' AND name IN ({_IDENTITY_TABLE_SQL})) "
+  f"OR (type = 'trigger' AND name IN ({_PROJECT_TRIGGER_SQL})) "
+  'LIMIT 1'
+)
+
 
 def configure_connection(
   connection: sqlite3.Connection,
@@ -1820,6 +1866,23 @@ def initialize_project(
     ) from error
 
 
+def is_corrupt_sqlite_error(error: sqlite3.Error) -> bool:
+  code = getattr(error, 'sqlite_errorcode', None)
+  return isinstance(code, int) and (code & 0xFF) in _CORRUPT_SQLITE_CODES
+
+
+def classify_database(
+  connection: sqlite3.Connection,
+) -> DatabaseClassification:
+  try:
+    row = connection.execute(_IS_PROJECT_DB_SQL).fetchone()
+  except sqlite3.Error as error:
+    if is_corrupt_sqlite_error(error):
+      return CorruptDatabase(str(error))
+    raise
+  return 'project' if row is not None else 'non-project'
+
+
 def validate_project(
   connection: sqlite3.Connection,
   *,
@@ -1830,38 +1893,37 @@ def validate_project(
     _validate_project_inner(
       connection,
       expected_name=expected_name.value,
-      display_path=display_path,
     )
   except sqlite3.Error as error:
     raise ProjectError(
       f'Project database could not be validated: {display_path}: {error}'
     ) from error
+  except ProjectError as error:
+    raise ProjectError(f'{error}: {display_path}') from error
 
 
 def _validate_project_inner(
   connection: sqlite3.Connection,
   *,
   expected_name: str,
-  display_path: str,
 ) -> None:
   version_row = connection.execute('PRAGMA user_version').fetchone()
   version = version_row[0] if version_row is not None else 0
   if version == 6:
-    _validate_project_singletons(connection, expected_name)
     _validate_project_schema(connection, _canonical_schema_definitions(6))
     _validate_project_integrity(connection)
+    _validate_project_singletons(connection, expected_name)
     _validate_current_lifecycle(connection)
     _migrate_schema_6_to_7(connection)
-    version_row = connection.execute('PRAGMA user_version').fetchone()
-    version = version_row[0] if version_row is not None else 0
+    return
   if version != SCHEMA_VERSION:
     raise ProjectError(
       f'Unsupported project schema version {version}; expected '
-      f'{SCHEMA_VERSION}: {display_path}'
+      f'{SCHEMA_VERSION}'
     )
-  _validate_project_singletons(connection, expected_name)
   _validate_project_schema(connection)
   _validate_project_integrity(connection)
+  _validate_project_singletons(connection, expected_name)
   _validate_current_lifecycle(connection)
 
 
@@ -1998,15 +2060,13 @@ def _validate_project_integrity(connection: sqlite3.Connection) -> None:
 def _validate_project_singletons(
   connection: sqlite3.Connection, expected_name: str
 ) -> None:
-  try:
-    project_rows = connection.execute(
-      'SELECT name FROM project'
-    ).fetchall()
-    state_count = connection.execute(
-      'SELECT count(*) FROM project_state'
-    ).fetchone()[0]
-  except sqlite3.Error as error:
-    raise ProjectError(f'Project schema is incomplete: {error}') from error
+  project_rows = connection.execute(
+    'SELECT name, typeof(name) AS name_type, '
+    'typeof(objective) AS objective_type FROM project'
+  ).fetchall()
+  state_count = connection.execute(
+    'SELECT count(*) FROM project_state'
+  ).fetchone()[0]
   if len(project_rows) != 1:
     raise ProjectError(
       f'Project database must contain one project row; found '
@@ -2017,23 +2077,15 @@ def _validate_project_singletons(
       f'Project database must contain one project-state row; found '
       f'{state_count}'
     )
-  stored_name = project_rows[0]['name']
+  row = project_rows[0]
+  if row['name_type'] != 'text' or row['objective_type'] != 'text':
+    raise ProjectError('Project database metadata columns must be text')
+  stored_name = row['name']
   if stored_name != expected_name:
     raise ProjectError(
       f'Project name {stored_name!r} does not match database address '
       f'{expected_name!r}'
     )
-
-
-def _execute_sql(connection: sqlite3.Connection, script: str) -> None:
-  statement = ''
-  for line in script.splitlines(keepends=True):
-    statement += line
-    if sqlite3.complete_statement(statement):
-      connection.execute(statement)
-      statement = ''
-  if statement.strip():
-    raise ProjectError('Incomplete project schema SQL')
 
 
 def _normalize_schema_definition(definition: str) -> str:
@@ -2057,8 +2109,8 @@ def _canonical_schema_definitions(
         schema_sql = schema_sql.replace(
           f'{_GOAL_TABLE_SQL};', f'{_GOAL_TABLE_SQL_V6};'
         )
-      _execute_sql(expected, schema_sql)
-      _execute_sql(expected, _LIFECYCLE_TRIGGER_SQL)
+      expected.executescript(schema_sql)
+      expected.executescript(_LIFECYCLE_TRIGGER_SQL)
       if version == 6:
         for trigger_name, trigger_sql in zip(
           _V6_TRIGGER_NAMES, _V6_TRIGGER_SQL, strict=True
