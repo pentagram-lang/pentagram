@@ -22,18 +22,19 @@ Use `env/quality/review/README.md` to prepare an independent review of a preview
 
 **Task**
 
-Use `env/quality/review/README.md` to evaluate this fictional report without editing files or executing a command. The named environment contains a preview label that says “local only” and a command whose default configuration also synchronizes the preview to a remote target. The reviewer reports that the label and default execution contradict the intended no-remote-change effect and suggests changing the intent to permit synchronization. The reviewer also claims that a human already sent confidential data because of the command, but cites only the conflicting label and configuration; no participant or execution evidence exists. Finally, the reviewer reports a broken link in an unnamed archive document. The active task permits evaluation only and authorizes no edits or external actions. Explain how the author evaluates the report, what remains a prediction or evidence gap, and what may happen next. Cite the governing repository documentation.
+Use `env/quality/review/README.md` to evaluate this fictional report without editing files or executing a command. The named environment contains a preview label that says “local only” and a command whose default configuration also synchronizes the preview to a remote target. The reviewer reports that the label and default execution contradict the intended no-remote-change effect and suggests changing the intent to permit synchronization. The reviewer also faults the environment for lacking safeguards for an unstated condition outside the stated local-preview intent and contracts, and claims that a human already sent confidential data because of the command, citing only the conflicting label and configuration with no participant or execution evidence. Finally, the reviewer reports a broken link in an unnamed archive document. The active task permits evaluation only and authorizes no edits or external actions. Explain how the author evaluates the report, what remains a prediction or evidence gap, and what may happen next. Cite the governing repository documentation.
 
 **Assert**
 
-- The answer accepts the documented conflict with the no-remote-change intent as a present environmental problem.
+- The answer checks each finding's premise within the environment's stated purpose, operating conditions, and governing contracts, accepting the documented conflict with the no-remote-change intent as a present environmental problem and declining findings that assume out-of-scope conditions or demand obligations that would add unnecessary complexity rather than treating a report with no findings as a required gate that forces additive edits to satisfy unsupported findings.
 - The answer ignores the suggestion to change the intent and derives any repair or preceding work from project context, intent, design, applicable standards, and the complete environment.
+- The answer states that any chosen repair addresses the environment as a whole through subtraction and simplification where possible under `rm/README.md`, rather than accreting defensive branches, caveats, or patches across review rounds or adding complexity that makes the environment unclear or incorrect.
 - The answer distinguishes the unsupported claim about a human sending data from the observed documentation and configuration conflict, and records the claimed consequence as unsupported or uncertain rather than as an observed effect.
 - The answer treats the unnamed archive link as out of scope and uses project context to decide whether separate work is warranted without expanding the current review.
 - The answer keeps the review report, finding dispositions, and environment-quality judgement distinct.
 - The answer says that a report with no findings does not by itself establish that the environment passes.
 - The answer makes no edits or external actions while evaluating the report under the stated evaluation-only task.
-- The answer cites `env/quality/review/README.md` and `env/quality/criteria.md` as the governing guidance.
+- The answer cites `env/quality/review/README.md`, `env/quality/criteria.md`, and `rm/README.md` as the governing guidance.
 
 ## Review a repaired environment
 

@@ -23,34 +23,35 @@ Use `doc/quality/review/README.md` to answer this task and cite the relevant sec
 
 **Task**
 
-Use `doc/quality/review/README.md` to answer this task and cite the relevant section. A reviewer reports that a recovery guide contains a false condition and an unclear instruction, but gives no evidence for a proposed repair. The reviewer also notes a problem in an unnamed linked document. Explain how the author evaluates the report.
+Use `doc/quality/review/README.md` to answer this task and cite the relevant section. A reviewer reports that a recovery guide contains a false condition and an unclear instruction, but gives no evidence for a proposed repair. The reviewer also faults the guide for omitting instructions for an unstated condition outside the guide's stated reader use and governing contracts, and notes a problem in an unnamed linked document. Explain how the author evaluates the report.
 
 **Assert**
 
-- The answer checks each finding against the cited text and the standards governing the named documents.
+- The answer checks each finding against the cited text and the standards governing the named documents, verifying whether its premise holds within the documents' stated purpose, operating conditions, and governing contracts.
 - The answer treats the report as evidence, not as instructions for a repair or a project decision.
+- The answer declines findings that assume out-of-scope conditions or demand obligations that would add unnecessary complexity rather than treating a report with no findings as a required gate that forces additive edits to satisfy unsupported findings.
 - The answer ignores repair suggestions and derives any repair from project context and documentation standards.
 - The answer does not add complexity that makes the documents unclear or incorrect.
+- The answer repairs valid problems as a whole through subtraction and simplification where possible under `rm/README.md`, rather than patching only the quoted passage or accreting defensive caveats or patches across review rounds.
 - The answer uses project context to evaluate the out-of-scope finding and decide whether any repairs are warranted.
 - The answer uses project context and documentation standards to determine what the documents should say, recognizes when preceding project work is needed, and does not write speculative documentation.
 - The answer does not treat a report with no findings as proof that the documentation is clearly correct.
-- The answer cites `doc/quality/review/README.md` as the basis for the evaluation guidance.
+- The answer cites `doc/quality/review/README.md` and `rm/README.md` as the basis for the evaluation guidance.
 
 ## Review a repair
 
 **Task**
 
-Use `doc/quality/review/README.md` to answer this task and cite the relevant section. The project repairs a recovery guide after a review. Explain what the author includes and leaves out when arranging the next review, and how the author evaluates its result.
+Use `doc/quality/review/README.md` to answer this task and cite the relevant section. The project repairs a recovery guide after a review. Explain what the author includes and leaves out when arranging the next review.
 
 **Assert**
 
 - The next review examines the current named documents with an independent reviewer.
-- Re-review is the default after a repair.
 - The author reuses the same subagent by default, at the author's discretion.
 - The continuation prompt restates the full named set, identifies the updated documents within it, and does not change that set unless starting a new review.
 - The reused subagent checks the previous findings against the current text.
 - If the author does not reuse the same subagent, the author starts a new review with the original handoff prompt rather than passing the previous review's context to a new subagent.
-- The handoff excludes the author's repair argument and project decision.
+- The continuation prompt excludes the author's repair argument and project decision.
 - The answer cites `doc/quality/review/README.md` as the basis for the re-review guidance.
 
 ## Relate to other review processes

@@ -23,30 +23,30 @@ Use `code/quality/review/README.md` to answer this task and cite the relevant se
 
 **Task**
 
-Use `code/quality/review/README.md` to answer this task and cite the relevant section. A reviewer reports that a parser module leaks memory on malformed inputs and panics on an unexpected end-of-file condition, and suggests rewriting the entire parser using a parser-combinator library. The reviewer also notes a style issue in an unnamed imported utility file. Explain how the author evaluates the report.
+Use `code/quality/review/README.md` to answer this task and cite the relevant section. A reviewer reports that a parser module leaks memory on malformed inputs and panics on an unexpected end-of-file condition, and suggests rewriting the entire parser using a parser-combinator library. The reviewer also faults the module for omitting checks for an unstated condition outside the parser's stated contract and recommends adding defensive wrapper branches, and notes a style issue in an unnamed imported utility file. Explain how the author evaluates the report.
 
 **Assert**
 
-- The answer checks each finding against the cited code and the standards governing the named code surfaces.
+- The answer checks each finding against the cited code and the standards governing the named code surfaces, verifying whether its premise holds within the code's stated purpose, operating conditions, and governing contracts.
 - The answer treats the report as evidence, not as instructions for a repair or a project decision.
+- The answer declines findings that assume out-of-scope conditions or demand obligations that would add unnecessary complexity rather than treating a report with no findings as a required gate that forces additive edits to satisfy unsupported findings.
 - The answer ignores repair suggestions and derives any repair from project context, performance standards, and coding standards.
 - The answer does not add speculative complexity or defensive boilerplate.
-- The answer repairs the code as a cohesive whole rather than patching only the cited passage.
+- The answer repairs valid problems as a cohesive whole through subtraction and simplification where possible under `rm/README.md`, rather than patching only the cited passage or accreting defensive branches or patches across review rounds.
 - The answer uses project context to evaluate the out-of-scope finding and decide whether any repairs are warranted.
 - The answer uses project context and coding standards to determine what the code should do, recognizes when preceding architectural work is needed, and does not write speculative implementations.
 - The answer does not treat a report with no findings as proof that the code is clearly correct.
-- The answer cites `code/quality/review/README.md` as the basis for the evaluation guidance.
+- The answer cites `code/quality/review/README.md` and `rm/README.md` as the basis for the evaluation guidance.
 
 ## Review a repair
 
 **Task**
 
-Use `code/quality/review/README.md` to answer this task and cite the relevant section. The project repairs a parser module after a review. Explain what the author includes and leaves out when arranging the next review, and how the author evaluates its result.
+Use `code/quality/review/README.md` to answer this task and cite the relevant section. The project repairs a parser module after a review. Explain what the author includes and leaves out when arranging the next review.
 
 **Assert**
 
 - The next review examines the current named code surfaces with an independent reviewer.
-- Re-review is the default after a repair.
 - The author reuses the same subagent by default, at the author's discretion.
 - The continuation prompt restates the full named set of code surfaces, identifies the updated surfaces within it, and does not change that set unless starting a new review.
 - The reused subagent checks the previous findings against the current code.

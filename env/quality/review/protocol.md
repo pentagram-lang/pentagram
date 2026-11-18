@@ -12,7 +12,7 @@ If the handoff does not supply these inputs clearly enough to judge the environm
 
 Use the [theory: environmental encounter model](../../theory.md#environmental-encounter) to distinguish state created or preserved by documentation or code in the `total-environment` from external conditions supplied by `participant`, `situation`, or `encounter-noise`.
 
-When the handoff includes a `jj` change ID, inspect the complete diff for that single change with `jj --ignore-working-copy diff --git --revision CHANGE`, as [source control: working copy](../../../source-control.md#working-copy) describes. The `--ignore-working-copy` option prevents this read-only inspection from snapshotting current edits. Use the diff with the current named environment; it does not replace that inspection or expand the named boundary.
+When the handoff includes a `jj` change ID, inspect the complete [working-copy diff](../../../source-control.md#working-copy) for that single change with `jj --ignore-working-copy diff --git --revision CHANGE`; `--ignore-working-copy` prevents this read-only inspection from snapshotting current edits. Use the diff with the current named environment; it does not replace that inspection or expand the named boundary.
 
 ## Judge the environment
 
@@ -20,7 +20,9 @@ Use [criteria](../criteria.md) as the authority for environment quality. Use the
 
 Follow the path from each participant's situation through the information, actions, constraints, feedback, and state the environment exposes. Inspect what the documentation and code together cause participants to understand and do, and what actual execution permits or produces. Report a problem when the named environment establishes a contradiction, an unsafe or misleading action or result, or another condition that prevents the intended use or violates an applicable requirement.
 
-Keep observed conditions separate from predicted consequences. A contradiction or unsafe implementation can be a present problem without an observed participant encounter. A claim that a human, agent, or execution result was affected needs evidence for that effect; if the evidence is missing, record the limitation or prediction without presenting it as an observed failure. Do not demand details that the stated use, intent, or applicable standards do not require, and do not treat an alternative design as a defect without evidence against the current environment.
+Apply [subtractive design](../../../rm/README.md) across the named environmental surface. Unnecessary complexity, volume, indirection, or duplication present in the environment impedes clear understanding, reasoning, and safe change, and is a supported problem when established from the surface and its governing standards. Judge the environment within its stated purpose, operating conditions, intent, and governing contracts: do not invent unstated conditions, threat models, or obligations, do not report missing handling or detail that the stated use and applicable standards do not require, and do not treat an alternative design as a defect without evidence against the current environment.
+
+Keep observed conditions separate from predicted consequences. A contradiction or unsafe implementation can be a present problem without an observed participant encounter. A claim that a human, agent, or execution result was affected needs evidence for that effect; if the evidence is missing, record the limitation or prediction without presenting it as an observed failure.
 
 ## Report the evidence
 

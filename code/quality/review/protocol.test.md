@@ -4,7 +4,7 @@
 
 **Task**
 
-Use `code/quality/review/protocol.md` to answer this task and cite the relevant section. Review a named set of code surfaces. The primary function computes the expected result on typical inputs, but an unchecked boundary condition causes an unhandled panic on empty slices. The function imports an external utility that has a performance inefficiency, but the handoff does not name that utility for review. The handoff names the code surfaces under review, may include one `jj` change ID, and states the contributor and developer use. A different architectural pattern could also express the logic, but the current design has no other established defect. The task does not supply file paths or literal code, so do not invent them.
+Use `code/quality/review/protocol.md` to answer this task and cite the relevant section. Review a named set of code surfaces. The primary function computes the expected result on typical inputs, but an unchecked boundary condition causes an unhandled panic on empty slices, and duplicated wrapper indirection in the named code impedes reasoning. The code does not handle an unstated condition outside the stated contributor and developer use and governing contracts. The function imports an external utility that has a performance inefficiency, but the handoff does not name that utility for review. The handoff names the code surfaces under review, may include one `jj` change ID, and states the contributor and developer use. A different architectural pattern could also express the logic, but the current design has no other established defect. The task does not supply file paths or literal code, so do not invent them.
 
 Describe the findings the reviewer should report and the evidence the report should contain. Do not propose any repairs or decide what the project should do with the report.
 
@@ -13,11 +13,13 @@ Describe the findings the reviewer should report and the evidence the report sho
 - The reviewer inspects every named code surface and judges its literal code under the applicable quality standards.
 - The answer treats the complete execution surface, mechanical sympathy, scale regimes, and structural clarity as part of the complete criteria, not as a restricted review checklist.
 - The reviewer reports the unhandled boundary panic as a correctness defect and explains its execution consequence.
+- The reviewer reports present unnecessary complexity, indirection, or duplication as a supported problem when established from the code and its governing standards under `rm/README.md`.
+- The reviewer judges the code within its stated purpose, operating conditions, and governing contracts, without inventing unstated conditions, threat models, or obligations or demanding speculative complexity, boilerplate, or handling outside the stated use and contracts.
 - The reviewer may report the imported utility's performance issue as out of scope, but does not treat it as a finding in the named code surfaces.
 - The reviewer does not report an alternative design as a defect without evidence that the current design violates a governing standard or cannot serve its stated use.
 - The answer says that the supplied facts do not support an exact code location or literal quotation, rather than inventing one.
 - The answer explains that a report distinguishes observed code, governing standards, evidence, and uncertainty and uses the report form.
-- The answer cites `code/quality/review/protocol.md` as the basis for the reporting guidance.
+- The answer cites `code/quality/review/protocol.md` and `rm/README.md` as the basis for the reporting guidance.
 
 ## Review changed code
 
@@ -30,6 +32,7 @@ Do not recommend a repair or decide what the project should do with the change.
 **Assert**
 
 - The answer explains that the reviewer inspects the named code surfaces as written and uses the complete diff for the named change to understand what changed.
+- The answer explains that the reviewer uses `--ignore-working-copy` with the diff so the read-only inspection does not snapshot current edits.
 - The answer explains that the report identifies the removed invariant check as a supported defect and states the governing standard and execution consequence.
 - The answer explains that the report does not treat the faster execution path, a likely repair, or the absence of another finding as proof that the change passes.
 - The answer explains that the report records the supplied change ID and any evidence limitation.
