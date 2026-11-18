@@ -5,7 +5,6 @@ set -euo pipefail
 CACHE_DIR="$(pwd)/.nix-cache"
 CACHE_LINK_DIR=""
 DAEMON_LOG=""
-telemetry_dir=""
 
 cleanup() {
   if [[ -n "$CACHE_LINK_DIR" ]]; then
@@ -13,9 +12,6 @@ cleanup() {
   fi
   if [[ -n "$DAEMON_LOG" ]]; then
     rm -f "$DAEMON_LOG"
-  fi
-  if [[ -n "$telemetry_dir" ]]; then
-    rm -rf "$telemetry_dir"
   fi
 }
 trap cleanup EXIT
@@ -73,47 +69,4 @@ echo "--- :nix: Cache size after sync"
 report_cache_size
 
 echo "+++ :pentagram: Running 0 check"
-if [[ ${BUILDKITE_BUILD_ID:-} =~ ^[[:alnum:]][[:alnum:]-]*$ &&
-      ${BUILDKITE_JOB_ID:-} =~ ^[[:alnum:]][[:alnum:]-]*$ &&
-      -n ${BUILDKITE_COMMIT:-} ]]; then
-  if mkdir -p .tmp && \
-    telemetry_dir="$(mktemp -d .tmp/ci-test-telemetry.XXXXXXXX)" && \
-    nix shell .#default --command python -c 'import zero.telemetry_ci' >/dev/null; then
-    telemetry_db="$telemetry_dir/test-telemetry/$BUILDKITE_BUILD_ID/$BUILDKITE_JOB_ID.sqlite3"
-    if nix shell .#default --command python -m zero.telemetry_ci \
-      --database="$telemetry_db" \
-      --build-id="$BUILDKITE_BUILD_ID" \
-      --job-id="$BUILDKITE_JOB_ID" \
-      --revision="$BUILDKITE_COMMIT" \
-      -- 0 check; then
-      check_status=0
-    else
-      check_status=$?
-    fi
-
-    if [ -f "$telemetry_db" ] && [ -f "$telemetry_db.complete" ]; then
-      if (
-        cd "$telemetry_dir" &&
-        buildkite-agent artifact upload \
-          "test-telemetry/$BUILDKITE_BUILD_ID/$BUILDKITE_JOB_ID.sqlite3"
-      ); then
-        echo "Uploaded Python test telemetry for build $BUILDKITE_BUILD_ID"
-      else
-        echo "WARNING: unable to upload Python test telemetry artifact" >&2
-      fi
-    elif [ -f "$telemetry_db" ]; then
-      echo "WARNING: Python test telemetry database was not finalized" >&2
-    else
-      echo "WARNING: Python test telemetry database was not created" >&2
-    fi
-    if [ "$check_status" -ne 0 ]; then
-      exit "$check_status"
-    fi
-  else
-    echo "WARNING: unable to prepare Python test telemetry; running 0 check" >&2
-    nix shell .#default --command 0 check
-  fi
-else
-  echo "WARNING: Buildkite run identity unavailable; running 0 check without telemetry" >&2
-  nix shell .#default --command 0 check
-fi
+nix shell .#default --command 0 check
