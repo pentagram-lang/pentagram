@@ -373,3 +373,60 @@ def test_check_all_handles_unborn_head_without_aborting() -> None:
     assert calls[-1] == ['cog', 'check']
   finally:
     shutil.rmtree(unborn, ignore_errors=True)
+
+
+def test_agent_passthrough_and_aliases(
+  shm_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  seen: list[tuple[str, tuple[str, ...], Path | None]] = []
+
+  def fake_launch(
+    target: str, args: Sequence[str], *, repo: Path | None = None
+  ) -> None:
+    seen.append((target, tuple(args), repo))
+
+  monkeypatch.setattr('zero.cli.launch_agent', fake_launch)
+  runner = CliRunner()
+
+  help_res = runner.invoke(cli, ['agent', '--help'], obj=shm_repo)
+  assert help_res.exit_code == 0
+  for target in (
+    'agy-argon-yolo',
+    'agy-carbon-yolo',
+    'agy-flash-yolo',
+    'claude-fable-yolo',
+    'claude-sonnet-yolo',
+    'codex-astra-yolo',
+    'codex-luna-yolo',
+    'codex-sol-yolo',
+  ):
+    assert target in help_res.output
+
+  for cli_args in (
+    ['a', 'flash', '--help', '--foo', 'bar'],
+    ['a', 'flash', '--', '--foo'],
+    ['agent', 'codex-luna-yolo', '--cd', 'x'],
+    ['a', 'sonnet', '--continue'],
+    ['a', 'argon'],
+    ['a', 'carbon'],
+    ['a', 'sol'],
+    ['a', 'astra'],
+    ['a', 'fable'],
+  ):
+    res = runner.invoke(cli, cli_args, obj=shm_repo)
+    assert res.exit_code == 0
+
+  assert seen == [
+    ('agy-flash-yolo', ('--help', '--foo', 'bar'), shm_repo),
+    ('agy-flash-yolo', ('--', '--foo'), shm_repo),
+    ('codex-luna-yolo', ('--cd', 'x'), shm_repo),
+    ('claude-sonnet-yolo', ('--continue',), shm_repo),
+    ('agy-argon-yolo', (), shm_repo),
+    ('agy-carbon-yolo', (), shm_repo),
+    ('codex-sol-yolo', (), shm_repo),
+    ('codex-astra-yolo', (), shm_repo),
+    ('claude-fable-yolo', (), shm_repo),
+  ]
+
+  bad = runner.invoke(cli, ['a', 'unknown'], obj=shm_repo)
+  assert bad.exit_code == 2

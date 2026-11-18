@@ -8,6 +8,8 @@ from pathlib import Path, PurePosixPath
 import click
 
 from proj.cli import project_group
+from zero.agent import launch as launch_agent
+from zero.agent.dispatch import AGENT_CONFIGURATIONS
 from zero.boot import run_boot
 from zero.commit_message import check_commit_message, read_head_message
 from zero.doc_lint import check_docs
@@ -311,7 +313,13 @@ def do_check_all(
 @click.group(
   cls=AliasedGroup,
   name='0',
-  aliases={'f': 'fix', 'c': 'check', 'r': 'run', 'p': 'proj'},
+  aliases={
+    'f': 'fix',
+    'c': 'check',
+    'r': 'run',
+    'p': 'proj',
+    'a': 'agent',
+  },
   invoke_without_command=True,
 )
 @click.pass_context
@@ -330,6 +338,44 @@ def help_cmd(ctx: click.Context) -> None:
 
 
 cli.add_command(project_group, name='proj')
+
+_AGENT_ALIASES = {
+  'flash': 'agy-flash-yolo',
+  'argon': 'agy-argon-yolo',
+  'carbon': 'agy-carbon-yolo',
+  'luna': 'codex-luna-yolo',
+  'sol': 'codex-sol-yolo',
+  'astra': 'codex-astra-yolo',
+  'sonnet': 'claude-sonnet-yolo',
+  'fable': 'claude-fable-yolo',
+}
+
+
+@cli.group('agent', cls=AliasedGroup, aliases=_AGENT_ALIASES)
+def agent_group() -> None:
+  pass
+
+
+class _PassthroughCommand(click.Command):
+  def parse_args(self, ctx: click.Context, args: list[str]) -> list[str]:
+    ctx.args = list(args)
+    return []
+
+
+def _make_agent_command(target_name: str) -> click.Command:
+  @click.command(
+    target_name,
+    cls=_PassthroughCommand,
+  )
+  @click.pass_context
+  def _agent_cmd(ctx: click.Context) -> None:
+    launch_agent(target_name, tuple(ctx.args), repo=_repo(ctx))
+
+  return _agent_cmd
+
+
+for _target in AGENT_CONFIGURATIONS:
+  agent_group.add_command(_make_agent_command(_target))
 
 
 @cli.command(
