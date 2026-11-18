@@ -394,17 +394,10 @@ for _target in AGENT_CONFIGURATIONS:
   agent_group.add_command(_make_agent_command(_target))
 
 
-@cli.command(
-  'run',
-  context_settings={
-    'ignore_unknown_options': True,
-    'allow_extra_args': True,
-    'help_option_names': [],
-  },
-)
-@click.argument('args', nargs=-1, type=click.UNPROCESSED)
-def run_cmd_entry(args: tuple[str, ...]) -> None:
-  run_boot(args)
+@cli.command('run', cls=_PassthroughCommand)
+@click.pass_context
+def run_cmd_entry(ctx: click.Context) -> None:
+  run_boot(tuple(ctx.args))
 
 
 @cli.group(

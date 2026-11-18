@@ -313,11 +313,10 @@ def test_run_passthrough_proj_mount_and_main_chdir(
 
   monkeypatch.setattr('zero.cli.run_boot', fake_run_boot)
   runner = CliRunner()
-  res = runner.invoke(
-    cli, ['r', '--help', '--watch', 'core'], obj=shm_repo
-  )
-  assert res.exit_code == 0
-  assert seen_run == [('--help', '--watch', 'core')]
+  for args in (['r', '--help', '--watch', 'core'], ['r', '--', '--help']):
+    res = runner.invoke(cli, args, obj=shm_repo)
+    assert res.exit_code == 0
+  assert seen_run == [('--help', '--watch', 'core'), ('--', '--help')]
 
   proj_res = runner.invoke(cli, ['p', 'list'], obj=shm_repo)
   assert proj_res.exit_code == 0

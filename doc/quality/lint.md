@@ -1,6 +1,6 @@
 # Lint
 
-[Quality](README.md) uses lint for mechanical rules that can be decided reliably from repository state. The checks remain separate so each successful result identifies what it observed. `0 check doc` runs the heading, link, index, and test-companion rules below. `0 check fmt` runs every repository formatter check, including dprint for Markdown. `0 check commit` runs commit-message line-length validation. The complete `0 check` cycle includes all three when commit validation is enabled. Lint does not judge meaning, readability, or usefulness.
+[Quality](README.md) uses lint for mechanical rules that can be decided reliably from repository state. The checks remain separate so each successful result identifies what it observed. `0 check doc` runs the heading, link, index, and test-companion rules below. `0 check fmt` runs every repository formatter check, including dprint for Markdown. `0 check commit` runs commit-message format and line-length validation. The complete `0 check` cycle includes all three when commit validation is enabled. Lint does not judge meaning, readability, or usefulness.
 
 ## Markdown formatting
 

@@ -23,16 +23,6 @@ curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix/
 nix profile install .
 ```
 
-## Run repository commands
-
-Use the repository package environment for checks and tests so the configured Python and development tools are available:
-
-```sh
-nix shell .#default -c 0 check --skip-commit
-```
-
-This environment includes pytest, pytest-xdist, Ruff, ty, and Watchman. The [command-plane guide](zero/README.md) documents Python test selection, timing, parallel execution, and watch mode.
-
 ### Upgrade
 
 1. **Nix:** uninstall, then reinstall it.
@@ -48,3 +38,13 @@ This environment includes pytest, pytest-xdist, Ruff, ty, and Watchman. The [com
    nix profile list
    nix profile upgrade <PROFILE-NAME>
    ```
+
+## Run repository commands
+
+Use the repository package environment for checks and tests so the configured Python and development tools are available:
+
+```sh
+nix shell .#default -c 0 check --skip-commit
+```
+
+This environment includes pytest, pytest-xdist, Ruff, ty, and Watchman. The [command-plane guide](zero/README.md) documents Python test selection, timing, parallel execution, and watch mode.

@@ -326,7 +326,7 @@ Read commands and write commands accept `--json` (except `goal text` and `goal c
 
 `task list-logs`, `decision list`, and `evidence list` default to `--limit 20` (`LIMIT >= 1`). When more rows exist, text mode prints a `--limit` notice and `--json` emits `{"items": [...], "has_more": true}`. `blocker list` defaults to `open` and prints `Blockers (status=<filter>):`.
 
-`handoff` derives the active goal, active task, and active stage; lists open blockers, blocked tasks, and blocked goals; selects focus in precedence order (`active` task -> newest `blocked` task `(updated_at DESC, id DESC)` -> `active` goal with `task_id IS NULL` -> newest `blocked` goal with `task_id IS NULL` -> none); caps focus-scoped decisions, evidence, and task logs at `5` (`HANDOFF_LIMIT`) with `(shown of total)` counts; omits empty related sections; reverses `task_logs` to chronological order in text mode; and shortens prose strings exceeding `1,000` characters (`HANDOFF_TEXT_LIMIT`) with `…`.
+`handoff` derives the active goal, active task, and active stage; lists open blockers, blocked tasks, and blocked goals; selects focus in precedence order (`active` task -> newest `blocked` task `(updated_at DESC, id DESC)` -> `active` goal -> newest `blocked` goal `(updated_at DESC, id DESC)` -> none, filtering decisions and evidence to `task_id IS NULL` and omitting task logs when focus is a goal); caps focus-scoped decisions, evidence, and task logs at `5` (`HANDOFF_LIMIT`) with `(shown of total)` counts; omits empty related sections; reverses `task_logs` to chronological order in text mode; and shortens prose strings exceeding `1,000` characters (`HANDOFF_TEXT_LIMIT`) with `…`.
 
 ### Argument parsing
 

@@ -318,18 +318,13 @@ def _run_iteration(
   shell: ShellWatcher | None,
   shell_built: bool,
   *,
+  restart_only: bool,
   nix_error: bool,
   runner: Runner,
   shell_spawner: Callable[[Path], ShellWatcher],
 ) -> tuple[ShellWatcher | None, bool]:
   new_shell = shell
   new_built = shell_built
-  restart_only = (
-    plan.penta_changed
-    and shell is None
-    and shell_built
-    and not plan.rust_changed
-  )
 
   def _step() -> bool:
     nonlocal new_shell, new_built
@@ -423,6 +418,7 @@ def run_watch(
         plan,
         shell,
         shell_built,
+        restart_only=restart_only,
         nix_error=nix_error,
         runner=runner,
         shell_spawner=shell_spawner,

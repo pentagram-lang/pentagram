@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Never
 
+import click
 import pytest
 
 from zero.boot import run_boot
@@ -32,3 +33,14 @@ def test_run_boot_forwards_args() -> None:
     'cargo',
     ['cargo', 'run', '-p', 'boot_shell', '--'],
   )
+
+
+def test_run_boot_wraps_os_error() -> None:
+  def fail_execvp(_file: str, _argv: Sequence[str]) -> Never:
+    raise FileNotFoundError('cargo not found')
+
+  with pytest.raises(
+    click.ClickException,
+    match=r'^Failed to launch boot_shell: cargo not found$',
+  ):
+    run_boot([], execvp=fail_execvp)

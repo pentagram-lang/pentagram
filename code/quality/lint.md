@@ -81,7 +81,7 @@ The policy scanner inspects repository files using the Git inventory (tracked fi
 
 - **Banned file names:** `AGENTS.md`, `AGENTS.override.md`, `CLAUDE.md`, `CLAUDE.local.md`, and `GEMINI.md`.
 - **Banned directory names:** `.agents`, `.claude`, `.codex`, and `.gemini`.
-- **Test directory names:** any directory component containing `test` (use `tst` when testing is the subject).
-- **Test filenames:** any file basename containing `test` must have the form `<stem>_test.<ext>` or `<stem>.test.<ext>` (with neither `<stem>` nor `<ext>` containing `.` or `test`) and have a sibling `<stem>.<ext>` in the same directory.
+- **Test directory names:** any directory component containing `test` (case-insensitive; use `tst` when testing is the subject).
+- **Test filenames:** any file basename containing `test` (case-insensitive) must have the form `<stem>_test.<comp_ext>` or `<stem>.test.<comp_ext>` alongside a non-test sibling `<stem>.<subj_ext>` in the same directory, with non-empty `<stem>`, `<comp_ext>`, and `<subj_ext>` containing neither `.` nor case-insensitive `test`.
 
 Ambient instruction files or agent-specific scratch directories must not exist in the working tree. Contributors must keep agent configuration in approved repository locations or operator-level configuration.
