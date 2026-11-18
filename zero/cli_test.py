@@ -430,3 +430,28 @@ def test_agent_passthrough_and_aliases(
 
   bad = runner.invoke(cli, ['a', 'unknown'], obj=shm_repo)
   assert bad.exit_code == 2
+
+
+def test_watch_cli_wiring(
+  shm_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  seen: list[Path] = []
+  return_codes = iter([0, 0, 1])
+
+  def fake_run_watch(repo: Path) -> int:
+    seen.append(repo)
+    return next(return_codes)
+
+  monkeypatch.setattr('zero.cli.run_watch', fake_run_watch)
+  runner = CliRunner()
+
+  for args in (['watch'], ['w'], ['-w']):
+    res = runner.invoke(cli, args, obj=shm_repo)
+    expected_code = 1 if args == ['-w'] else 0
+    assert res.exit_code == expected_code
+
+  assert seen == [shm_repo, shm_repo, shm_repo]
+
+  bad = runner.invoke(cli, ['-w', 'check'], obj=shm_repo)
+  assert bad.exit_code != 0
+  assert '--watch cannot be combined with a subcommand.' in bad.output

@@ -25,6 +25,7 @@ from zero.lib import (
   timed_step,
 )
 from zero.repo_policy import check_repo_policy
+from zero.watch import run_watch
 
 
 def _repo(ctx: click.Context) -> Path:
@@ -319,15 +320,30 @@ def do_check_all(
     'r': 'run',
     'p': 'proj',
     'a': 'agent',
+    'w': 'watch',
   },
   invoke_without_command=True,
 )
+@click.option('-w', '--watch', is_flag=True)
 @click.pass_context
-def cli(ctx: click.Context) -> None:
+def cli(ctx: click.Context, watch: bool) -> None:
   if not isinstance(ctx.obj, Path):
     ctx.obj = find_repo_root()
+  if watch and ctx.invoked_subcommand is not None:
+    raise click.ClickException(
+      '--watch cannot be combined with a subcommand.'
+    )
+  if watch:
+    _exit_on_fail(run_watch(_repo(ctx)) == 0)
+    return
   if ctx.invoked_subcommand is None:
     click.echo(ctx.get_help())
+
+
+@cli.command('watch')
+@click.pass_context
+def watch_cmd(ctx: click.Context) -> None:
+  _exit_on_fail(run_watch(_repo(ctx)) == 0)
 
 
 @cli.command('help')
