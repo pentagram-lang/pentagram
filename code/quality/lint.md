@@ -11,7 +11,7 @@ Because check commands read the working tree through automated Git interoperabil
 The [command plane](../../zero/README.md) provides automated commands to format code, apply mechanical fixes, and validate rules:
 
 - `0 fix` formats all source files and applies automated linter fixes across Rust and Python. Use `0 fix fmt` to run only formatters, or `0 fix lint` to run only linter fixes.
-- `0 check fmt` validates formatting across Rust, Python, Nix, and Markdown without modifying files.
+- `0 check fmt` validates formatting across Rust, Python, Nix, Markdown, JSON, and TOML without modifying files.
 - `0 check lint` runs static analysis and compiler lints without modifying files.
 - `0 check --skip-commit` runs the complete verification suite—including formatting, linting, type checking, repository policy, documentation lint, and all test suites—without validating commit messages or history.
 - `0 check` runs the complete verification suite, including commit-message and history validation.
@@ -42,7 +42,7 @@ Import practices combine mechanical enforcement with authoring convention. While
 
 ## Python
 
-The command plane (`zero/`) and project subsystem (`proj/`) are written in Python and governed by [`ruff.toml`](../../ruff.toml).
+The command plane (`zero/`) and project subsystem (`proj/`) are written in Python and governed by [`pyproject.toml`](../../pyproject.toml).
 
 Formatting is enforced by `ruff format`:
 
@@ -61,7 +61,7 @@ Linting is enforced by `ruff check`:
 - **Ruff (`RUF`):** Enforces Ruff-specific correctness and maintenance rules.
 - **Annotations (`ANN`):** Requires explicit parameter and return annotations and rejects dynamically typed `Any` annotations.
 
-Ruff also reports syntax errors while parsing source, independently of the selected rule families. The target is Python 3.13. `ruff check` scans Python files from the repository root, including implementation and test modules under `zero/` and `proj/`. `ruff.toml` selects these rule families without broad or test-specific ignores.
+Ruff also reports syntax errors while parsing source, independently of the selected rule families. The target is Python 3.13. `ruff check` scans Python files from the repository root, including implementation and test modules under `zero/` and `proj/`. `pyproject.toml` selects these rule families without broad or test-specific ignores.
 
 `0 check type` runs ty over all first-party Python implementation and test code in `zero/` and `proj/`. It fails on diagnostics and is part of the mandatory `0 check` cycle. Ruff's annotation rules require complete function signatures, while ty checks whether values and calls satisfy those signatures.
 
@@ -75,11 +75,13 @@ Formatting is enforced by `nixfmt` across all Nix expressions. Nix formatting ru
 
 ## Repository policy
 
-Repository policy rules are enforced by `zero/repo_policy.py` during both complete check cycles.
+Repository policy rules are enforced by `zero/repo_policy.py` during standalone `0 check policy` and both complete check cycles.
 
-The policy scanner inspects repository files using the Git inventory (tracked files and untracked files not ignored by Git). It prevents unauthorized agent configurations, private memory, or ambient harness instructions from being committed:
+The policy scanner inspects repository files using the Git inventory (tracked files and untracked files not ignored by Git) filtered to paths present on disk (`os.path.lexists`), skipping paths deleted in the working copy while retaining broken symbolic links. It rejects unauthorized agent configurations, private memory, ambient harness instructions, and misnamed `test` paths:
 
 - **Banned file names:** `AGENTS.md`, `AGENTS.override.md`, `CLAUDE.md`, `CLAUDE.local.md`, and `GEMINI.md`.
 - **Banned directory names:** `.agents`, `.claude`, `.codex`, and `.gemini`.
+- **Test directory names:** any directory component containing `test` (use `tst` when testing is the subject).
+- **Test filenames:** any file basename containing `test` must have the form `<stem>_test.<ext>` or `<stem>.test.<ext>` (with neither `<stem>` nor `<ext>` containing `.` or `test`) and have a sibling `<stem>.<ext>` in the same directory.
 
 Ambient instruction files or agent-specific scratch directories must not exist in the working tree. Contributors must keep agent configuration in approved repository locations or operator-level configuration.
