@@ -13,7 +13,7 @@ When running a Pentagram documentation test, what repository access should the t
 - The answer tells the subagent not to read `*.test.md`.
 - The answer permits normal access to the rest of the repository unless a narrow exclusion prevents material contamination.
 - The answer says one passing trial establishes only one result under its recorded conditions.
-- The answer identifies `doc/quality/test.md` as the governing source and cites the relevant sections.
+- The answer identifies `doc/quality/tst.md` as the governing source and cites the relevant sections.
 
 ## Reject a contaminated trial
 

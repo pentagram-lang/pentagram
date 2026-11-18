@@ -1,5 +1,5 @@
 [package]
-name = "boot_test"
+name = "boot_tst"
 version.workspace = true
 categories.workspace = true
 edition.workspace = true

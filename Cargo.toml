@@ -8,7 +8,7 @@ members = [
   "boot/parse",
   "boot/resolve",
   "boot/shell",
-  "boot/test",
+  "boot/tst",
 ]
 resolver = "2"
 
@@ -33,7 +33,7 @@ boot_lex = { path = "boot/lex" }
 boot_parse = { path = "boot/parse" }
 boot_resolve = { path = "boot/resolve" }
 boot_shell = { path = "boot/shell" }
-boot_test = { path = "boot/test" }
+boot_tst = { path = "boot/tst" }
 clap = { version = "4.5", features = ["derive"] }
 futures = "0.3"
 pretty_assertions = "1.4"

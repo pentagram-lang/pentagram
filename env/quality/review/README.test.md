@@ -16,7 +16,7 @@ Use `env/quality/review/README.md` to prepare an independent review of a preview
 - The answer distinguishes state created or preserved by documentation or code in the `total-environment` from external participant, situation, and encounter-noise conditions, without duplicating environment state in `situation`.
 - The answer says that the reviewer is a separate subagent with no inherited authoring conversation or project conclusions and receives the handoff rather than a private explanation.
 - The answer says that one `jj` change ID may be supplied when the review focuses on a specific change and that it does not replace the current surface or expand its boundary.
-- The answer cites `env/quality/review/README.md`, `env/quality/criteria.md`, and `env/quality/test.md` as the governing guidance.
+- The answer cites `env/quality/review/README.md`, `env/quality/criteria.md`, and `env/quality/tst.md` as the governing guidance.
 
 ## Evaluate an environmental report
 

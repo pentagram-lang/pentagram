@@ -28,6 +28,14 @@ Partitioning is a recursive discipline applied across every level of software st
 
 - **Packages (directories):** Partition modules into a hierarchy of packages (represented on disk as directories). Packages are nested to build a recursive structure of subpackages, each with their own boundary and clean package-level API.
 
+Across modules and packages, file and directory layout scales recursively by boundary weight (see [topology](../../doc/structure/topology.md) for documentation surfaces):
+
+- **Same-prefix siblings:** Split related aspects of one stem within a package into `<stem>_<aspect>.<ext>` siblings, and place adjacent test companions (`<stem>_test.<comp_ext>` or `<stem>.test.<comp_ext>`) beside `<stem>.<subj_ext>`, where `<comp_ext>` and `<subj_ext>` may be equal or distinct (such as `shell_test.rs` beside `shell.rs` or `parser.test.md` beside `parser.rs`).
+- **Peer siblings:** Place distinct modules that share a package boundary as peer files in the same directory.
+- **Child directories:** Extract a group of modules into a nested subpackage directory when it earns its own ownership boundary and package API.
+
+Reserve `test` in file and directory names strictly for `<stem>_test.<comp_ext>` and `<stem>.test.<comp_ext>` companions paired with a sibling `<stem>.<subj_ext>` subject. When testing itself is the subject of a module or package directory, name it `tst` (for example, `tst.rs` or `boot/tst/`).
+
 ## Method
 
 Good partitioning is the deliberate result of designing an API from the outside in. Rather than writing internal code and wrapping it in a hasty public interface, use this eight-step recipe to establish the boundary, define the API, and prune internal scope:

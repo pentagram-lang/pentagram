@@ -146,7 +146,7 @@ Each measurement mode targets a distinct layer of execution, carrying specific s
 
 - **Weaknesses:** Work counters are disconnected from physical silicon realities, remaining blind to cache misses, pipeline stalls, branch mispredictions, and memory bus latency. Reducing the number of retired instructions or allocations does not guarantee faster elapsed time on real hardware.
 
-- **Ideal stages:** This mode is best suited for the `dev loop` and `pre-merge` CI gates because its noise-free determinism guarantees that checks never flake or block contributors with false regressions. When deterministic cost accounting is used as a pass/fail gate, it is treated as a performance-oriented test governed by all testing and flake rules in [test](../quality/test.md).
+- **Ideal stages:** This mode is best suited for the `dev loop` and `pre-merge` CI gates because its noise-free determinism guarantees that checks never flake or block contributors with false regressions. When deterministic cost accounting is used as a pass/fail gate, it is treated as a performance-oriented test governed by all testing and flake rules in [test](../quality/tst.md).
 
 ### Wall-clock latency timers
 

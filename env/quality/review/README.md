@@ -6,7 +6,7 @@ Within [environment quality](../README.md), an environment review gives the docu
 
 Use [criteria](../criteria.md) to decide whether independent review can add material evidence to the environment-quality judgement. Use its account of each effect's credible divergence and seriousness to choose evidentiary strength, and each affected surface's causal reach to choose breadth. Review is not automatic. Arrange it when inspecting the relationship between documentation, code, participants, actions, results, feedback, or state can reveal something that the available checks, tests, or records do not establish. Weigh that evidence against the cost of preparing, maintaining, and running the review, then choose the smallest set of reviews that can make the complete evidence adequate.
 
-Environment review does not replace the local judgement of documentation or code, and it does not replace an environment test when an encounter is needed to observe participant understanding, action, or a system result. Use the [criteria](../criteria.md) and [environment test](../test.md) guidance to keep those evidence boundaries distinct.
+Environment review does not replace the local judgement of documentation or code, and it does not replace an environment test when an encounter is needed to observe participant understanding, action, or a system result. Use the [criteria](../criteria.md) and [environment test](../tst.md) guidance to keep those evidence boundaries distinct.
 
 ### Prepare the handoff
 

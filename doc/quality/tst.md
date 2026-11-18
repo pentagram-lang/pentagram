@@ -26,13 +26,11 @@ New evidence can change both coverage and the run plan. A documentation failure 
 
 ## Store tests beside their subject
 
-Every test companion ends in `.test.md` and stays beside its subject. Replace a Markdown subject's `.md` ending: tests for `guide.md` belong in `guide.test.md`. Append `.test.md` to any other subject's complete filename: tests for `parser.rs` belong in `parser.rs.test.md`.
-
-The companion path must identify exactly one inventoried subject. Removing `.test.md` from the companion gives its base path. The possible subjects are that base path and the base path with `.md` appended; a base path that already ends in `.md` cannot identify itself. A companion fails when neither or both possible subjects exist.
+Every test companion has the form `<stem>.test.md` and stays in the same directory as its subject, where `<stem>` is non-empty and contains neither `.` nor the substring `test` (use `tst` when testing is the subject). A companion identifies **exactly one** inventoried non-test sibling `<stem>.<ext>` in the same directory, where `<ext>` is non-empty and contains neither `.` nor the substring `test`. Thus `guide.test.md` identifies `guide.md` and `parser.test.md` identifies `parser.rs`. Missing, ambiguous (more than one non-test `<stem>.<ext>` sibling), or nested and malformed companions fail.
 
 Placement identifies the subject, not its governing authority or test kind. A documentation test follows [documentation criteria](criteria.md) to the applicable documentation requirements wherever that documentation is expressed. An environment test follows [environment criteria](../../env/quality/criteria.md) to the identified intent, design, and affected documentation and code requirements. The companion stores the stable test contract; test results belong in project or review evidence.
 
-Documentation tests and [environment tests](../../env/quality/test.md) for the same subject coexist in this companion and use the same schema. Either test kind can accompany any file. Each test's task and assertions determine which quality criteria its result can support; the subject's file type does not. Do not create a separate environment-test companion or schema.
+Documentation tests and [environment tests](../../env/quality/tst.md) for the same subject coexist in this companion and use the same schema. Either test kind can accompany any file. Each test's task and assertions determine which quality criteria its result can support; the subject's file type does not. Do not create a separate environment-test companion or schema.
 
 ## Write the test contract
 
@@ -70,7 +68,7 @@ The form has three structural rules:
 - Every H2 is a unique test name with a non-empty `Task` followed by a non-empty `Assert` list.
 - No other headings are permitted.
 
-These structural rules apply to both documentation and environment tests. The distinct causal boundary, assertion scope, and additional encounter rules belong to [environment tests](../../env/quality/test.md).
+These structural rules apply to both documentation and environment tests. The distinct causal boundary, assertion scope, and additional encounter rules belong to [environment tests](../../env/quality/tst.md).
 
 The standard rules in [test: run an independent trial](#run-an-independent-trial) apply to every documentation test. Do not repeat them in a task.
 
@@ -102,4 +100,4 @@ The supported claim cannot exceed the assertions. A correct answer found through
 
 A failure can belong to the documentation, test contract, trial conditions, tool, or governed system. Repair the source of the failure. Do not add hints merely to force a passing result.
 
-Test observes reader understanding and action attributable to documentation; it never asserts a result of actual system execution. The [lint](lint.md) document checks mechanical source properties, and [review](review/README.md) judges meaning, expression, and design. Use [environment tests](../../env/quality/test.md) when an agent encounter with the complete environment must establish understanding or action and may also establish a system result.
+Test observes reader understanding and action attributable to documentation; it never asserts a result of actual system execution. The [lint](lint.md) document checks mechanical source properties, and [review](review/README.md) judges meaning, expression, and design. Use [environment tests](../../env/quality/tst.md) when an agent encounter with the complete environment must establish understanding or action and may also establish a system result.

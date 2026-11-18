@@ -2,15 +2,15 @@
 
 [Quality](README.md) uses test to put an implemented `total-environment` into a realistic agent encounter and observe its effects. Environment-test assertions cover participant understanding or action and, when applicable, a result that actual system execution permits or produces.
 
-Environment tests use the `.test.md` companion and `Tests`, `Task`, and `Assert` form owned by [documentation test: write the test contract](../../doc/quality/test.md#write-the-test-contract). They have a different causal boundary and assertion scope. A documentation test attributes understanding or action to documentation. An environment test attributes understanding or action, and any asserted result, to the complete environmental encounter.
+Environment tests use the `.test.md` companion and `Tests`, `Task`, and `Assert` form owned by [documentation test: write the test contract](../../doc/quality/tst.md#write-the-test-contract). They have a different causal boundary and assertion scope. A documentation test attributes understanding or action to documentation. An environment test attributes understanding or action, and any asserted result, to the complete environmental encounter.
 
 Environment testing does not conduct human studies. Existing evidence of human effects can still contribute to the quality judgement governed by [environment criteria](criteria.md).
 
 ## Use the shared companion
 
-Store an environment test beside any subject file as [documentation test: store tests beside their subject](../../doc/quality/test.md#store-tests-beside-their-subject) requires. Documentation and environment tests can coexist as sibling H2 tests in the same companion, including a companion for a code file. The file type does not determine the test kind.
+Store an environment test beside any subject file as [documentation test: store tests beside their subject](../../doc/quality/tst.md#store-tests-beside-their-subject) requires. Documentation and environment tests can coexist as sibling H2 tests in the same companion, including a companion for a code file. The file type does not determine the test kind.
 
-Follow the exact [documentation test: write the test contract](../../doc/quality/test.md#write-the-test-contract). Each test has one evidence boundary. Its task and assertions determine whether it is a documentation test, whose evidence is attributable to documentation, or an environment test, whose evidence is attributable to the complete environmental encounter. A companion can contain both kinds as sibling H2 tests, but one test does not combine their boundaries. Do not add a type field or another heading level.
+Follow the exact [documentation test: write the test contract](../../doc/quality/tst.md#write-the-test-contract). Each test has one evidence boundary. Its task and assertions determine whether it is a documentation test, whose evidence is attributable to documentation, or an environment test, whose evidence is attributable to the complete environmental encounter. A companion can contain both kinds as sibling H2 tests, but one test does not combine their boundaries. Do not add a type field or another heading level.
 
 ## Design environment-test coverage
 

@@ -46,11 +46,11 @@ A change contains documentation and an executable command implemented in `comman
 
 - The answer says documentation tests assert reader understanding or action attributable to documentation and never assert a result of actual system execution.
 - The answer says implementation tests assert only results of actual execution and do not assert participant understanding or action.
-- The answer places implementation tests in the same-directory shadow test file required by `code/README.md`, not in a `.test.md` companion.
+- The answer places implementation tests in the same-directory shadow test file required by `code/style/part.md`, not in a `.test.md` companion.
 - The answer says environment tests assert understanding or action from an encounter with the complete environment and may also assert an applicable system result. Each test has one evidence boundary, while documentation and environment tests can coexist as sibling tests in one companion.
 - The answer distinguishes participant action from a system result by the proposition asserted, even when one execution trace supplies evidence for both, and does not use one test to combine documentation and environment evidence boundaries.
-- The answer explains that documentation and environment tests share the `.test.md` companion schema, can accompany any file type, and are distinguished by their task, assertions, and causal boundary rather than by the subject's file type. It maps a companion for `command.rs` to `command.rs.test.md`.
-- The answer cites `doc/quality/test.md`, `code/README.md`, and `env/quality/test.md`.
+- The answer explains that documentation and environment tests share the `.test.md` companion schema, can accompany any file type, and are distinguished by their task, assertions, and causal boundary rather than by the subject's file type. It maps a companion for `command.rs` to `command.test.md`.
+- The answer cites `doc/quality/tst.md`, `code/style/part.md`, and `env/quality/tst.md`.
 
 ## Design one environment for a destructive command
 

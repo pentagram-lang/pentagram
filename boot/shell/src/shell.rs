@@ -86,17 +86,44 @@ async fn run_harness(
   output: &mut (dyn Write + Send),
 ) -> AnyhowResult<()> {
   if path.is_file() {
-    run_file(db, path, output).await?;
-  } else {
-    let mut entries = fs::read_dir(path).await?;
-    while let Some(entry) = entries.next_entry().await? {
-      let path = entry.path();
-      if path.extension().and_then(|s| s.to_str()) == Some("penta") {
-        run_file(db, &path, output).await?;
-      }
+    let content = fs::read_to_string(path).await?;
+    let path_str = path.to_string_lossy();
+    return execute_tests(db, &[(&path_str, &content)], output)
+      .map_err(anyhow::Error::new);
+  }
+
+  let mut paths = collect_penta_files(path).await?;
+  if paths.is_empty() {
+    return Ok(());
+  }
+  paths.sort();
+
+  let mut loaded = Vec::with_capacity(paths.len());
+  for entry_path in paths {
+    let content = fs::read_to_string(&entry_path).await?;
+    let path_str = entry_path.to_string_lossy().into_owned();
+    loaded.push((path_str, content));
+  }
+
+  let files: Vec<(&str, &str)> = loaded
+    .iter()
+    .map(|(path_str, content)| (path_str.as_str(), content.as_str()))
+    .collect();
+  execute_tests(db, &files, output).map_err(anyhow::Error::new)
+}
+
+async fn collect_penta_files(dir: &Path) -> AnyhowResult<Vec<PathBuf>> {
+  let mut entries = fs::read_dir(dir).await?;
+  let mut paths = Vec::new();
+  while let Some(entry) = entries.next_entry().await? {
+    let entry_path = entry.path();
+    if entry_path.is_file()
+      && entry_path.extension().and_then(|s| s.to_str()) == Some("penta")
+    {
+      paths.push(entry_path);
     }
   }
-  Ok(())
+  Ok(paths)
 }
 
 async fn run_watch(
@@ -108,7 +135,6 @@ async fn run_watch(
   writeln!(output, "Watching: {abs_path:?}")?;
   let client = Connector::new().connect().await?;
   let root = client.resolve_root(abs_path).await?;
-  let root_path = root.path().clone();
   let (mut sub, _) = client
     .subscribe::<NameOnly>(
       &root,
@@ -126,12 +152,11 @@ async fn run_watch(
       SubscriptionData::Canceled => break,
       SubscriptionData::FilesChanged(result) => {
         if let Some(files) = result.files {
-          for file in files {
-            writeln!(output, "-- Change detected: {:?} --", file.name)?;
-            let full_path = root_path.join(&*file.name);
-            if full_path.exists() {
-              run_file(db, &full_path, output).await?;
+          if !files.is_empty() {
+            for file in files {
+              writeln!(output, "-- Change detected: {:?} --", file.name)?;
             }
+            run_harness(db, path, output).await?;
           }
         }
       }
@@ -140,17 +165,6 @@ async fn run_watch(
     output.flush()?;
   }
   Ok(())
-}
-
-async fn run_file(
-  db: &mut Database,
-  path: &Path,
-  output: &mut (dyn Write + Send),
-) -> AnyhowResult<()> {
-  let content = fs::read_to_string(path).await?;
-  let path_str = path.to_string_lossy();
-  execute_tests(db, &[(&path_str, &content)], output)
-    .map_err(anyhow::Error::new)
 }
 
 async fn run_repl(db: &mut Database) -> AnyhowResult<()> {

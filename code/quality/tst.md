@@ -86,6 +86,15 @@ Satisfying these design rules makes an individual test sound and usable, but doe
 
    - **Committed tests (permanent-for-now):** Committing a test into the repository means accepting its recurring execution and maintenance cost across future changes. Treat committed tests as **permanent-for-now**, not sacred: as the codebase evolves, invariants shift into the type system, or better tests supersede older ones, it is always valid to re-evaluate committed tests and change or remove them.
 
+Storage and effectful boundaries (such as filesystems, embedded databases, file watchers, and subprocesses) require deliberate boundary choices:
+
+- **Disk reads vs disk writes:** Deterministic read-only access to immutable fixtures is valid across test scopes when fast. Real physical disk writes in automated tests are almost always wrong because they couple tests to host storage latency and state unless host filesystem persistence itself is the contract under test and meets performance budgets.
+
+- **Three clean modes for effectful boundaries:**
+  - **Real execution on `tmpfs`:** Run the real integration against an isolated, RAM-backed `tmpfs` directory when actual filesystem, CLI, watcher, or subprocess behaviour is under test.
+  - **Real in-memory engine APIs:** When an embedded engine natively provides an in-memory mode behind the identical API, run real queries and state transitions directly in memory.
+  - **Mocks at clean domain primitives:** Structure implementation code over small effect primitives rather than scattering raw OS, subprocess, or client-library calls through logic, so unit tests either test pure data functions directly or substitute a minimal primitive rather than building elaborate fake OS or virtual-filesystem layers.
+
 The total value and total cost of the repository's test suite are the sum of these individual judgements. Poor judgement compounds rapidly: it produces an expensive test suite that checks very little of value while running so slowly and breaking so brittlely that contributors cannot make changes with meaningful velocity.
 
 ## Unacceptable test practices
@@ -380,11 +389,11 @@ For example, a contributor might combine an `integration` scope with `property-b
 
 When automated tests are unsuitable—such as for physical hardware or host boundaries, visual rendering judgement, or operational workflows that cannot be hermetically automated at reasonable cost—use manual tests specified in a `.test.md` companion file.
 
-Manual code tests share the companion placement and contract format defined in [documentation test](../../doc/quality/test.md):
+Manual code tests share the companion placement and contract format defined in [documentation test](../../doc/quality/tst.md):
 
-- **Companion placement:** Store the companion beside its code subject by appending `.test.md` to the complete filename (for example, `runner.rs.test.md` beside `runner.rs`), as specified in [store tests beside their subject in documentation test](../../doc/quality/test.md#store-tests-beside-their-subject). Manual code tests, documentation tests, and [environment tests](../../env/quality/test.md) can coexist as sibling `##` sections in the same companion file.
+- **Companion placement:** Store the companion beside its code subject using `<stem>.test.md` (for example, `runner.test.md` beside `runner.rs`), as specified in [store tests beside their subject in documentation test](../../doc/quality/tst.md#store-tests-beside-their-subject). Manual code tests, documentation tests, and [environment tests](../../env/quality/tst.md) can coexist as sibling `##` sections in the same companion file.
 
-- **Contract form:** Follow the exact `# Tests` heading, `## <Test name>` sections, `**Task**` instructions, and `**Assert**` list defined in [write the test contract in documentation test](../../doc/quality/test.md#write-the-test-contract). State the concrete execution setup, inputs, and steps in `Task`, and state falsifiable, observable system outcomes in `Assert`.
+- **Contract form:** Follow the exact `# Tests` heading, `## <Test name>` sections, `**Task**` instructions, and `**Assert**` list defined in [write the test contract in documentation test](../../doc/quality/tst.md#write-the-test-contract). State the concrete execution setup, inputs, and steps in `Task`, and state falsifiable, observable system outcomes in `Assert`.
 
 - **Coverage and run planning:** Manual and subagent-driven companion trials consume substantial time, compute, and attention. Add a manual test only when automated tests cannot practically establish the claim, and plan runs selectively when changes to the subject or its operational risk require fresh evidence.
 

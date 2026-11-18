@@ -2,7 +2,7 @@
 
 Within [quality](README.md), this document establishes Pentagram's standard for using strong types to achieve continuous, compile-time confidence that code is clearly correct. It covers how strong typing operates as a system, how to design types across functions and partitions, which weak-typing hazards to watch for, how individual typing tools work, and how to manage type-checking performance.
 
-Without strong types, confidence in even the most basic question—whether the code can run at all—rests on two mechanisms that fail to scale as a codebase grows. Manual tracing lets a contributor hold a small region's assumptions in working memory briefly, but that mental model vanishes as soon as the codebase grows or changes occur elsewhere. Sampled runtime execution through [test](test.md) suites shows only that specific inputs succeeded along visited paths during that run; it cannot prove that unvisited branches are wired validly or that future callers satisfy invariants across all inputs.
+Without strong types, confidence in even the most basic question—whether the code can run at all—rests on two mechanisms that fail to scale as a codebase grows. Manual tracing lets a contributor hold a small region's assumptions in working memory briefly, but that mental model vanishes as soon as the codebase grows or changes occur elsewhere. Sampled runtime execution through [test](tst.md) suites shows only that specific inputs succeeded along visited paths during that run; it cannot prove that unvisited branches are wired validly or that future callers satisfy invariants across all inputs.
 
 Strong types replace both limitations with universal compile-time guarantees across every branch before execution begins. At the baseline, static resolution and type checking verify that bindings are in scope, function calls match their declared signatures, and module imports and exports agree across boundaries. Above that baseline, expressive types encode what transformations occur, enforce domain invariants, verify exhaustive case handling, and make invalid states unrepresentable so readers can judge directly whether code meets [criteria](criteria.md) across its complete execution surface.
 
@@ -69,13 +69,13 @@ A programming language and its type checker set the **ceiling** on static type s
 
 Contributors must exercise engineering judgement to raise the type-safety floor so code is as clearly correct as practical through strong types alone. Raising the floor does not justify baroque type-level encodings that obscure domain logic; when pushing a proof further into the type checker makes signatures harder to follow than the invariant warrants, stop at a clear type boundary.
 
-Sufficiently expressive languages also allow contributors to **raise the effective type-safety ceiling** above what the compiler's built-in rules prove directly. When an invariant spans multiple fields, enforces value ranges, or wraps audited low-level or unchecked operations for hardware sympathy (see [performance](../performance/README.md)), seal the raw representation behind module privacy in a small partition and expose only constructors and operations that preserve the invariant. Back that narrow internal boundary with rigorous [test](test.md) coverage—such as property-based, dynamic sanitizer, or formal verification tests—so every caller outside the partition receives a sound compile-time guarantee.
+Sufficiently expressive languages also allow contributors to **raise the effective type-safety ceiling** above what the compiler's built-in rules prove directly. When an invariant spans multiple fields, enforces value ranges, or wraps audited low-level or unchecked operations for hardware sympathy (see [performance](../performance/README.md)), seal the raw representation behind module privacy in a small partition and expose only constructors and operations that preserve the invariant. Back that narrow internal boundary with rigorous [test](tst.md) coverage—such as property-based, dynamic sanitizer, or formal verification tests—so every caller outside the partition receives a sound compile-time guarantee.
 
 ### Designing ergonomic types
 
 Ergonomics is an integral aspect of type safety, not a competing goal. In [environment engineering](../../env/README.md), code and documentation together form the working environment that shapes how contributors understand, write, change, and test a system. When strong types are straightforward to understand, construct, compose, and inspect, the safe path is naturally the easiest path to follow.
 
-When contributors feel tempted to punch holes in strong types for convenience—such as widening private invariant-bearing fields to public, exposing unchecked constructors, weakening domain types back to raw primitives, or adding invalid dummy states to simplify setup or tests (see [unacceptable test practices](test.md#unacceptable-test-practices))—treat that impulse as a signal that the type system as an environment is not working well. If legitimate call sites or tests struggle to assemble valid values or see how types fit together, that friction actively pressures contributors to bypass safety.
+When contributors feel tempted to punch holes in strong types for convenience—such as widening private invariant-bearing fields to public, exposing unchecked constructors, weakening domain types back to raw primitives, or adding invalid dummy states to simplify setup or tests (see [unacceptable test practices](tst.md#unacceptable-test-practices))—treat that impulse as a signal that the type system as an environment is not working well. If legitimate call sites or tests struggle to assemble valid values or see how types fit together, that friction actively pressures contributors to bypass safety.
 
 Resolving that friction without sacrificing guarantees—especially during advanced type work—requires a strong understanding of language mechanics and careful judgement in applying them so the type system is both safe and easy to use. Apply language features such as focused constructors, composable transformation helpers, inference-friendly signatures, zero-cost views or conversions, and valid test-data builders so invariants remain sound while everyday use stays direct and readable.
 
@@ -91,7 +91,7 @@ When raw input fails to satisfy domain constraints at an external boundary, surf
 
 Strong types are one of the sharpest tools for practicing [subtractive design](../../rm/README.md): identifying code that should not exist and making it safe to remove or never write at all.
 
-Treat defensive checks, fallback branches for "impossible" conditions, repeated precondition guards, and error propagation for failures that cannot occur in a given context as design signals that the surrounding types are too loose. By tightening the type definitions so those invalid states and unachievable branches cannot be constructed, the compiler proves that the defensive code, [error handling](err.md) plumbing, and corresponding runtime [test](test.md) cases are unnecessary—letting contributors delete them with complete confidence.
+Treat defensive checks, fallback branches for "impossible" conditions, repeated precondition guards, and error propagation for failures that cannot occur in a given context as design signals that the surrounding types are too loose. By tightening the type definitions so those invalid states and unachievable branches cannot be constructed, the compiler proves that the defensive code, [error handling](err.md) plumbing, and corresponding runtime [test](tst.md) cases are unnecessary—letting contributors delete them with complete confidence.
 
 ## Weak-typing hazards
 
@@ -181,7 +181,7 @@ The tools below form a progression from foundational program wiring to advanced 
 
 - **Strengths:** Generic functions and module boundaries can state the exact operations they require, decoupling algorithms from concrete representations while keeping dispatch explicit.
 
-- **Weaknesses:** Broad, poorly factored interfaces recreate tight coupling across types. Signatures alone also cannot enforce semantic laws such as associativity or round-trip equivalence, which still require [test](test.md) coverage.
+- **Weaknesses:** Broad, poorly factored interfaces recreate tight coupling across types. Signatures alone also cannot enforce semantic laws such as associativity or round-trip equivalence, which still require [test](tst.md) coverage.
 
 ### Higher-kinded types
 
@@ -197,7 +197,7 @@ The tools below form a progression from foundational program wiring to advanced 
 
 - **Strengths:** Pushing value-level invariants into the type checker proves properties like bounds safety or non-emptiness statically, removing runtime assertions altogether.
 
-- **Weaknesses:** Value-level proofs complicate type inference and ongoing maintenance. Contributors must judge whether compile-time proofs are clearer and more economical than sealing the invariant in [opaque types](#opaque-types) backed by assertions and [test](test.md) suites.
+- **Weaknesses:** Value-level proofs complicate type inference and ongoing maintenance. Contributors must judge whether compile-time proofs are clearer and more economical than sealing the invariant in [opaque types](#opaque-types) backed by assertions and [test](tst.md) suites.
 
 ## Type-checking performance
 

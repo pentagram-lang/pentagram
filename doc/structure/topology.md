@@ -22,6 +22,8 @@ Every level of the hierarchy must express a real relationship. A directory gathe
 
 Order siblings along the normal path of thought. Put prerequisites before dependent material, common paths before exceptional branches, and governing material before dependent detail. Links can provide other routes without weakening the hierarchy's default path.
 
+Documentation surfaces organize recursively by subject boundary (see [partitioning](../../code/style/part.md#scales) for code module and package layout): child directories extract subjects that earn their own surface and index, peer leaf files divide one directory's subject, and `.test.md` companions stay beside their subject. Reserve `test` in documentation filenames for those `.test.md` companions; when testing itself is the document's subject, name it `tst.md`.
+
 ## Keep every surface local
 
 Every documentation surface needs a clear owning system. Put the surface in the same folder as that owner. The folder must match the owner's conceptual and change boundary; physical proximity without shared ownership is not locality.
@@ -46,7 +48,7 @@ Index and leaf are exclusive roles: no document should attempt to be both. When 
 
 A small surface can remain entirely in its README. Add a leaf when a subject needs independent depth, a distinct path to use, or a stable target. Length alone is not a reason to split a document, and avoiding another file is not a reason to combine unrelated jobs.
 
-A structured format can define a **companion** whose exact path binds it to another repository file. A companion supports its owner without becoming another authority or ordinary navigation child. The format must define discovery, structure, and validation precisely; otherwise make the content a leaf with an index entry. For example, [test: store tests beside their subject](../quality/test.md#store-tests-beside-their-subject) binds `guide.test.md` to `guide.md` and `parser.rs.test.md` to `parser.rs` when each pair occupies the same directory.
+A structured format can define a **companion** whose exact path binds it to another repository file. A companion supports its owner without becoming another authority or ordinary navigation child. The format must define discovery, structure, and validation precisely; otherwise make the content a leaf with an index entry. For example, [test: store tests beside their subject](../quality/tst.md#store-tests-beside-their-subject) binds `guide.test.md` to `guide.md` and `parser.test.md` to `parser.rs` when each pair occupies the same directory.
 
 ## Give each document one clear job
 

@@ -6,9 +6,9 @@ use boot_db::SpannedResolvedTerm;
 use boot_db::TestId;
 use boot_db::TestResultRecord;
 use boot_db::hash_test_result;
-use boot_test::TestInput;
-use boot_test::TestRunResult;
-use boot_test::run_tests;
+use boot_tst::TestInput;
+use boot_tst::TestRunResult;
+use boot_tst::run_tests;
 use std::collections::HashMap;
 
 pub(crate) fn run_engine_tests_incrementally(db: &mut Database) {

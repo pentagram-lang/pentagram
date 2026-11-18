@@ -30,9 +30,9 @@ When a README has direct children, each child must have exactly one H2 section t
 
 ## Test companions
 
-A file ending in `.test.md` must identify exactly one inventoried subject beside it. Removing `.test.md` gives the base path. The possible subjects are the base path and the base path with `.md` appended; a base path that already ends in `.md` cannot identify itself. `guide.test.md` therefore identifies `guide.md`, while `parser.rs.test.md` can identify `parser.rs`. Missing, ambiguous, and nested companions fail.
+Every `.test.md` companion must have the form `<stem>.test.md`, where `<stem>` is non-empty and contains neither `.` nor the substring `test` (use `tst` when testing is the subject), and must identify exactly one inventoried non-test sibling `<stem>.<ext>` in the same directory, where `<ext>` is non-empty and contains neither `.` nor the substring `test`. Thus `guide.test.md` identifies `guide.md` and `parser.test.md` identifies `parser.rs`. Missing, ambiguous (more than one non-test `<stem>.<ext>` sibling), and nested or malformed companions fail.
 
-The companion must follow the headings, labels, order, and required content defined by [test: write the test contract](test.md#write-the-test-contract). The rule checks the form, not whether the tasks or assertions are useful or correct.
+The companion must follow the headings, labels, order, and required content defined by [test: write the test contract](tst.md#write-the-test-contract). The rule checks the form, not whether the tasks or assertions are useful or correct.
 
 ## Conventional Commits
 

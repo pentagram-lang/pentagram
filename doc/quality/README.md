@@ -18,7 +18,7 @@ Quality must embody and support the aims defined in the [Pentagram manifesto](..
 
 ## Test
 
-[Test](test.md) defines independent reader trials, their contracts, and the limits of what a trial can establish.
+[Test](tst.md) defines independent reader trials, their contracts, and the limits of what a trial can establish.
 
 ## Review
 

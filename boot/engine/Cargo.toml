@@ -17,7 +17,7 @@ boot_eval = { workspace = true }
 boot_lex = { workspace = true }
 boot_parse = { workspace = true }
 boot_resolve = { workspace = true }
-boot_test = { workspace = true }
+boot_tst = { workspace = true }
 
 [dev-dependencies]
 blake3 = { workspace = true }

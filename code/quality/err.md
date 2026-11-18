@@ -26,7 +26,7 @@ Functions that can fail with an operational error must declare that possibility 
 
 ### Crashes
 
-A crash represents a bug or a violated internal invariant—such as a failed precondition, postcondition, or data-structure assertion (see [internal invariant assertions](test.md#internal-invariant-assertions)). When an internal invariant fails, the program's reasoning foundation is broken: local assumptions no longer hold, state may be corrupted, and no state within the failing unit can be trusted or reused.
+A crash represents a bug or a violated internal invariant—such as a failed precondition, postcondition, or data-structure assertion (see [internal invariant assertions](tst.md#internal-invariant-assertions)). When an internal invariant fails, the program's reasoning foundation is broken: local assumptions no longer hold, state may be corrupted, and no state within the failing unit can be trusted or reused.
 
 Do not route invariant violations through normal error return paths. Instead, terminate the current task or isolation unit immediately so corrupted state cannot propagate or persist. A crash forces recovery to move to a deeper isolation boundary—such as tearing down the task, process, or isolated memory arena and restarting from a known-good state—while still capturing active diagnostic context for telemetry. Conversely, library and production code must never crash on untrusted external inputs or expected operational failures; those must be handled as domain data or declared errors.
 

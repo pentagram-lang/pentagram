@@ -126,7 +126,7 @@ dependencies = [
  "boot_lex",
  "boot_parse",
  "boot_resolve",
- "boot_test",
+ "boot_tst",
  "pretty_assertions",
 ]
 
@@ -176,7 +176,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "boot_test"
+name = "boot_tst"
 version = "0.1.0"
 dependencies = [
  "boot_db",

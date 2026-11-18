@@ -18,7 +18,7 @@ Quality must embody and support the aims defined in the [Pentagram manifesto](..
 
 ## Test
 
-[Test](test.md) specifies how to design, run, and maintain tests, combining overlapping verification techniques across lifecycle stages for high confidence in correctness.
+[Test](tst.md) specifies how to design, run, and maintain tests, combining overlapping verification techniques across lifecycle stages for high confidence in correctness.
 
 ## Review
 
