@@ -8,6 +8,10 @@ Markdown must match the formatter configured in [`dprint.json`](../../dprint.jso
 
 The documentation-lint rules below read current files through the colocated Git inventory. This is an automated interoperability mechanism allowed by the [source-control model](../../source-control.md#working-copy), not a contributor command surface. Run `jj status` before `0 check doc` so Jujutsu has snapshotted and exported the current working copy. The inventory includes tracked files and non-ignored untracked files that exist in the working tree. Deleted and ignored files are absent.
 
+## Heading hierarchy
+
+When a non-companion Markdown file contains headings, its first heading must be H1, no later heading may be H1, and each subsequent heading's level may exceed the previous heading's level by at most one. Skipping heading levels, such as jumping from H1 to H3 or H2 to H4, fails. [Test companions](#test-companions) follow their own heading structure.
+
 ## Heading identifiers
 
 Every heading identifier must be unique within its Markdown file. Identifiers use lower-case visible text. They retain letters, numbers, hyphens, and underscores, discard other characters, and replace each whitespace character with a hyphen. Two headings that produce the same identifier fail.
@@ -26,7 +30,7 @@ Within one Markdown document, local links to the same file and fragment must use
 
 Every directory that contains a Markdown file other than a test companion must contain `README.md`.
 
-When a README has direct children, each child must have exactly one H2 section that links to it, and every H2 must represent exactly one child. Direct children are other non-companion Markdown files beside the README and READMEs in immediate child directories. [Topology: build surfaces from indexes, leaves, and companions](../structure/topology.md#build-surfaces-from-indexes-leaves-and-companions) defines the required relationship.
+When a README has direct children, its headings may consist only of its H1 title and one H2 section per direct child; H3–H6 headings in an index README fail. Each child must have exactly one H2 section that links to it, and every H2 must represent exactly one child. Direct children are other non-companion Markdown files beside the README and READMEs in immediate child directories. [Topology: build surfaces from indexes, leaves, and companions](../structure/topology.md#build-surfaces-from-indexes-leaves-and-companions) defines the required relationship.
 
 ## Test companions
 

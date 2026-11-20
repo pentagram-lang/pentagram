@@ -334,6 +334,42 @@ def _is_external(href: str) -> bool:
   return href.startswith('//') or bool(EXTERNAL_LINK_RE.match(href))
 
 
+def _check_heading_hierarchy(
+  doc: _ParsedDoc, diags: list[Diagnostic]
+) -> None:
+  if not doc.headings:
+    return
+  first_tag, _, _, first_line = doc.headings[0]
+  if first_tag != 'h1':
+    diags.append(
+      Diagnostic(
+        doc.rel,
+        f'first heading must be H1, found {first_tag.upper()}',
+        first_line,
+      )
+    )
+  prev_level = int(first_tag[1:])
+  for tag, _, _, line in doc.headings[1:]:
+    level = int(tag[1:])
+    if level == 1:
+      diags.append(
+        Diagnostic(
+          doc.rel,
+          'unexpected H1 heading; only the first heading may be H1',
+          line,
+        )
+      )
+    elif level > prev_level + 1:
+      diags.append(
+        Diagnostic(
+          doc.rel,
+          f'heading level {tag.upper()} skips from H{prev_level}',
+          line,
+        )
+      )
+    prev_level = level
+
+
 def _check_headings_and_links(
   doc: _ParsedDoc,
   docs: dict[str, _ParsedDoc],
@@ -409,6 +445,19 @@ def _check_readme_index(
 ) -> None:
   if not direct_children:
     return
+  if not doc.headings:
+    diags.append(
+      Diagnostic(doc.rel, 'index README is missing H1 title', 1)
+    )
+  for tag, _, _, line in doc.headings:
+    if tag not in ('h1', 'h2'):
+      diags.append(
+        Diagnostic(
+          doc.rel,
+          f'unexpected {tag.upper()} heading in index README',
+          line,
+        )
+      )
   sections: list[tuple[int, list[list[Token]]]] = []
   for block in doc.blocks:
     if block[0].type == 'heading_open' and block[0].tag == 'h2':
@@ -524,6 +573,8 @@ def check_docs(repo: Path) -> list[Diagnostic]:
     _check_companion_structure(docs[rel], diags)
 
   for rel in sorted(docs):
+    if rel in non_companion_mds:
+      _check_heading_hierarchy(docs[rel], diags)
     _check_headings_and_links(docs[rel], docs, file_set, dir_set, diags)
 
   dirs_with_md = {posixpath.dirname(rel) for rel in non_companion_mds}

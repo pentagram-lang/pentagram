@@ -286,3 +286,45 @@ def test_readme_index_and_inventory_filtering(shm_repo: Path) -> None:
     ),
     Diagnostic('README.md', 'missing H2 index section linking to c.md'),
   ]
+
+
+def test_heading_hierarchy_and_index_headings(shm_repo: Path) -> None:
+  _write(
+    shm_repo,
+    'README.md',
+    '# Root\n\n'
+    '## A\n\n[A](a.md)\n\n### Bad index H3\n\n'
+    '## B\n\n[B](b.md)\n\n'
+    '## C\n\n[C](c.md)\n\n'
+    '## License\n\n[License](LICENSE.md)\n\n'
+    '## Sub\n\n[Sub](sub/README.md)\n\n'
+    '## Empty index\n\n[Empty index](empty_idx/README.md)\n',
+  )
+  _write(shm_repo, 'LICENSE.md', 'Plain license text without headings.\n')
+  _write(shm_repo, 'sub/README.md', '# Sub\n\n## Leaf\n\n### Allowed H3\n')
+  _write(shm_repo, 'empty_idx/README.md', 'Prose without headings.\n')
+  _write(shm_repo, 'empty_idx/item.md', '# Item\n')
+  _write(shm_repo, 'a.md', '## Starts at H2\n\n### Child\n')
+  _write(shm_repo, 'b.md', '# First\n\n# Second\n')
+  _write(
+    shm_repo,
+    'c.md',
+    '# Top\n\n### Skip to H3\n\n## Ok\n\n#### Skip to H4\n',
+  )
+
+  assert check_docs(shm_repo) == [
+    Diagnostic('a.md', 'first heading must be H1, found H2', 1),
+    Diagnostic(
+      'b.md', 'unexpected H1 heading; only the first heading may be H1', 3
+    ),
+    Diagnostic('c.md', 'heading level H3 skips from H1', 3),
+    Diagnostic('c.md', 'heading level H4 skips from H2', 7),
+    Diagnostic('README.md', 'unexpected H3 heading in index README', 7),
+    Diagnostic(
+      'empty_idx/README.md', 'index README is missing H1 title', 1
+    ),
+    Diagnostic(
+      'empty_idx/README.md',
+      'missing H2 index section linking to empty_idx/item.md',
+    ),
+  ]

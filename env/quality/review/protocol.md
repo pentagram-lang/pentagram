@@ -12,7 +12,7 @@ If the handoff does not supply these inputs clearly enough to judge the environm
 
 Use the [theory: environmental encounter model](../../theory.md#environmental-encounter) to distinguish state created or preserved by documentation or code in the `total-environment` from external conditions supplied by `participant`, `situation`, or `encounter-noise`.
 
-When the handoff includes a `jj` change ID, inspect the complete [working-copy diff](../../../source-control.md#working-copy) for that single change with `jj --ignore-working-copy diff --git --revision CHANGE`; `--ignore-working-copy` prevents this read-only inspection from snapshotting current edits. Use the diff with the current named environment; it does not replace that inspection or expand the named boundary.
+When the handoff includes a `jj` change ID, inspect the complete diff for that single change with `jj --ignore-working-copy diff --git --revision CHANGE` (see [source control: working copy](../../../source-control.md#working-copy)); `--ignore-working-copy` prevents this read-only inspection from snapshotting current edits. Use the diff with the current named environment; it does not replace that inspection or expand the named boundary.
 
 ## Judge the environment
 

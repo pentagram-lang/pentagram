@@ -4,7 +4,7 @@
 
 **Task**
 
-Use `doc/quality/review/README.md` to answer this task and cite the relevant section. An author wants an independent review of a recovery guide that helps readers recover from a failed operation. Explain what the author puts in the handoff and what the author leaves out.
+Use `doc/quality/review/workflow.md` to answer this task and cite the relevant section. An author wants an independent review of a recovery guide that helps readers recover from a failed operation. Explain what the author puts in the handoff and what the author leaves out.
 
 **Assert**
 
@@ -17,32 +17,32 @@ Use `doc/quality/review/README.md` to answer this task and cite the relevant sec
 - The handoff tells the reviewer not to read active project state or run `0 proj`.
 - The handoff does not include private explanation or limit the reviewer to one suspected problem.
 - The answer uses one prompt containing the handoff and the review request.
-- The answer cites `doc/quality/review/README.md` as the basis for the handoff guidance.
+- The answer cites `doc/quality/review/workflow.md` as the basis for the handoff guidance.
 
 ## Evaluate a report
 
 **Task**
 
-Use `doc/quality/review/README.md` to answer this task and cite the relevant section. A reviewer reports that a recovery guide contains a false condition and an unclear instruction, but gives no evidence for a proposed repair. The reviewer also faults the guide for omitting instructions for an unstated condition outside the guide's stated reader use and governing contracts, and notes a problem in an unnamed linked document. Explain how the author evaluates the report.
+Use `doc/quality/review/workflow.md` to answer this task and cite the relevant section. A reviewer reports that a recovery guide contains a false condition and an unclear instruction, but gives no evidence for a proposed repair. The reviewer also faults the guide for omitting instructions for an unstated condition outside the guide's stated reader use and governing contracts, and notes a problem in an unnamed linked document. Explain how the author evaluates the report.
 
 **Assert**
 
 - The answer checks each finding against the cited text and the standards governing the named documents, verifying whether its premise holds within the documents' stated purpose, operating conditions, and governing contracts.
 - The answer treats the report as evidence, not as instructions for a repair or a project decision.
-- The answer declines findings that assume out-of-scope conditions or demand obligations that would add unnecessary complexity rather than treating a report with no findings as a required gate that forces additive edits to satisfy unsupported findings.
+- The answer declines findings that assume out-of-scope conditions or demand obligations that would add unnecessary complexity rather than treating a report with no findings as a required gate or making additive edits to satisfy unsupported findings.
 - The answer ignores repair suggestions and derives any repair from project context and documentation standards.
 - The answer does not add complexity that makes the documents unclear or incorrect.
 - The answer repairs valid problems as a whole through subtraction and simplification where possible under `rm/README.md`, rather than patching only the quoted passage or accreting defensive caveats or patches across review rounds.
 - The answer uses project context to evaluate the out-of-scope finding and decide whether any repairs are warranted.
 - The answer uses project context and documentation standards to determine what the documents should say, recognizes when preceding project work is needed, and does not write speculative documentation.
 - The answer does not treat a report with no findings as proof that the documentation is clearly correct.
-- The answer cites `doc/quality/review/README.md` and `rm/README.md` as the basis for the evaluation guidance.
+- The answer cites `doc/quality/review/workflow.md` and `rm/README.md` as the basis for the evaluation guidance.
 
 ## Review a repair
 
 **Task**
 
-Use `doc/quality/review/README.md` to answer this task and cite the relevant section. The project repairs a recovery guide after a review. Explain what the author includes and leaves out when arranging the next review.
+Use `doc/quality/review/workflow.md` to answer this task and cite the relevant section. The project repairs a recovery guide after a review. Explain what the author includes and leaves out when arranging the next review.
 
 **Assert**
 
@@ -52,13 +52,13 @@ Use `doc/quality/review/README.md` to answer this task and cite the relevant sec
 - The reused subagent checks the previous findings against the current text.
 - If the author does not reuse the same subagent, the author starts a new review with the original handoff prompt rather than passing the previous review's context to a new subagent.
 - The continuation prompt excludes the author's repair argument and project decision.
-- The answer cites `doc/quality/review/README.md` as the basis for the re-review guidance.
+- The answer cites `doc/quality/review/workflow.md` as the basis for the re-review guidance.
 
 ## Relate to other review processes
 
 **Task**
 
-Use `doc/quality/review/README.md` to answer this task and cite the relevant section. An author prepares a documentation change that documents a recovery procedure with executable shell commands. Explain how documentation review relates to other review processes and whether additional reviews are warranted.
+Use `doc/quality/review/workflow.md` to answer this task and cite the relevant section. An author prepares a documentation change that documents a recovery procedure with executable shell commands. Explain how documentation review relates to other review processes and whether additional reviews are warranted.
 
 **Assert**
 
@@ -66,4 +66,4 @@ Use `doc/quality/review/README.md` to answer this task and cite the relevant sec
 - The answer explains that a passing documentation review establishes only that the inspected text satisfies documentation criteria, and does not establish code or environment quality.
 - The answer explains that introducing or modifying code may warrant an independent code review to judge whether that code faithfully executes its intended behaviour across its complete execution surface.
 - The answer explains that documentation instructing participants or establishing procedures that shape interaction and system state may warrant an independent environment review to judge what documentation and code together cause participants to understand, do, and observe.
-- The answer cites `doc/quality/review/README.md` as the basis for the multi-process guidance.
+- The answer cites `doc/quality/review/workflow.md` as the basis for the multi-process guidance.

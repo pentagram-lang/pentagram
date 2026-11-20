@@ -1,68 +1,13 @@
 # Review
 
-Within [documentation quality](../README.md), a review gives documentation a fresh reading. The author asks an independent reviewer to read a named set of documents as written and report every problem present in those documents that makes them unclear or incorrect. The [protocol](protocol.md) tells the reviewer how to do this. This guide explains the author's part.
+Within [documentation quality](../README.md), documentation review gives a named set of documents a fresh reading. A reviewer with no inherited authoring conversation or project conclusions reads the documents as written against documentation standards and reports every supported problem that makes them unclear or incorrect.
 
-### Prepare the handoff
+Review separates the author's orchestration from the reviewer's inspection so the reading remains unsteered across handoffs, evaluation, and repair. Keeping authoring context and repair reasoning outside the reviewer's instructions lets the text stand on what it actually says.
 
-The handoff to the reviewer is a single chat prompt. Build it using this template:
+## Workflow
 
-```text
-Read `doc/quality/review/protocol.md` and follow it. Do not read active project state or run `0 proj`. Read the documents below as written. Report every problem present in those documents that makes them unclear or incorrect. Do not propose any repairs.
-
-Documents to review:
-<each document path>
-
-Change ID (optional):
-<jj change ID>
-
-Reader and use:
-<who the documentation serves and what they need to understand or do>
-```
-
-Name every document the reviewer should review and give the reviewer those documents by path. The reviewer may follow links to understand the named documents, but a linked document is out of scope unless you name it.
-
-If the review focuses on a specific change, you may also give a `jj` change ID.
-
-Say who the documentation serves and what those readers need to understand or do. Include the context needed to judge that use. Do not privately explain the documents or steer the reviewer towards one suspected problem. If a document needs a private explanation to make sense, the review should find that problem.
-
-### Evaluate the report
-
-Start the review with a separate subagent that has no inherited authoring conversation or project conclusions. Invoke it with the [handoff prompt](#prepare-the-handoff).
-
-The reviewer returns one report in the review chat. The report describes the text the reviewer read. Treat its findings as evidence, not instructions, and ignore any repair suggestions.
-
-Read each finding against the words it cites and the standards that govern the named documents. Check whether the finding's premise holds within the documents' stated purpose, operating conditions, and governing contracts, and decide whether it establishes a problem present in those documents. Decline findings that assume out-of-scope conditions or demand obligations that would add unnecessary complexity under [subtractive design](../../../rm/README.md); do not treat a report with no findings as a required gate that forces additive edits to satisfy unsupported findings. Use the project's recorded context and applicable documentation standards to determine what the documents should say. The findings and project context may show that preceding project work is needed before clearly correct text can be written. Do not repair from an unsupported conclusion, turn uncertainty into a finding, or write speculative documentation. Record the needed work through the [project workflow](../../../proj/README.md), then write or revise the documents when their text can be established directly.
-
-A finding outside the named documents is out of scope for this review. Use project context to evaluate it and decide whether any repairs are warranted. It does not become part of the quality judgement for the named documents.
-
-Use the report as evidence in the complete quality judgement. A report with no findings means only that the reviewer found no supported problem under the review's conditions; it does not prove that the documentation is clearly correct. Decide what to do with the evidence through the project workflow.
-
-If the project chooses a repair, derive it from project context and documentation standards, not from a reviewer suggestion. Under [subtractive design](../../../rm/README.md), repair the documents as a whole through subtraction and simplification where possible rather than patching only the quoted passage or accreting defensive caveats or patches across review rounds. Do not treat a finding as an invitation to add complexity that makes the documents unclear or incorrect.
-
-### Review a repair
-
-After a repair, reuse the same subagent by default, at the author's discretion. Restate the full set of documents in the continuation prompt and say which documents in that set were updated. Do not change the set of documents under review, unless starting a new review. Do not give the reused reviewer the author's repair argument or project decision. Use this continuation prompt:
-
-```text
-Re-review the current named documents using `doc/quality/review/protocol.md`.
-
-Documents to review:
-<the full set of documents from the original handoff>
-
-Updated documents:
-<the named documents updated by the repair>
-
-Read the current documents as written. Check the findings from the previous review against the current text and report every problem currently present that makes the documents unclear or incorrect. Do not propose any repairs.
-```
-
-If the author does not reuse the same subagent, start a new review with the [handoff prompt](#prepare-the-handoff). Treat it as a new review rather than passing the previous review's context to a new subagent.
-
-### Relate to other review processes
-
-Documentation review is independent of [code review](../../../code/quality/review/README.md) and [environment review](../../../env/quality/review/README.md). Each process evaluates its subject against its own criteria, and no review type replaces or substitutes for another. A passing documentation review establishes only that the inspected text satisfies documentation criteria; it does not establish that code executes correctly or that the environment produces its intended effects.
-
-Work that touches documentation frequently crosses quality domains. When a change introduces or modifies code, arrange [code review](../../../code/quality/review/README.md) to judge whether that code faithfully executes its intended behaviour across its complete execution surface. When documentation instructs participants or establishes procedures that shape interaction and system state, arrange [environment review](../../../env/quality/review/README.md) to judge what documentation and code together cause participants to understand, do, and observe.
+[Review workflow](workflow.md) guides the author through preparing the handoff, evaluating reports, and arranging re-reviews.
 
 ## Protocol
 
-[Protocol](protocol.md) tells reviewers how to inspect documentation as written and report every supported problem that keeps it from being clearly correct.
+[Review protocol](protocol.md) tells the reviewer how to inspect documentation as written and report every supported problem without proposing repairs.

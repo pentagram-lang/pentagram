@@ -8,7 +8,7 @@ Read the handoff before the named code surfaces. It names the files, modules, or
 
 Inspect every named code surface as written. Follow imports and dependencies when needed to understand a named surface's contracts, types, call sites, and boundaries. An imported or dependent file is context, not part of the review, unless the handoff names it. Report a problem in an unnamed imported file as out of scope. Let the code establish what it executes and reveals; do not fill a gap with a private explanation or an assumption about what the author intended.
 
-When the handoff includes a `jj` change ID, inspect the complete [working-copy diff](../../../source-control.md#working-copy) for that single change with `jj --ignore-working-copy diff --git --revision CHANGE`; `--ignore-working-copy` prevents this read-only inspection from snapshotting current edits. Use it as evidence alongside the current named code surfaces. The change does not replace inspecting the current code as written.
+When the handoff includes a `jj` change ID, inspect the complete diff for that single change with `jj --ignore-working-copy diff --git --revision CHANGE` (see [source control: working copy](../../../source-control.md#working-copy)); `--ignore-working-copy` prevents this read-only inspection from snapshotting current edits. Use it as evidence alongside the current named code surfaces. The change does not replace inspecting the current code as written.
 
 The handoff's contributor and developer use explain how the code must work. They do not replace the complete quality judgement with an author's anticipated problem or preferred conclusion.
 

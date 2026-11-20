@@ -26,7 +26,7 @@ Use `env/quality/review/protocol.md` to review a named environment and cite the 
 
 **Task**
 
-Use `env/quality/review/protocol.md` to conduct a re-review. The continuation prompt links to `env/quality/review/README.md#review-a-repair`, restates the complete original environmental surface, and identifies the command and preview document as updated. Read the current named environment from the beginning. The old report found a document/execution contradiction and also claimed an unsupported human consequence. Explain how the reviewer records the current evidence. Do not decide whether the repair succeeded or propose a repair.
+Use `env/quality/review/protocol.md` to conduct a re-review. The continuation prompt links to `env/quality/review/workflow.md#review-a-repair`, restates the complete original environmental surface, and identifies the command and preview document as updated. Read the current named environment from the beginning. The old report found a document/execution contradiction and also claimed an unsupported human consequence. Explain how the reviewer records the current evidence. Do not decide whether the repair succeeded or propose a repair.
 
 **Assert**
 
@@ -35,4 +35,4 @@ Use `env/quality/review/protocol.md` to conduct a re-review. The continuation pr
 - The answer uses a new identifier for a distinct current problem.
 - The answer does not infer resolution from the changed surfaces, the old report, or a repair suggestion.
 - The answer keeps unsupported participant or execution consequences distinct from observed conditions and records uncertainty.
-- The answer cites `env/quality/review/protocol.md` and the continuation prompt in `env/quality/review/README.md`.
+- The answer cites `env/quality/review/protocol.md` and the continuation prompt in `env/quality/review/workflow.md`.

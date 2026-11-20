@@ -8,7 +8,7 @@ Read the handoff before the named documents. It names the documents under review
 
 Read every named document as written. Follow links when needed to understand a named document's purpose, reading path, claims, instructions, and boundaries. A linked document is context, not part of the review, unless the handoff names it. Report a problem in an unnamed linked document as out of scope. Let the words establish what the documentation says; do not fill a gap with a private explanation or an assumption about what the author meant.
 
-When the handoff includes a `jj` change ID, inspect the complete [working-copy diff](../../../source-control.md#working-copy) for that single change with `jj --ignore-working-copy diff --git --revision CHANGE`; `--ignore-working-copy` prevents this read-only inspection from snapshotting current edits. Use it as evidence alongside the current named documents. The change does not replace reading the current documents as written.
+When the handoff includes a `jj` change ID, inspect the complete diff for that single change with `jj --ignore-working-copy diff --git --revision CHANGE` (see [source control: working copy](../../../source-control.md#working-copy)); `--ignore-working-copy` prevents this read-only inspection from snapshotting current edits. Use it as evidence alongside the current named documents. The change does not replace reading the current documents as written.
 
 The handoff's reader and use explain how the documentation must work. They do not replace the complete quality judgement with an author's anticipated problem or preferred conclusion.
 
